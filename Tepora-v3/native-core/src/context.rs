@@ -203,7 +203,9 @@ fn shrink_native(native: &Value, reference: &str) -> CoreResult<Value> {
     let mut shrunk = Vec::with_capacity(items.len());
     for item in items {
         let mut next = item.clone();
-        if kind(item) == "tool_use" && present(item, "input") {
+        if kind(item) == "toolCall" && present(item, "arguments") {
+            next["arguments"] = shrink_value(&item["arguments"], reference);
+        } else if kind(item) == "tool_use" && present(item, "input") {
             next["input"] = shrink_value(&item["input"], reference);
         } else if kind(item) == "function_call"
             && item.get("arguments").is_some_and(Value::is_string)
@@ -799,6 +801,27 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("(1 image)"));
+    }
+
+    #[test]
+    fn pi_tool_arguments_compact_without_losing_reasoning_signatures() {
+        let long = "x".repeat(1201);
+        let args = json!({"content":long,"path":"/tmp/result"});
+        let native = json!({"engine":"pi-ai","identity":"same-profile","items":[
+            {"type":"thinking","thinking":"reason","thinkingSignature":"pi-sig"},
+            {"type":"toolCall","id":"pi-call","name":"write","arguments":args}
+        ],"meta":{"responseId":"pi-response"}});
+        let entry = json!({"seq":9,"type":"assistant","content":"","native":native,"toolCalls":[
+            {"id":"pi-call","name":"write","arguments":json_codec::stringify_js(&args).unwrap()}
+        ]});
+        let view = live(vec![entry],9);
+        let rendered = render_entries(&view,None,true).unwrap();
+        let replay = &rendered[0]["message"]["_native"];
+        assert_eq!(replay["identity"], "same-profile");
+        assert_eq!(replay["items"][0]["thinkingSignature"], "pi-sig");
+        assert_eq!(replay["meta"]["responseId"], "pi-response");
+        assert_eq!(replay["items"][1]["arguments"]["path"], "/tmp/result");
+        assert!(replay["items"][1]["arguments"]["content"].as_str().unwrap().contains("characters omitted"));
     }
 
     #[test]

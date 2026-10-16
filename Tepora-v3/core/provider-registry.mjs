@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {validatePiProfile,piModel} from './pi-ai.mjs';
 import {normalURL,ipDomain,NetworkBlocked} from './network-policy.mjs';
 import {ProtocolClient,PROTOCOLS,ProviderError} from './provider-protocols.mjs';
 import {invariant,text} from './policy.mjs';
@@ -21,8 +22,8 @@ function validateSampling(raw){
  for(const [k,v] of Object.entries(raw)){const r=SAMPLING[k];invariant(r&&typeof v==='number'&&v>=r[0]&&v<=r[1]&&(!r[2]||Number.isInteger(v)),`Invalid sampling ${k}`);out[k]=v;}
  return out;
 }
-export const credentialClass=p=>p.authMode==='chatgpt'?'chatgpt:'+p.accountId:'api-key';
-const profileFields=['authMode','accountId','id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
+export const credentialClass=p=>p.authMode?.startsWith('pi-')?p.authMode+':'+p.accountId:p.authMode==='chatgpt'?'chatgpt:'+p.accountId:'api-key';
+const profileFields=['engine','piProvider','authMode','accountId','id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
 /** Gateways that route by conversation (and keep its prompt cache warm on one backend) when told which one a request
  * belongs to. OpenCode Go requires it; anyone else can set `sessionHeader` on the profile. */
 function sessionHeaderFor(u){return /(^|\.)opencode\.ai$/.test(u.hostname)?'x-opencode-session':'';}
@@ -40,12 +41,15 @@ export function validateProfile(raw){
   invariant(u.protocol==='https:'||raw.allowPlainHttp===true,'LAN HTTP needs explicit plaintext consent');
  }
  const authMode=raw.authMode||'api-key';
- invariant(['api-key','chatgpt'].includes(authMode),'Invalid authentication mode');
+ invariant(['api-key','chatgpt','pi-oauth','pi-key'].includes(authMode),'Invalid authentication mode');
+ invariant(raw.engine===undefined||raw.engine==='pi-ai','Invalid provider engine');
+ if(authMode.startsWith('pi-'))invariant(raw.engine==='pi-ai','pi-ai認証にはpi-aiエンジンを指定してください。');
+ if(raw.piProvider)invariant(raw.engine==='pi-ai','piProvider requires pi-ai');
  if(authMode==='chatgpt'){
   invariant(raw.protocol==='responses'&&raw.domain==='cloud'&&u.href.replace(/\/$/,'')==='https://api.openai.com/v1','ChatGPT認証は公式Responses APIにだけ使用できます。');
   invariant(/^chatgpt-[a-f0-9-]{36}$/.test(raw.accountId||''),'ChatGPTアカウントを選択してください。');
   invariant(!raw.apiKeyEnv&&!raw.sessionHeader,'ChatGPT認証にAPIキーや追加認証ヘッダーは使えません。');
- }else invariant(!raw.accountId,'APIキー接続にChatGPTアカウントは指定できません。');
+ }else if(!authMode.startsWith('pi-'))invariant(!raw.accountId,'APIキー接続にアカウントは指定できません。');
  const caps={text:true,tools:null,vision:null,structured:null};
  for(const [k,v] of Object.entries(raw.capabilities||{})){invariant(Object.hasOwn(caps,k)&&[true,false,null].includes(v),'Invalid capability declaration');caps[k]=v;}
  const number=(name,fallback,min,max)=>{const x=raw[name]??fallback;invariant(x===null||Number.isInteger(x)&&x>=min&&x<=max,`Invalid ${name}`);return x;};
@@ -64,7 +68,8 @@ export function validateProfile(raw){
   maxParallel:number('maxParallel',raw.domain==='cloud'?4:1,1,64),resource:raw.resource||raw.id,
   thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,sessionHeader:raw.sessionHeader||sessionHeaderFor(u),
   ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{})};
- if(authMode==='chatgpt'){p.authMode='chatgpt';p.accountId=raw.accountId;}
+ if(authMode==='chatgpt'||authMode.startsWith('pi-')){p.authMode=authMode;p.accountId=raw.accountId;}
+ if(raw.engine==='pi-ai'){p.engine='pi-ai';p.piProvider=raw.piProvider;validatePiProfile(p);}
  p.identity=digest(p);return p;
 }
 export function validateRegistry(raw){
@@ -114,25 +119,26 @@ export class ResourceGate{
 }
 const DEFAULT_CONTEXT={anthropic:200000,gemini:1000000,responses:200000,'chat-completions':128000};
 export class ProviderRegistry{
- constructor(store,network,{auth=null,clientFactory=(p,k,f)=>new ProtocolClient(p,k,f),clock=()=>Date.now(),detectLimits=true}={}){
-  Object.assign(this,{store,network,clientFactory,clock,detectLimits,auth});this.active=new Map();this.keys=new Map();this.health=new Map();this.gate=new ResourceGate();this.limitCache=new Map();this.pendingLimits=new Map();this.slotState=new Map();
+ constructor(store,network,{auth=null,pi=null,clientFactory=(p,k,f)=>new ProtocolClient(p,k,f),clock=()=>Date.now(),detectLimits=true}={}){
+  Object.assign(this,{store,network,clientFactory,clock,detectLimits,auth,pi});this.active=new Map();this.keys=new Map();this.health=new Map();this.gate=new ResourceGate();this.limitCache=new Map();this.pendingLimits=new Map();this.slotState=new Map();
   for(const [id,key] of Object.entries(store.value('provider-keys')||{}))if(typeof key==='string')this.keys.set(id,key);
  }
  get(){return this.store.value('provider-registry')||{schema:2,revision:0,profiles:[],routes:{}};}
  get configured(){return this.get().profiles.length>0;}
- publicSnapshot(){const c=this.get();return {...c,profiles:c.profiles.map(p=>({...p,keyPresent:p.authMode==='chatgpt'?!!this.auth?.status(p.accountId).connected:!!this.keyFor(p),...(p.authMode==='chatgpt'?{authStatus:this.auth?.status(p.accountId)||{connected:false,error:'通常起動でChatGPTへ接続してください。'}}:{}),health:this.health.get(p.id)||null,limits:this.knownLimits(p),probe:this.store.get('provider-probe',p.identity)||null})),resources:this.gate.snapshot()};}
+ publicSnapshot(){const c=this.get();return {...c,profiles:c.profiles.map(p=>({...p,...(p.authMode?.startsWith('pi-')?{authStatus:this.pi?.status(p.accountId)||{connected:false}}:{}),keyPresent:p.authMode?.startsWith('pi-')?!!this.pi?.status(p.accountId).connected:p.authMode==='chatgpt'?!!this.auth?.status(p.accountId).connected:!!this.keyFor(p),...(p.authMode==='chatgpt'?{authStatus:this.auth?.status(p.accountId)||{connected:false,error:'通常起動でChatGPTへ接続してください。'}}:{}),health:this.health.get(p.id)||null,limits:this.knownLimits(p),probe:this.store.get('provider-probe',p.identity)||null})),resources:this.gate.snapshot()};}
  save(raw,expectedRevision){
   const old=this.get();invariant(old.revision===expectedRevision,'接続設定が更新されています。',409);
   const c={schema:2,revision:old.revision+1,...validateRegistry(raw)};
-  for(const [id] of this.keys){const a=old.profiles.find(p=>p.id===id),b=c.profiles.find(p=>p.id===id);if(!a||!b||a.baseUrl!==b.baseUrl||a.protocol!==b.protocol||credentialClass(a)!==credentialClass(b))this.keys.delete(id);}
+  for(const p of c.profiles)if(p.engine==='pi-ai'){invariant(this.pi,'このホストにはpi-ai接続がありません。');this.pi.assertProfile(p);}
+  for(const [id] of this.keys){const a=old.profiles.find(p=>p.id===id),b=c.profiles.find(p=>p.id===id);if(!a||!b||a.baseUrl!==b.baseUrl||a.protocol!==b.protocol||a.engine!==b.engine||a.piProvider!==b.piProvider||credentialClass(a)!==credentialClass(b))this.keys.delete(id);}
   this.persistKeys();
   for(const [controller,p] of this.active)if(!c.profiles.some(x=>x.identity===p.identity&&x.enabled))controller.abort(new ProviderError('auth','接続設定が変更されました。'));
   for(const id of this.health.keys())if(!c.profiles.some(p=>p.id===id))this.health.delete(id);
   this.store.value('provider-registry',c);this.store.emit('providers.updated',this.publicSnapshot());return this.publicSnapshot();
  }
  persistKeys(){this.store.value('provider-keys',Object.fromEntries(this.keys));}
- keyFor(p){const current=this.get().profiles.find(x=>x.id===p.id);if(!current||current.identity!==p.identity||p.authMode==='chatgpt')return '';return this.keys.get(p.id)||(p.apiKeyEnv?process.env[p.apiKeyEnv]:'')||'';}
- setKey(id,key,identity){const p=this.get().profiles.find(p=>p.id===id);invariant(p,'接続先が見つかりません。',404);invariant(!identity||identity===p.identity,'接続設定が変更されています。',409);invariant(p.authMode!=='chatgpt','ChatGPT接続にはAPIキーを設定できません。');invariant(typeof key==='string'&&key.length<=8000,'Invalid key');if(key)this.keys.set(id,key);else this.keys.delete(id);this.persistKeys();for(const [controller,x]of this.active)if(x.id===id)controller.abort(new ProviderError('auth','接続先の認証が変更されました。'));this.health.delete(id);return {id,keyPresent:!!this.keyFor(p)};}
+ keyFor(p){const current=this.get().profiles.find(x=>x.id===p.id);if(!current||current.identity!==p.identity||p.authMode==='chatgpt'||p.authMode?.startsWith('pi-'))return '';return this.keys.get(p.id)||(p.apiKeyEnv?process.env[p.apiKeyEnv]:'')||'';}
+ setKey(id,key,identity){const p=this.get().profiles.find(p=>p.id===id);invariant(p,'接続先が見つかりません。',404);invariant(!identity||identity===p.identity,'接続設定が変更されています。',409);invariant(p.authMode!=='chatgpt'&&!p.authMode?.startsWith('pi-'),'ChatGPT接続にはAPIキーを設定できません。');invariant(typeof key==='string'&&key.length<=8000,'Invalid key');if(key)this.keys.set(id,key);else this.keys.delete(id);this.persistKeys();for(const [controller,x]of this.active)if(x.id===id)controller.abort(new ProviderError('auth','接続先の認証が変更されました。'));this.health.delete(id);return {id,keyPresent:!!this.keyFor(p)};}
  /** Profiles for one role, primary first, following role fallbacks (e.g. compaction → work → main). */
  chain(role='work',c=this.get()){
   for(const r of FALLBACK[role]||[role]){const route=c.routes[r];if(route)return [route.primary,...route.fallbacks].map(id=>c.profiles.find(p=>p.id===id)).filter(p=>p?.enabled);}
@@ -160,6 +166,7 @@ export class ProviderRegistry{
   this.limitCache.set(p.identity,value);this.store.value('provider-limits:'+p.identity,value);return value;
  }
  async detect(p,signal){
+  if(p.engine==='pi-ai')return {context:piModel(p.piProvider,p.model)?.contextWindow||p.contextTokens||128000,server:'other',source:'pi-ai'};
   if(!this.detectLimits||p.authMode==='chatgpt')return {};
   const origin=new URL(p.baseUrl).origin,scope=base=>this.network.fetch({profile:{...p,baseUrl:base},purpose:'model',timeoutMs:4000,maxBytes:2_000_000});
   const get=async(url,base=origin,init={})=>{const r=await scope(base)(url,{signal,...init});if(!r.ok){await r.body?.cancel();return null;}try{return await r.json();}catch{return null;}};
@@ -209,7 +216,7 @@ export class ProviderRegistry{
   return {slot,release:()=>st.busy.delete(slot)};
  }
  /** Conservative catalog estimate; absent or conflicting prices remain unknown. */
- price(route){return route.authMode==='chatgpt'?null:modelPrice(this.store,route);}
+ price(route){if(route.authMode==='chatgpt'||route.authMode==='pi-oauth')return null;const cost=route.engine==='pi-ai'?piModel(route.piProvider,route.model)?.cost:null;return cost?{input:cost.input,output:cost.output,cache_read:cost.cacheRead,cache_write:cost.cacheWrite}:modelPrice(this.store,route);}
  compat(p){return this.store.value('provider-compat:'+p.identity)||{drop:[]};}
  addCompat(p,param){const c=this.compat(p);if(!c.drop.includes(param)){c.drop.push(param);this.store.value('provider-compat:'+p.identity,c);}return c;}
  /** One model call with retries, parameter self-healing and failover. Overflow is returned to the caller,
@@ -246,7 +253,7 @@ export class ProviderRegistry{
       const credential=await this.auth.acquire(p.accountId,callSignal);key=credential.key;callSignal=credential.signal;
      }
      callSignal.throwIfAborted();invariant(this.permitted(p,purpose),'接続先が変更されています。',409);
-     const client=this.clientFactory({...p,server:limits.server},key,this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000,onDispatch:()=>receipt.start()}));
+     const client=p.engine==='pi-ai'?{chat:(m,o)=>{invariant(this.pi,'pi-aiを通常起動で使用してください。');return this.pi.chat(p,key,m,o,()=>receipt.start());}}:this.clientFactory({...p,server:limits.server},key,this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000,onDispatch:()=>receipt.start()}));
      const answer=await client.chat(messages,{tools,signal:callSignal,maxTokens:outputCap,toolChoice,cacheKey,cacheRetention,sampling:p.sampling,compat,slot:lease?.slot??null,numCtx:limits.server==='ollama'?limits.context:null,onDelta,onReasoning,onProgress,onUsageSnapshot:usage=>receipt.observe(usage)});
      callSignal.throwIfAborted();
      receipt.finish(answer,'completed');
@@ -254,7 +261,7 @@ export class ProviderRegistry{
      return {...answer,route:{...event,maxTokens:outputCap}};
     }catch(e){
      receipt?.finish(null,signal?.aborted?'cancelled':'error');
-     if(e.kind==='accounting')throw e;
+     if(e.kind==='accounting'||e.partialOutput)throw e;
      if(signal?.aborted)throw signal.reason??e;
      last=e;
      // Silent past the idle limit (long thinking, slow prompt loading): wait twice as long from now on and retry.
@@ -277,6 +284,7 @@ export class ProviderRegistry{
   invariant(consent===true,'モデル一覧の取得を許可してください。',403);
   const p=this.get().profiles.find(x=>x.id===id);invariant(p?.enabled,'Unknown enabled provider',404);
   invariant(identity===p.identity,'接続設定が更新されています。',409);invariant(this.permitted(p),'この接続先は現在の通信モードで使用できません。',403);
+  if(p.engine==='pi-ai'){invariant(this.pi,'pi-aiを通常起動で使用してください。');return this.pi.models(p.piProvider,p.accountId);}
   if(p.authMode==='chatgpt')return this.auth.models(p.accountId,{consent,signal});
   const headers=p.protocol==='anthropic'?{'anthropic-version':'2023-06-01',...(this.keyFor(p)?{'x-api-key':this.keyFor(p)}:{})}:p.protocol==='gemini'?(this.keyFor(p)?{'x-goog-api-key':this.keyFor(p)}:{}):(this.keyFor(p)?{Authorization:'Bearer '+this.keyFor(p)}:{});
   const r=await this.network.fetch({profile:p,purpose:'model',timeoutMs:15000,maxBytes:2_000_000})(p.baseUrl+'/models',{headers,signal,redirect:'error'});

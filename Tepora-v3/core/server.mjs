@@ -2,6 +2,7 @@ import {drainModelCalls} from './model-usage.mjs';
 import {ModelCatalog} from './model-catalog.mjs';
 import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
 import {ProviderAuth} from './provider-auth.mjs';
+import {PiAIService,piProviders} from './pi-ai.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
 import {openInstallerPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
@@ -59,7 +60,7 @@ function configurePersonas(store,raw){
 }
 export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
  const bundledFrontend=await browserBundle(webDir);
- const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth});
+ const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth,pi});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
  const semantic=new SemanticMemory(store,capabilities),toolHub=new ToolHub(store,network,toolHubOptions);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry,...computerOptions});
@@ -247,6 +248,14 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     if(next.mode!=='online'){setup.stop();for(const probe of probes.values()){probe.abort?.(new NetworkBlocked());probe.close?.();}mediaFrames.clear();}
     return json(res,{...next,note:'Tepora管理の通信に適用します。OS全体のファイアウォールではありません。'});
    }
+   if(p==='/api/pi/providers'&&method==='GET')return json(res,piProviders());
+   if(p==='/api/pi/models'&&method==='GET')return json(res,pi.models(u.searchParams.get('provider'),u.searchParams.get('accountId')));
+   if(p==='/api/pi/models/refresh'&&method==='POST'){const b=await body(req);return json(res,await pi.refreshModels(b.provider,b.accountId,b.consent,AbortSignal.timeout(30000)));}
+   if(p==='/api/pi/auth'&&method==='GET')return json(res,pi.snapshot());
+   if(p==='/api/pi/auth/start'&&method==='POST')return json(res,pi.begin(await body(req)));
+   if(p==='/api/pi/auth/respond'&&method==='POST')return json(res,pi.respond(await body(req)));
+   if(p==='/api/pi/auth/cancel'&&method==='POST'){const b=await body(req);return json(res,pi.cancel(b.id));}
+   if(p==='/api/pi/auth/disconnect'&&method==='POST'){const b=await body(req);return json(res,await pi.disconnect(b.accountId));}
    if(p==='/api/provider-auth'&&method==='GET')return json(res,providerAuth.snapshot());
    if(p==='/api/provider-auth/start'&&method==='POST')return json(res,await providerAuth.begin(await body(req)));
    if(p==='/api/provider-auth/cancel'&&method==='POST'){const b=await body(req);return json(res,providerAuth.cancel(b.id));}
@@ -375,9 +384,9 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});origin=`http://127.0.0.1:${server.address().port}`;
  const launchUrl=`${origin}/launch?token=${secret}`;
  const close=async()=>{if(closing)return;closing=true;for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}
-  await providerAuth.close();ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
+  await pi.close();await providerAuth.close();ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
   for(const res of streams)res.end();network.close();registry.close();await drainModelCalls(store);server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
- return {server,store,network,registry,catalog,agent,ui,connectors,setup,capabilities,media,toolHub,computer,frame,avatar,avatarAssets,origin,launchUrl,csrf,close};
+ return {server,store,network,registry,pi,catalog,agent,ui,connectors,setup,capabilities,media,toolHub,computer,frame,avatar,avatarAssets,origin,launchUrl,csrf,close};
 }
 const isMain=process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
 if(isMain){const app=await startServer({port:Number(process.env.TEPORA_PORT||0)});console.log(JSON.stringify({type:'ready',url:app.launchUrl,version:VERSION}));if(process.argv.includes('--open')){const [exe,args]=process.platform==='win32'?['rundll32',['url.dll,FileProtocolHandler',app.launchUrl]]:process.platform==='darwin'?['open',[app.launchUrl]]:['xdg-open',[app.launchUrl]];const p=spawn(exe,args,{stdio:'ignore',shell:false});p.on('error',()=>console.error('Open the URL printed above in a browser.'));}if(process.argv.includes('--sidecar')){process.stdin.setEncoding('utf8');let stdinBuffer='';process.stdin.on('data',chunk=>{

@@ -1116,3 +1116,19 @@ async fn unported_native_oauth_fails_before_network_or_api_key_dispatch() {
     assert_eq!(error.kind,"auth");assert!(error.message.contains("通常起動"));
     assert!(runtime.probe("subscription",&RequestCancellation::new()).await.is_err());
 }
+
+#[tokio::test]
+async fn unported_pi_sdk_profiles_are_preserved_but_never_dispatched_by_native_host() {
+    let (runtime,state,_,mut profiles)=setup(vec![raw("pi","chat-completions")],vec![],true);
+    profiles[0]["engine"]=json!("pi-ai");
+    profiles[0]["piProvider"]=json!("groq");
+    assert!(validate_profile(&profiles[0]).is_err());
+    let config=json!({"schema":2,"revision":1,"profiles":profiles,"routes":{"main":{"primary":"pi","fallbacks":[]}}});
+    state.set_value("provider-registry",config.clone()).unwrap();
+    state.set_value("provider-keys",json!({"pi":"must-not-be-used"})).unwrap();
+    assert!(runtime.set_key("pi","paid-key").is_err());
+    assert_eq!(runtime.public_snapshot().unwrap()["profiles"][0]["keyPresent"],false);
+    let error=runtime.invoke(request(profiles),&RequestCancellation::new(),sink()).await.unwrap_err();
+    assert_eq!(error.kind,"auth");
+    assert!(runtime.probe("pi",&RequestCancellation::new()).await.is_err());
+}

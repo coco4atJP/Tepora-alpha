@@ -127,6 +127,10 @@ fn sampling(raw: Option<&Value>) -> Result<Value, ApiError> {
 /// Profile insertion order is the persisted JavaScript SHA-256 identity contract.
 /// Input and output strings use the core's lossless UTF-16 JSON codec.
 pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
+    require(
+        s(raw, "engine") != "pi-ai",
+        "pi-ai接続は通常起動のNodeホストを使用してください。Rust単独ホストは未対応です。",
+    )?;
     let object = raw
         .as_object()
         .ok_or_else(|| ApiError::bad_request("Unknown provider field"))?;

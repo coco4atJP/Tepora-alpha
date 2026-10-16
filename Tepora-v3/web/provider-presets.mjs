@@ -29,5 +29,5 @@ export const PROVIDER_PRESETS=Object.freeze({
 export function editableProvider(p){return Object.fromEntries([
  'id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities',
  'maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort',
- 'thinkingBudget','sampling','server','cache','sessionHeader','authMode','accountId'
+ 'thinkingBudget','sampling','server','cache','sessionHeader','authMode','accountId','engine','piProvider'
 ].filter(k=>p[k]!==undefined).map(k=>[k,p[k]]));}

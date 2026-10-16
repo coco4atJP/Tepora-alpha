@@ -37,7 +37,7 @@ function readVault(file){
   return v;
  }finally{closeSync(fd);}
 }
-function atomicVault(file,value){
+export function atomicVault(file,value){
  const dir=path.dirname(file);if(existsSync(dir))require(lstatSync(dir).isDirectory()&&!lstatSync(dir).isSymbolicLink(),'認証フォルダーが安全ではありません。');
  mkdirSync(dir,{recursive:true,mode:0o700});if(process.platform!=='win32')chmodSync(dir,0o700);safeFile(file);
  const tmp=path.join(dir,'.chatgpt-'+randomUUID()+'.tmp');let fd;

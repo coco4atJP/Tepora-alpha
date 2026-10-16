@@ -3,8 +3,8 @@ import {access,readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const root=new URL('../',import.meta.url);
 const [major,minor]=process.versions.node.split('.').map(Number);
-const supported=major>22||major===22&&minor>=16;
-console.log(`Tepora 3.0.0-beta.11 · Node ${process.versions.node}: ${supported?'OK':'requires 22.16+'}`);
+const supported=major>22||major===22&&minor>=19;
+console.log(`Tepora 3.0.0-beta.11 · Node ${process.versions.node}: ${supported?'OK':'requires 22.19+'}`);
 if(!supported)process.exitCode=1;
 for(const command of [process.platform==='win32'?'python':'python3','rustc','cargo','docker']){
  const result=spawnSync(command,['--version'],{encoding:'utf8',timeout:5000,shell:false});

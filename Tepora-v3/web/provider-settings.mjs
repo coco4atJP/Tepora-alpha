@@ -1,3 +1,4 @@
+import {createPiSettings} from './pi-settings.mjs';
 import {PROVIDER_PRESETS,editableProvider} from './provider-presets.mjs';
 import {escape,btn,field,toggle,isTrustedForm} from './ui.mjs';
 /** Progressive disclosure: all provider details live in this sheet, not on the ambient home. */
@@ -5,6 +6,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
  let config=null,network=null,selected=null,revision=0,computer=null;
  const $=(q)=>document.querySelector(q);
  const editable=editableProvider;
+ const piSettings=createPiSettings({bridge,openSheet,notice,previewMode,onSaved:async next=>{config=next;onChanged?.({providers:next});await open();}});
  const options=(list,value)=>list.map(([v,label])=>`<option value="${escape(v)}" ${value===v?'selected':''}>${escape(label)}</option>`).join('');
  const presets=PROVIDER_PRESETS;
  let authPoll=null,authLink=null,modelRevision=0;
@@ -16,13 +18,14 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   <p class="small-text">${network.mode==='offline'?'同一PCの推論・ファイル・隔離計算を継続します。LAN・クラウド・外部サイト・通信を封じ込められないCLI等は停止します。':network.mode==='trusted-lan'?'このPCと、登録したIP・ポート・API範囲のLAN推論機だけを使います。LAN全体は許可しません。':'主モデル・代替・画像担当を自由に選べます。登録した代替先以外へは切り替えません。'}</p>
   <div class="network-web-option"><label class="toggle-row"><span><strong>インターネットを使う道具</strong><small>Web取得・専用ブラウザ・天気などの通信です。切り替えるとすぐに反映します。</small></span><input class="switch" type="checkbox" role="switch" id="internet-tools" ${network.internetTools?'checked':''}></label></div>
   <div class="offline-floor"><strong>${config.offlineFloor?.configured?'ローカルの継続先があります':'ローカルの継続先を追加してください'}</strong><p>${config.offlineFloor?.verified?'道具の往復検査を確認済み。モデルの品質・速度保証ではありません。':'オフラインになる前にモデル・依存を導入し、接続試験を行ってください。'}</p></div>
-  <div class="provider-toolbar">${btn('provider-new','接続先を追加','plus','button')}${btn('provider-auth-open','ChatGPTプランで接続','connect','button secondary')}${btn('provider-import-legacy','現在の単一接続を取り込む','','text-button')}</div>
-  <div class="provider-list">${config.profiles.map(p=>`<article><div><strong>${escape(p.name)}</strong><small>${escape(p.model)} · ${{device:'このPC',lan:'信頼LAN',cloud:'クラウド'}[p.domain]}</small><small>${escape(p.protocol)} · ${p.authMode==='chatgpt'?'ChatGPTプラン · '+escape(p.authStatus?.connected?'接続済み':'再ログインが必要'):'APIキー / ローカル'} · ${p.probe?.ok?'道具の往復確認済み':'能力未検証'}</small></div><div>${btn('provider-edit','編集','','text-button',`data-id="${p.id}"`)}${btn('provider-probe','接続試験','','text-button',`data-id="${p.id}"`)}${btn('provider-key','認証','','text-button',`data-id="${p.id}"`)}${btn('provider-models','モデル一覧','','text-button',`data-id="${p.id}"`)}</div></article>`).join('')||'<p class="empty-copy">名前を付けた接続先を登録すると、APIキーと能力を別々に管理できます。</p>'}</div>
+  <div class="provider-toolbar">${btn('pi-open','pi-aiで接続','plus','button')}${btn('provider-new','ローカル / カスタム接続','','button secondary')}${btn('pi-auth-open','アカウント / OAuth','','button secondary')}${btn('provider-auth-open','従来のChatGPT接続','connect','button secondary')}${btn('provider-import-legacy','現在の単一接続を取り込む','','text-button')}</div>
+  <div class="provider-list">${config.profiles.map(p=>`<article><div><strong>${escape(p.name)}</strong><small>${escape(p.model)} · ${{device:'このPC',lan:'信頼LAN',cloud:'クラウド'}[p.domain]}</small><small>${p.engine==='pi-ai'?'pi-ai / '+escape(p.piProvider):escape(p.protocol)} · ${p.authMode?.startsWith('pi-')?(p.authMode==='pi-oauth'?'OAuth':'APIキー')+' · '+(p.authStatus?.connected?'接続済み':'再ログインが必要'):p.authMode==='chatgpt'?'ChatGPTプラン · '+escape(p.authStatus?.connected?'接続済み':'再ログインが必要'):'APIキー / ローカル'} · ${p.probe?.ok?'道具の往復確認済み':'能力未検証'}</small></div><div>${btn('provider-edit','編集','','text-button',`data-id="${p.id}"`)}${btn('provider-probe','接続試験','','text-button',`data-id="${p.id}"`)}${btn('provider-key','認証','','text-button',`data-id="${p.id}"`)}${btn('provider-models','モデル一覧','','text-button',`data-id="${p.id}"`)}</div></article>`).join('')||'<p class="empty-copy">名前を付けた接続先を登録すると、APIキーと能力を別々に管理できます。</p>'}</div>
   ${config.profiles.length?`<form id="route-form"><h3>役割と代替の順番</h3><p class="small-text">ChatGPTとAPIキー接続、または異なるChatGPTアカウント間の自動切替は行いません。代替先にも依頼・文脈が届きます。画像の説明文も個人情報です。Visionの「対応」は実モデルに合わせて指定してください。</p>${Object.entries(roleNames).map(([role,label])=>{const route=config.routes[role];return `<div class="route-row"><label>${label}<select name="${role}">${role==='main'?'':'<option value="">'+(role==='vision'?'未設定':role==='dictation'?'未設定（同一PCのみ）':'主モデルを使う')+'</option>'}${options(config.profiles.filter(p=>p.enabled&& (role!=='vision'||p.capabilities.vision===true)&&(role!=='dictation'||p.domain==='device')).map(p=>[p.id,p.name]),route?.primary)}</select></label><label>許可する代替（IDをカンマ区切り）<input name="${role}-fallbacks" value="${escape(route?.fallbacks.join(', ')||'')}" placeholder="local-backup, lan-server"></label></div>`;}).join('')}<button class="button" type="submit">この経路を使う</button></form>`:''}
   <p class="small-text">通信モードはTepora管理の呼び出しに適用します。OS全体のファイアウォールではありません。既存アプリや推論サーバー自身の外部転送は別管理です。設定を変更しても進行中の仕事の送信先を無断で増やしません。</p>`,'providers');
  }
  async function open(){await refresh();draw();}
  function editor(id=null){
+  if(config.profiles.find(p=>p.id===id)?.engine==='pi-ai')return piSettings.open({id});
   selected=id;revision=config.revision;
   const p=config.profiles.find(p=>p.id===id)||{id:'',name:'',protocol:'chat-completions',baseUrl:'http://127.0.0.1:8080/v1',model:'',domain:'device',capabilities:{tools:null,vision:null,structured:null},maxParallel:1,maxTokens:4096,contextTokens:null,timeoutMs:60000,resource:'',enabled:true};
   openSheet(id?'接続先を編集':'接続先を追加',`<form id="provider-form"><input type="hidden" name="authMode" value="${escape(p.authMode||'api-key')}"><input type="hidden" name="accountId" value="${escape(p.accountId||'')}">${p.authMode==='chatgpt'?'<p class="small-text">ChatGPTプランの接続です。アカウントの切替は「ChatGPTプランで接続」から新しい接続先として追加してください。送信先とAPI形式は固定です。</p>':''}<label>接続のひな形<select id="provider-preset"><option value="">カスタム設定</option>${options(Object.entries(presets).map(([id,p])=>[id,p[0]]),'')}</select></label><div class="form-grid">${field('接続ID（半角英数字・ハイフン）','id',p.id)}${field('表示名','name',p.name)}
@@ -36,7 +39,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   if(id)$('[name=id]').readOnly=true;
   if(p.authMode==='chatgpt')$('[name=baseUrl]').readOnly=true;
  }
- async function keySheet(id){const p=config.profiles.find(p=>p.id===id);if(p.authMode==='chatgpt')return authSheet();selected=id;
+ async function keySheet(id){const p=config.profiles.find(p=>p.id===id);if(p.authMode?.startsWith('pi-'))return piSettings.auth(p.piProvider);if(p.authMode==='chatgpt')return authSheet();selected=id;
   openSheet('この接続先の認証',`<p><strong>${escape(p.name)}</strong><br>${escape(new URL(p.baseUrl).origin)}</p><form id="provider-key-form" data-identity="${p.identity}">${field('APIキー（このPCのデータ領域に保存）','key','','','password')}<button type="submit" class="button">この接続先だけに設定</button></form><p>空欄で送信すると保存したキーを削除します。環境変数を指定した場合は、その値を参照します。別の接続先へ再利用しません。APIキーはローカルSQLiteに保存され、現時点ではOSキーチェーン暗号化ではありません。</p>`,'provider-key');
  }
  async function authSheet(state=null){
@@ -76,7 +79,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   'provider-auth-cancel':async()=>{await bridge.request('/api/provider-auth/cancel','POST',{id:authLink?.id});authLink=null;await authSheet();},
   'provider-auth-models':el=>modelSheet({accountId:el.dataset.id}),
   'provider-auth-disconnect':async el=>{const result=await bridge.request(`/api/provider-auth/${el.dataset.id}/disconnect`,'POST',{});await authSheet();notice(result.note);},
-  'provider-models':el=>modelSheet({profileId:el.dataset.id}),
+  'provider-models':el=>config.profiles.find(p=>p.id===el.dataset.id)?.engine==='pi-ai'?piSettings.open({id:el.dataset.id}):modelSheet({profileId:el.dataset.id}),
   'providers-open':open,'provider-new':()=>editor(),'provider-edit':el=>editor(el.dataset.id),'provider-key':el=>keySheet(el.dataset.id),
   'network-mode':async el=>{network=await bridge.request('/api/network','PATCH',{expectedRevision:network.revision,patch:{mode:el.dataset.mode}});onChanged?.({network});draw();},
   'network-web':async()=>{network=await bridge.request('/api/network','PATCH',{expectedRevision:network.revision,patch:{internetTools:$('#internet-tools').checked}});onChanged?.({network});draw();},

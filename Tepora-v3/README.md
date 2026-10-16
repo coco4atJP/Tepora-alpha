@@ -12,13 +12,14 @@ The repository root also provides `npm start`, `npm run quality`, `npm run deskt
 `npm run build`. This checkout contains V3 only; earlier application sources and documentation
 are available through Git history.
 
-Unzip and run in `Tepora-v3` with Node **22.16 or newer**:
+Unzip and run in `Tepora-v3` with Node **22.19.0 or newer**:
 
 ```sh
-node core/server.mjs --open
+npm ci --ignore-scripts
+npm start
 ```
 
-No runtime `npm install` is required for the core service. Use its printed launch URL (contains
+Source checkouts require the pinned production dependencies, including pi-ai; packaged desktop builds include them and do not install at runtime. See [pi-ai connections and OAuth](docs/PI-AI.md). Use the printed launch URL (contains
 an ephemeral token); do not share that URL. The service binds to loopback with cookie/CSRF,
 Host/Origin and CSP controls. Windows/macOS Tauri build sources are included separately.
 

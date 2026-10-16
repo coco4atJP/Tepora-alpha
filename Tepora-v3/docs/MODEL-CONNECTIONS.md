@@ -1,5 +1,7 @@
 # Model connections and ChatGPT plan authentication (beta.11)
 
+> This document describes the retained legacy/manual connection layer. New cloud connections use the actual [pi-ai SDK integration](PI-AI.md), with its own multi-provider OAuth flow and credential store. The 22 templates below are not the pi-ai provider limit.
+
 ## Ordinary service / desktop
 
 Open **Settings → AI connection → 知能と通信の使い分け**. The existing protocol adapters and Tepora's harness remain in use; no third-party agent runtime replaces the conversation, memory, or tools.

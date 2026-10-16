@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Tepora V3 companion and asynchronous worker workspace",
   "engines": {
-    "node": ">=22.16.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "start": "node Tepora-v3/core/server.mjs --open",
