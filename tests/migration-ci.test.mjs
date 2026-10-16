@@ -49,3 +49,11 @@ for (const [file, job] of workflows) {
     assert.equal(enabled('pull_request', 'another-feature'), true);
   });
 }
+
+
+test('both Windows Node gates cap heavy fixture concurrency without weakening timeouts', async () => {
+  const native = await readFile(new URL('../.github/workflows/tepora-v3-beta.yml', import.meta.url), 'utf8');
+  const loop = await readFile(new URL('../Tepora-v3/scripts/improve-loop.mjs', import.meta.url), 'utf8');
+  assert.match(native, /node --import \.\/scripts\/ci-diagnostics\.mjs --test --test-concurrency=2 --test-timeout=120000/);
+  assert.match(loop, /process\.platform==='win32'\?\['--import','\.\/scripts\/ci-diagnostics\.mjs','--test','--test-concurrency=2','--test-timeout=120000'\]:\['--test'\]/);
+});

@@ -135,3 +135,12 @@ and raw reported usage before legacy diagnostic normalization. Only existing
 Cargo targets and temporary test databases were used. No external provider calls,
 paid inference, model installation, broad boundary/security suites, full quality,
 or Windows/macOS package acceptance were run. See [coverage and recovery limits](RUST-MODEL-USAGE.md).
+
+
+## Windows CI startup and stage budgets (2026-10-16)
+
+The native-service Rust stage now has a separate 300,000 ms budget for test-target compilation and execution. At `f4d95e9e`, the separate native job successfully used 57.02 s for compilation plus 135.13 s for the 512 unit tests, while the regression gate terminated the same stage at its former 180,000 ms outer limit. Node retains its 360,000 ms aggregate budget; other stages retain 180,000 ms.
+
+Both Windows Node gates explicitly run at most two test files together, reducing contention between synchronous SQLite fixtures and cold browser startup. Assertions, test selection, skips and the 120,000 ms file timeout are unchanged. Startup failures now close the partial DevTools connection and kill and reap their owned browser process before a retry can reuse its profile; an unreaped process blocks a new launch. The production 20-second startup deadline is unchanged.
+
+Focused process/clock fixtures cover shared starts, fragmented readiness, startup timeout, failed handshake, spawn/exit errors, cleanup, profile reuse and an unresponsive process. Stage fixtures cover the measured Rust duration and bounded termination. These fixtures do not replace full Windows/macOS/Linux CI, real browser startup or package installation/startup evidence.

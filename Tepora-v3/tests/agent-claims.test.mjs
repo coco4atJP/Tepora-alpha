@@ -7,7 +7,9 @@ import {agentFixture} from './helpers/agent-fixture.mjs';
 import {toolResults} from './helpers/scripted-model.mjs';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(fn,timeout=8000){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out');await wait(15);}}
+async function until(fn,timeout=8000,diagnose=()=>null){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out: '+JSON.stringify(diagnose()));await wait(15);}}
+function progress(f,id){const session=f.rt.sessions.get(id);return {status:session?.status,stats:session?.stats,pending:f.rt.sessions.pending(id).length,requests:f.model.requests.length,tail:f.rt.sessions.entries(id).slice(-5).map(({type,event,name,errorText})=>({type,event,name,errorText}))};}
+
 
 test('paths are read from Japanese and English text; URLs, versions and abbreviations are not paths',()=>{
  const s={cwd:'/nonexistent-tepora'};
@@ -62,7 +64,7 @@ test('delegation safety net: a work request the character answers without tools 
  f.rt.send(main.id,{text:'こんにちは'});
  await until(()=>f.events.find(e=>e.type==='agent.reply'&&e.data.text==='こんにちは！'));
  f.rt.send(main.id,{text:'memo.txt に「牛乳と卵」と書いておいて'});
- await until(()=>f.events.find(e=>e.type==='agent.reply'&&e.data.text==='作業を始めました。'));
+ await until(()=>f.events.find(e=>e.type==='agent.reply'&&e.data.text==='作業を始めました。'),8000,()=>progress(f,main.id));
  assert.ok(!f.events.some(e=>e.type==='agent.reply'&&/作れません/.test(e.data.text)),'the withheld reply is not delivered');
  assert.ok(deltas.every(t=>!/作れません/.test(t||'')),'nor streamed to the screen');
  const shown=f.rt.sessions.entries(main.id).map(e=>messageOf(e,main)).filter(Boolean).map(m=>m.content);

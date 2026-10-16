@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import path from 'node:path';
-import {DEFAULT_STAGE_TIMEOUT_MS, NODE_SUITE_TIMEOUT_MS, runStage, stageTimeoutMs} from '../scripts/improve-stage.mjs';
+import {DEFAULT_STAGE_TIMEOUT_MS, NODE_SUITE_TIMEOUT_MS, NATIVE_TEST_TIMEOUT_MS, runStage, stageTimeoutMs} from '../scripts/improve-stage.mjs';
 
 function fixture(name = 'node-tests') {
   let clock = 1000;
@@ -31,12 +31,14 @@ function fixture(name = 'node-tests') {
   };
 }
 
-test('only the whole Node suite receives the explicit six-minute budget', () => {
+test('Node and native suites have explicit measured-workload budgets', () => {
   assert.equal(NODE_SUITE_TIMEOUT_MS, 360_000);
   assert.equal(DEFAULT_STAGE_TIMEOUT_MS, 180_000);
   assert.equal(stageTimeoutMs('node-tests'), 360_000);
+  assert.equal(NATIVE_TEST_TIMEOUT_MS, 300_000);
+  assert.equal(stageTimeoutMs('native-service-tests'), 300_000);
   for (const name of [
-    'rust-build', 'rust-tests', 'native-service-build', 'native-service-tests', 'syntax',
+    'rust-build', 'rust-tests', 'native-service-build', 'syntax',
     'worker-contracts', 'scenario-traceability', 'preview-build', 'browser-first-use',
     'browser-routing', 'browser-lamp', 'browser-avatar', 'browser-abilities',
     'browser-ability-components', 'capability-live', 'computer-live', 'future-stage',
@@ -62,7 +64,7 @@ test('Node stage keeps its command settings and reports measured elapsed time, n
   assert.deepEqual(f.children, [f.child, null]);
 });
 
-for (const [name, budget] of [['node-tests', 360_000], ['syntax', 180_000]]) {
+for (const [name, budget] of [['node-tests', 360_000], ['native-service-tests', 300_000], ['syntax', 180_000]]) {
   test(`${name} still terminates at its bounded budget and keeps the 1.5-second kill grace`, async () => {
     const f = fixture(name);
     assert.equal(f.timers[0].delay, budget);
@@ -108,4 +110,13 @@ test('spawn errors are reported once, with timer cleanup and their measured dura
   assert.deepEqual(await f.result, {name: 'node-tests', code: 1, error: 'fixture could not start', ms: 12, timeoutMs: 360_000});
   assert.equal(f.timers[0].cleared, true);
   assert.deepEqual(f.children, [f.child, null]);
+});
+
+test('native test compilation and execution can finish after the old three-minute limit', async () => {
+  const f = fixture('native-service-tests');
+  f.elapsed(192_150);
+  f.child.emit('close', 0);
+  assert.deepEqual(await f.result, {name: 'native-service-tests', code: 0, error: null, ms: 192_150, timeoutMs: 300_000});
+  assert.equal(f.timers[0].cleared, true);
+  assert.deepEqual(f.signals, []);
 });

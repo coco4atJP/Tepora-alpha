@@ -6,9 +6,14 @@ export const DEFAULT_STAGE_TIMEOUT_MS = 180_000;
 // The whole Windows Node suite has measured 212,318 ms in native CI. Allow
 // bounded headroom here without changing any individual test's deadline.
 export const NODE_SUITE_TIMEOUT_MS = 360_000;
+// Windows native tests need both test-target compilation and execution (192 s
+// observed together in native CI); keep a separate bounded five-minute budget.
+export const NATIVE_TEST_TIMEOUT_MS = 300_000;
 
 export function stageTimeoutMs(name) {
-  return name === 'node-tests' ? NODE_SUITE_TIMEOUT_MS : DEFAULT_STAGE_TIMEOUT_MS;
+  if (name === 'node-tests') return NODE_SUITE_TIMEOUT_MS;
+  if (name === 'native-service-tests') return NATIVE_TEST_TIMEOUT_MS;
+  return DEFAULT_STAGE_TIMEOUT_MS;
 }
 
 // Injectable effects let unit tests check the real orchestration and reporting

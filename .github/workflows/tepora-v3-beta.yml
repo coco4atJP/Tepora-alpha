@@ -48,7 +48,9 @@ jobs:
       - name: Node tests (Windows diagnostics)
         if: runner.os == 'Windows'
         timeout-minutes: 8
-        run: node --import ./scripts/ci-diagnostics.mjs --test --test-timeout=120000
+        # Keep cold browser starts and synchronous SQLite fixtures from starving
+        # each other on Windows. Behavioral assertions/deadlines stay unchanged.
+        run: node --import ./scripts/ci-diagnostics.mjs --test --test-concurrency=2 --test-timeout=120000
       - uses: actions/upload-artifact@v4
         if: always() && runner.os == 'Windows'
         with:

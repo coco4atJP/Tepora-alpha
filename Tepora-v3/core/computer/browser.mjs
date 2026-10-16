@@ -50,7 +50,7 @@ class Connection{
  close(){try{this.ws.close();}catch{}}
 }
 export class Browser{
- constructor({executable,profileDir,downloadDir,headless=true,windowSize='1280,900'}){Object.assign(this,{executable,profileDir,downloadDir,headless,windowSize});this.pages=new Map();this.starting=null;this.proc=null;this.conn=null;}
+ constructor({executable,profileDir,downloadDir,headless=true,windowSize='1280,900'},{spawnProcess=spawn,connect=url=>new Connection(url),schedule=setTimeout,cancel=clearTimeout}={}){Object.assign(this,{executable,profileDir,downloadDir,headless,windowSize});this.effects={spawnProcess,connect,schedule,cancel};this.pages=new Map();this.starting=null;this.proc=null;this.conn=null;}
  get alive(){return !!this.conn&&!this.conn.closed&&!!this.proc&&this.proc.exitCode===null;}
  async start(){
   if(this.alive)return this;if(this.starting)return this.starting;
@@ -59,22 +59,49 @@ export class Browser{
    mkdirSync(this.profileDir,{recursive:true});
    const args=['--remote-debugging-port=0',`--user-data-dir=${this.profileDir}`,'--no-first-run','--no-default-browser-check','--disable-sync','--use-mock-keychain','--password-store=basic',
     '--disable-features=Translate,MediaRouter','--disable-popup-blocking',`--window-size=${this.windowSize}`,'--lang=ja',...(this.headless?['--headless=new','--hide-scrollbars','--mute-audio']:[]),'about:blank'];
-   const proc=spawn(this.executable,args,{stdio:['ignore','ignore','pipe']});this.proc=proc;
+   // A failed launch must release its profile before another launch can start.
+   if(this.proc)await this.terminate(this.proc);
+   const {spawnProcess,connect,schedule,cancel}=this.effects;
+   const proc=spawnProcess(this.executable,args,{stdio:['ignore','ignore','pipe']});this.proc=proc;
+   proc.on('error',()=>{}); // A late process/kill error must not become an uncaught event.
    const url=await new Promise((resolve,reject)=>{
-    let buf='';const t=setTimeout(()=>reject(new Error('The browser did not start within 20 seconds')),20000);
-    proc.stderr.on('data',c=>{buf+=c;const m=/DevTools listening on (ws:\/\/\S+)/.exec(buf);if(m){clearTimeout(t);resolve(m[1]);}if(buf.length>100000)buf=buf.slice(-10000);});
-    proc.on('exit',code=>{clearTimeout(t);reject(new Error(`The browser exited (${code}). If another Tepora browser uses the same profile, close it.`));});
-    proc.on('error',e=>{clearTimeout(t);reject(e);});
+    let buf='';
+    const done=(error,value)=>{cancel(t);proc.stderr.off('data',onData);proc.off('exit',onExit);proc.off('error',onError);error?reject(error):resolve(value);};
+    const onData=c=>{buf+=c;const m=/DevTools listening on (ws:\/\/\S+)/.exec(buf);if(m)done(null,m[1]);if(buf.length>100000)buf=buf.slice(-10000);};
+    const onExit=code=>done(new Error(`The browser exited (${code}). If another Tepora browser uses the same profile, close it.`));
+    const onError=e=>done(e);
+    const t=schedule(()=>done(new Error('The browser did not start within 20 seconds')),20000);
+    proc.stderr.on('data',onData);proc.once('exit',onExit);proc.once('error',onError);
    });
-   this.conn=new Connection(url);await this.conn.ready;
+   this.conn=connect(url);await this.conn.ready;
    await this.conn.send('Target.setDiscoverTargets',{discover:true});
    if(this.downloadDir){mkdirSync(this.downloadDir,{recursive:true});await this.conn.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:this.downloadDir,eventsEnabled:true}).catch(()=>{});}
    // A link that opens a new tab moves its session there, like a person following it.
    this.conn.on(m=>{if(m.method==='Target.targetCreated'){const info=m.params.targetInfo;if(info.type==='page'&&info.openerId)for(const page of this.pages.values())if(page.targetId===info.openerId)page.adopt(info.targetId).catch(()=>{});}});
-   proc.on('exit',()=>{this.conn?.close();this.pages.clear();});
+   const conn=this.conn;
+   proc.on('exit',()=>{conn.close();if(this.proc===proc){this.conn=null;this.proc=null;this.pages.clear();}});
    return this;
   })();
-  try{return await this.starting;}finally{this.starting=null;}
+  try{return await this.starting;}catch(error){
+   this.conn?.close();this.conn=null;this.pages.clear();
+   await this.terminate(this.proc);
+   throw error;
+  }finally{this.starting=null;}
+ }
+ /** Failed starts have no working CDP connection. Kill and reap the owned process
+  * before freeing its profile; never overwrite a still-running launch on retry. */
+ async terminate(proc){
+  if(!proc)return;
+  if(proc.pid&&proc.exitCode===null&&!proc.signalCode){
+   const {schedule,cancel}=this.effects;
+   await new Promise((resolve,reject)=>{
+    const done=()=>{cancel(t);proc.off('exit',done);resolve();};
+    const t=schedule(()=>{proc.off('exit',done);reject(new Error('The previous browser process did not stop; its profile is still in use.'));},5000);
+    proc.once('exit',done);
+    try{proc.kill('SIGKILL');}catch(error){cancel(t);proc.off('exit',done);reject(error);}
+   });
+  }
+  if(this.proc===proc)this.proc=null;
  }
  /** The tab of a session (created on first use). */
  async page(key){

@@ -9,7 +9,9 @@ import {TokenCalibration,rawTokens} from '../core/agent/tokens.mjs';
 import {SUMMARY_HEADINGS} from '../core/agent/prompts.mjs';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(fn,timeout=15000){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out');await wait(15);}}
+async function until(fn,timeout=15000,diagnose=()=>null){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out: '+JSON.stringify(diagnose()));await wait(15);}}
+function progress(f,id){const session=f.rt.sessions.get(id);return {status:session?.status,stats:session?.stats,pending:f.rt.sessions.pending(id).length,requests:f.model.requests.length,tail:f.rt.sessions.entries(id).slice(-5).map(({type,event,name,errorText})=>({type,event,name,errorText}))};}
+
 const text=m=>typeof m?.content==='string'?m.content:'';
 const isCompaction=body=>text(last(body,'user')).includes('Context compaction')&&body.tool_choice==='none';
 const isRolling=body=>text(body.messages[0]).includes('working memory of a long-running agent');
@@ -31,7 +33,7 @@ test('long work clears old results in batches, then compacts on the cached prefi
  },{context:12000});
  const s=await f.rt.spawn(null,{task:'Review big.txt thoroughly. 結論は箇条書きで。'});f.worker=s.id;
  await bigFile(s.cwd);
- await until(()=>f.rt.sessions.get(s.id).status==='done',30000);
+ await until(()=>f.rt.sessions.get(s.id).status==='done',30000,()=>progress(f,s.id));
  const log=f.rt.sessions.entries(s.id);
  const clears=log.filter(e=>e.type==='clear'),checkpoints=log.filter(e=>e.type==='checkpoint');
  assert.ok(clears.length>=1,'old results were cleared');assert.ok(checkpoints.length>=1,'a checkpoint was made');
@@ -62,7 +64,7 @@ test('when summaries keep failing the checkpoint degrades to a deterministic lis
   return {content:'done'};
  },{context:12000});
  const s=await f.rt.spawn(null,{task:'Keep reading big.txt.'});await bigFile(s.cwd);
- await until(()=>f.rt.sessions.get(s.id).status==='done',30000);
+ await until(()=>f.rt.sessions.get(s.id).status==='done',30000,()=>progress(f,s.id));
  const cp=f.rt.sessions.entries(s.id,{types:['checkpoint']}).at(-1);
  assert.equal(cp.method,'deterministic');
  assert.match(cp.text,/Keep reading big\.txt\./);
@@ -80,7 +82,7 @@ test('a context-overflow error teaches the real window, compacts out of context 
   return {content:'done'};
  },{context:64000});
  const s=await f.rt.spawn(null,{task:'Read big.txt part by part.'});await bigFile(s.cwd);
- await until(()=>f.rt.sessions.get(s.id).status==='done',30000);
+ await until(()=>f.rt.sessions.get(s.id).status==='done',30000,()=>progress(f,s.id));
  assert.ok(overflowed>=1);
  const p=f.registry.get().profiles[0];assert.equal(f.registry.knownLimits(p).context,9000);assert.equal(f.registry.knownLimits(p).learned,true);
  const cp=f.rt.sessions.entries(s.id,{types:['checkpoint']});assert.ok(cp.length>=1);assert.equal(cp[0].reason,'overflow');assert.equal(cp[0].method,'rolling');
