@@ -24,7 +24,7 @@ with sync_playwright() as p:
  providers()
  assert 'ローカルの継続先を追加' in page.locator('.offline-floor').inner_text()
  def add(preset,id,name,model,vision=False,lan=False):
-  page.get_by_role('button',name='接続先を追加',exact=True).click()
+  page.get_by_role('button',name='ローカル / カスタム接続',exact=True).click()
   page.locator('#provider-preset').select_option(preset)
   page.locator('#provider-form [name=id]').fill(id)
   page.locator('#provider-form [name=name]').fill(name)

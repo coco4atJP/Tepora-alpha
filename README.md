@@ -8,7 +8,7 @@ V3の開発本流は **`rust/v3-core-migration`** に一本化します。旧 `v
 
 ## 起動
 
-ソース版には Node.js **22.16.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
+ソース版には Node.js **22.19.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
 
 このRust系の開発本流では、永続状態・文脈・トークン・モデル通信形式・実行状態機械を共有Rustコアに移し、独立Rust HTTPホストに実際のプロバイダー通信、対応ツール、承認、コンパクション、自己点検を接続しています。通常起動は既存機能を保つNode互換サービスのままです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
@@ -17,10 +17,13 @@ V3の開発本流は **`rust/v3-core-migration`** に一本化します。旧 `v
 ```sh
 git clone --branch rust/v3-core-migration https://github.com/coco4atJP/Tepora-alpha.git
 cd Tepora-alpha
+npm ci --prefix Tepora-v3 --ignore-scripts
 npm start
 ```
 
 Windowsはルートの `start.cmd`、macOSは `start.command` からも起動できます。ブラウザーを自動で開かない場合は `npm run serve` を使い、表示された起動URLを開きます。URLには一時的な認証トークンが含まれます。
+
+新規クラウド接続は **pi-ai 1.3.0** を実際の推論・認証基盤として利用します。42プロバイダーのカタログと9種類のOAuthを設定画面から選択できます（専用通信が未接続のBedrock/Vertex等を含む一覧であり、全モデルの動作保証ではありません）。通常のNode/Tauri起動が対象です。[pi-aiの接続範囲と検証](Tepora-v3/docs/PI-AI.md)を参照してください。
 
 上部の「AIを接続」（または「設定 → AIとの接続」）で稼働中のローカルモデルを設定するか、送信先を確認して外部プロバイダーを接続します。モデルや推論環境は同梱されておらず、自動導入も完成していません。
 
@@ -58,7 +61,7 @@ npm run doctor             # 環境診断
 npm test                   # V3 Nodeテストとルート起動テスト
 npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
 npm run preview:build      # モデル不要の画面プレビュー
-npm ci --prefix Tepora-v3 --ignore-scripts  # ネイティブ用CLI
+npm ci --prefix Tepora-v3 --ignore-scripts  # pi-aiとネイティブ用CLI
 npm run desktop            # Tauri開発起動
 npm run build              # Windows/macOSネイティブパッケージ
 ```

@@ -3,6 +3,7 @@ import {cp,copyFile,mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {bundleDependencies} from './bundle-dependencies.mjs';
 import {assertNodeTarget} from './native-target.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const rust=spawnSync('rustc',['-vV'],{encoding:'utf8'});
@@ -20,6 +21,7 @@ await copyFile(path.join(root,'core','native','THIRD-PARTY-LICENSES.txt'),path.j
 const suffix=process.platform==='win32'?'.exe':'';
 await copyFile(process.execPath,path.join(root,'desktop','binaries',`node-runtime-${triple}${suffix}`));
 for(const dir of ['core','web','workers'])await cp(path.join(root,dir),path.join(root,'desktop','resources','v3',dir),{recursive:true,filter:src=>!src.includes('__pycache__')&&!src.endsWith('.pyc')});
+await bundleDependencies(root,path.join(root,'desktop','resources','v3'));
 const candidates=[path.join(path.dirname(process.execPath),'LICENSE'),path.resolve(path.dirname(process.execPath),'../LICENSE')];
 let license='';for(const candidate of candidates){try{license=await readFile(candidate,'utf8');break;}catch{}}
 if(!license){const response=await fetch(`https://raw.githubusercontent.com/nodejs/node/v${process.versions.node}/LICENSE`);if(!response.ok)throw new Error('Node license must be included in the distribution.');license=await response.text();}

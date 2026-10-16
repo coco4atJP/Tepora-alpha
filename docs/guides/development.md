@@ -1,6 +1,6 @@
 # Tepora V3 beta.11 開発ガイド
 
-現行コードは `Tepora-v3/` です。Node.js 22.16.0以上を使います。コア起動にnpm依存の導入は不要です。
+現行コードは `Tepora-v3/` です。Node.js 22.19.0以上を使います。ソース起動の前に `npm ci --prefix Tepora-v3 --ignore-scripts` でpi-aiを含む固定依存関係を導入します。
 
 ```sh
 npm start                 # ブラウザーを開く

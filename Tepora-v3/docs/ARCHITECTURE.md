@@ -23,6 +23,12 @@ flowchart TD
     Node --> Compatibility[Remaining tools, hooks and dream optimization]
 ```
 
+## pi-ai provider and credential boundary
+
+New SDK-backed profiles use `engine: "pi-ai"` and a registry-derived `piProvider`. The ordinary `ProviderRegistry` dispatches to `PiAIService`, which runs the real pinned SDK in `pi-worker.mjs`. pi-ai owns protocol conversion, streaming and provider auth; Tepora retains its existing agent loop, Rust context/state/accounting, tool execution, revisions and approvals. `pi-message-codec.mjs` binds native reasoning/tool replay to the exact profile identity and leaves unreported usage unknown.
+
+Workers have no inherited credential environment. Their fetch bridge carries bounded request/response streams back to `NetworkPolicy`; auth, token refresh and model discovery use the same checked path. Credentials are account-scoped, atomically persisted outside SQLite/exports and serialized using the existing single service owner plus per-account locks. `web/pi-settings.mjs` is included in the browser bundle and derives providers/models/auth prompts from the actual SDK. The opt-in Rust-only host rejects these profiles before dispatch and cannot edit them into legacy profiles. Dedicated Bedrock and Vertex SDK transports remain unavailable rather than bypassing network admission. See [PI-AI](PI-AI.md) for coverage and limitations.
+
 ## HTTP, state and event ownership
 
 `core/server.mjs` is the ordinary loopback service. `native-service/src/http.rs` independently implements the authenticated listener, launch token/cookie flow, CSRF and Host/Origin checks, body bounds, static allowlist/CSP and SSE. It is not a reverse proxy to Node. Both hosts retain the service-owner lease and reject another live owner of the same data directory.

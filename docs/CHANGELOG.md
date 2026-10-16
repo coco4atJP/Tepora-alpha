@@ -1,5 +1,15 @@
 # Tepora V3 changelog
 
+## Actual pi-ai integration (beta.11)
+
+- Use pinned `@earendil-works/pi-ai` 1.3.0 for new SDK-backed inference, streaming, tool calls, model metadata and all nine SDK OAuth flows, rather than only adding templates
+- Generate 42 provider / 1,614 chat-model entries from the SDK; clearly disable unported Bedrock/Vertex transports and providers without chat models
+- Isolate SDK globals in Workers and route SDK HTTP, refresh and discovery through Tepora network admission; preserve Rust-owned state, approvals and execution
+- Persist account-scoped credentials outside SQLite/exports; serialize rotation, cancel owned work and block account/billing fallback
+- Preserve existing profiles and legacy ChatGPT registrations; the standalone Rust host refuses pi-ai effects rather than treating OAuth tokens as paid API keys
+- Require Node 22.19.0+; include locked production dependencies in desktop resources; see [scope and validation](../Tepora-v3/docs/PI-AI.md)
+
+
 ## Model connections and ChatGPT plan authentication (beta.11)
 
 - Add 22 connection templates, explicit account model selection and user-triggered provider catalog discovery without replacing Tepora's harness
