@@ -85,8 +85,17 @@ imports the installed service without starting it, retains bounded backend
 startup errors and the real failure status, and writes failure evidence even
 before readiness. Import success is not native startup acceptance: the same
 installed-app readiness and 25-second liveness assertions still run. The exact
-Windows runtime cause must be established from that evidence before claiming a
-fix; fixture checks do not replace cross-platform package CI.
+Windows diagnostic run `38924273866` then proved the installed imports succeeded
+(including the SDK manifest and native addon), while Node 22.22 failed before
+entry execution with `EISDIR: lstat 'D:'` in its main-file resolver. This matches
+[Node's Windows verbatim-path issue](https://github.com/nodejs/node/issues/61165).
+The Tauri launcher now passes lossless `Path` arguments through
+`dunce::simplified`, which removes the disk verbatim prefix only when ordinary
+Win32 semantics are identical. UNC, reserved names and long paths are retained,
+and the inherited cwd is unchanged. Release-mode launcher unit tests cover those
+boundaries in package CI; a pipe-backed entry fixture also covers spaces,
+Unicode and dependency imports. The final installed-app CI still provides
+the acceptance evidence; these fixture checks alone do not establish a pass.
 
 `.github/workflows/tepora-v3-beta.yml` builds the current revision for Windows/macOS and records installation/startup evidence and screenshots. The bundled service must report the package version **3.0.0-beta.11**. The separate manual native-smoke workflow requires an explicit artifact run and matching exact commit; it has no defaults pointing at older betas.
 

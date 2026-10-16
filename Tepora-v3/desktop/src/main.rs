@@ -11,6 +11,13 @@ struct Backend {
     closing: AtomicBool,
 }
 
+// Node 22's entry resolver fails on ordinary Tauri Windows verbatim paths
+// (nodejs/node#61165). Only simplify paths with identical Win32 semantics;
+// retain UNC, reserved-name and long paths rather than blindly stripping.
+fn node_path(path: &std::path::Path) -> &std::path::Path {
+    dunce::simplified(path)
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -44,9 +51,10 @@ fn main() {
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let command = app.shell().sidecar("node-runtime")?
-                .args([source.to_string_lossy().to_string(), "--sidecar".to_owned()])
-                .env("TEPORA_WEB_DIR", web.to_string_lossy().to_string())
-                .env("TEPORA_DATA_DIR", data.to_string_lossy().to_string());
+                .arg(node_path(&source))
+                .arg("--sidecar")
+                .env("TEPORA_WEB_DIR", node_path(&web))
+                .env("TEPORA_DATA_DIR", node_path(&data));
             let (mut events, child) = command.spawn()?;
             *setup_state.child.lock().unwrap() = Some(child);
 
@@ -156,4 +164,34 @@ fn main() {
             _ => {}
         }
     });
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::node_path;
+    use std::path::Path;
+
+    #[test]
+    fn ordinary_paths_are_unchanged() {
+        let path = Path::new("relative resources/日本語/server.mjs");
+        assert_eq!(node_path(path), path);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_verbatim_disk_path_is_node_compatible() {
+        assert_eq!(node_path(Path::new(r"\\?\D:\Tepora 日本語\v3\core\server.mjs")),
+                   Path::new(r"D:\Tepora 日本語\v3\core\server.mjs"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn special_namespace_semantics_are_preserved() {
+        for raw in [r"\\?\UNC\server\share\v3\server.mjs", r"\\?\C:\NUL\server.mjs", r"\\?\C:\trailing.\server.mjs"] {
+            let path = Path::new(raw);
+            assert_eq!(node_path(path), path);
+        }
+        let long = format!(r"\\?\C:\{}\{}\server.mjs", "a".repeat(140), "b".repeat(140));
+        assert_eq!(node_path(Path::new(&long)), Path::new(&long));
+    }
 }

@@ -69,6 +69,9 @@ jobs:
       - run: node scripts/build-sidecar.mjs
       - run: ../node_modules/.bin/tauri build --bundles ${{ matrix.bundle }} -- --locked
         working-directory: Tepora-v3/desktop
+      - name: Native launcher path regression
+        run: cargo test --release --locked --bin tepora-v3
+        working-directory: Tepora-v3/desktop
       - name: Native installation and startup (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
