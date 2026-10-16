@@ -18,19 +18,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.22.0'
-      - name: Apply exact final UI refinement to validated source
+      - name: Apply final UI refinement
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
-          sha = 'e6d54219e311ffc2219845f6a52fe8e9365d09075'
+          sha = '82665af7ad1b31ccb16fdf9e50ea8e7b5b15fe3a'
           req = urllib.request.Request('https://api.github.com/repos/coco4atJP/Tepora-alpha/git/blobs/'+sha, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
           with urllib.request.urlopen(req, timeout=30) as response:
               data = json.load(response)
           assert data['sha'] == sha and data['encoding'] == 'base64'
           patch = lzma.decompress(base64.b64decode(base64.b64decode(data['content']), validate=True))
-          assert hashlib.sha256(patch).hexdigest() == 'af6d08f70eec7e64f81c3987168ed483756c4a57afe8f49bbd3d9e6d7e5b6e742'
+          assert hashlib.sha256(patch).hexdigest() == '51cc4a527a0a61f9c90604358c1318ce18a4872bbcbe9a4fa4407df19bb9c72b'
           p = pathlib.Path(os.environ['RUNNER_TEMP'])/'pi-ai-ui.patch'
           p.write_bytes(patch)
           subprocess.run(['git','apply','--check',str(p)],check=True)
