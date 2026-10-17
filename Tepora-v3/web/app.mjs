@@ -117,7 +117,7 @@ function shell(){
   <nav class="nav" aria-label="Tepora">
    <button type="button" data-action="view" data-view="home">${icon('home')}<span>ホーム</span></button>
    <button type="button" class="nav-talk" data-action="view" data-view="talk">${icon('chat')}<span>会話</span></button>
-   <button type="button" data-action="view" data-view="workspace">${icon('work')}<span>仕事</span><span class="nav-count" id="work-count"></span></button>
+   <button type="button" data-action="view" data-view="workspace">${icon('work')}<span>仕事</span></button>
    <button type="button" data-action="view" data-view="memory">${icon('memory')}<span>記憶</span></button>
    <button type="button" data-action="view" data-view="settings">${icon('settings')}<span>設定</span></button>
   </nav>
@@ -174,6 +174,7 @@ function shell(){
  document.body.classList.toggle('preview',previewMode);
  const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;fitComposer();if(view==='home')paintSpeech();};
  if(globalThis.ResizeObserver)new ResizeObserver(size).observe(surface);size();
+ surface.addEventListener('scroll',paintSettingsNav,{passive:true});
  abilities();mountCharacters();render();tick();
 }
 function applyTheme(){
@@ -472,7 +473,7 @@ function taskRows(){
  const jobs=workJobs().slice(0,120),focusId=state.companion?.focusJobId;
  const row=j=>{const s=jobStatus(j);return `<button type="button" class="job-row${j.id===focusId?' is-focused':''}" data-action="focus-task" data-id="${escape(j.id)}" aria-pressed="${j.id===focusId}"><span class="job-title">${escape(j.title)}</span><span class="job-state tone-${s.tone}">${escape(s.note||s.label)}</span></button>`;};
  const groups=[['あなたの番',jobs.filter(j=>needsPerson(j))],['進行中',jobs.filter(j=>!needsPerson(j)&&['queued','running'].includes(j.status))],['そのほか',jobs.filter(j=>!needsPerson(j)&&!['queued','running'].includes(j.status))]];
- return groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('')||'<p class="empty-copy">頼んだ仕事が、ここに並びます。</p>';
+ return groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
 }
 /** Resolves which artifact and version the bench shows; null when the job has none. */
 function currentArtifact(){
@@ -544,7 +545,7 @@ function routeLine(j){
 }
 function madeView(){
  const media=state.mediaJobs||[];
- return `<section class="page">${workHead()}
+ return `<section class="page is-wide">${workHead()}
  <div class="page-tools">${btn('creative-new','画像・動画をつくる','plus','button secondary')}${media.length?btn('creative-open','一覧','list','text-button'):''}</div>
  ${media.length?`<div class="made-grid">${media.slice(0,60).map(j=>`<article class="made-card">${j.asset?.mime?.startsWith('image/')?`<img src="/api/media/assets/${escape(j.asset.id)}" alt="${escape(j.title)}" loading="lazy">`:`<div class="made-icon">${icon(j.kind==='tts'?'volume':j.kind==='video'?'play':'image')}</div>`}<p>${escape(j.title)}</p>${j.status==='ready'?'':`<small>${escape(({failed:'失敗',cancelled:'停止'})[j.status]||'処理中')}</small>`}</article>`).join('')}</div>`:'<div class="bench-empty is-large"><p>つくった画像や音声が、ここに並びます。</p></div>'}</section>`;
 }
@@ -667,6 +668,17 @@ function memoSheet(){
  const mcfg=monitorConfig(display());
  openSheet('ピン留めメモを編集',`<form id="memo-form"><label class="field"><span>ステージに置くメモ（240文字まで）</span><textarea name="note" rows="4" maxlength="240" placeholder="今日やること、忘れたくない一言など">${escape(mcfg.pinnedNote||'')}</textarea></label><p class="small-text">空にすると、確認済みの最新の記憶をカードに表示します。</p><div class="sheet-actions"><button class="button" type="submit">保存する</button>${btn('close','閉じる','','button secondary')}</div></form>`,'memo');
 }
+function selectSettingsSection(id){
+ settingsSection=id;
+ document.querySelectorAll('.settings-nav a').forEach(a=>{if(a.dataset.id===id)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current');});
+}
+function paintSettingsNav(){
+ if(view!=='settings')return;
+ const surface=$('#surface'),sections=[...surface.querySelectorAll('.settings-section')];if(!sections.length)return;
+ const top=surface.getBoundingClientRect().top,atEnd=surface.scrollTop>0&&surface.scrollHeight-surface.clientHeight-surface.scrollTop<=1;
+ const current=(atEnd?sections.at(-1):sections.findLast(section=>section.getBoundingClientRect().top-top<=120))||sections[0],id=current.id.replace(/^settings-/,'');
+ if(id!==settingsSection)selectSettingsSection(id);
+}
 function settingsView(){
  const s=settings(),prefs=display(),mcfg=monitorConfig(prefs),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
  const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
@@ -676,9 +688,9 @@ function settingsView(){
   ['ai','AIとの接続',`${settingRow('会話と仕事のAI',ready?escape(s.model||providers.find(p=>p.enabled!==false)?.model||'接続済み'):'未接続',ready?'ok':'attention','',ready?`${btn('providers-launch','接続先と役割','','button secondary')}${btn('catalog-open','モデルを探す','','text-button')}`:`${btn('onboard','AIを接続する','','button')}${btn('providers-launch','接続先と役割','','text-button')}${btn('catalog-open','モデルを探す','','text-button')}`)}
    ${settingRow('通信','',null,'Teporaの通信だけを制限します。OS全体のファイアウォールではありません。',segmented('net-mode',[['online','オンライン'],['trusted-lan','信頼LANだけ'],['offline','完全オフライン']],net.mode,'通信モード'))}
    ${settingRow('インターネットを使う道具','',null,'天気・ニュース・Web取得・専用ブラウザ',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="allow-network" ${s.allowNetwork?'checked':''} aria-label="インターネットを使う道具を許可"></label>`)}`],
-  ['character','キャラクター',`${settingRow('姿',escape(avatarSummary()),null,'体・色・灯り・顔・小物・動きを選べます。今までのキャラクター（3Dモデル・画像・メッシュアバター）も持ち込めます。',btn('avatar-open','姿を作る','pencil','button'))}
+  ['character','キャラクター',`${settingRow('姿',escape(avatarSummary()),null,'体・色・灯り・顔・小物・動きを選べます。今までのキャラクター（3Dモデル・画像・メッシュアバター）も持ち込めます。',btn('avatar-open','姿を作る','pencil','button secondary'))}
    ${settingRow('人格と口調',escape(characterName(state.dialogue)),null,'名前・振る舞い・口調・呼び名・話しかけ方。姿とは別に設定します。',btn('personas','編集','pencil','button secondary','aria-label="人格と口調を編集"'))}`],
-  ['home','ホームと待機画面',`${settingRow('シーンとステージ配置',escape(MONITOR_SCENES[mcfg.scene]?.label||'カスタム'),null,'スマートモニターとしての画面構成・時計・固定ウィジェットを、実際のステージを見ながら調整できます。',`${btn('stage-customize','ステージを見ながら調整','monitor','button')}`)}
+  ['home','ホームと待機画面',`${settingRow('シーンとステージ配置',escape(MONITOR_SCENES[mcfg.scene]?.label||'カスタム'),null,'スマートモニターとしての画面構成・時計・固定ウィジェットを、実際のステージを見ながら調整できます。',`${btn('stage-customize','ステージを見ながら調整','monitor','button secondary')}`)}
    ${settingRow('シーンプリセット','',null,'用途に合わせた配置・時計・ウィジェットの組み合わせです。',segmented('scene-apply',Object.entries(MONITOR_SCENES).map(([k,v])=>[k,v.label]),mcfg.scene,'シーンプリセット'))}
    ${settingRow('ステージの配置','',null,'キャラクター・時計・ウィジェットの並び方を選びます。',segmented('layout-set',STAGE_LAYOUTS.map(k=>[k,layoutLabels[k]]),mcfg.layout,'ステージの配置'))}
    ${settingRow('時計のデザイン','',null,'書体・大きさ・秒表示を選べます。',`${segmented('clock-style-set',CLOCK_STYLES.map(k=>[k,clockStyleLabels[k]]),mcfg.clockStyle,'時計の書体')}${segmented('clock-size-set',CLOCK_SIZES.map(k=>[k,clockSizeLabels[k]]),mcfg.clockSize,'時計の大きさ')}<label class="switch-label"><span>秒を表示</span><input class="switch" type="checkbox" role="switch" data-action="clock-seconds-set" ${mcfg.clockSeconds?'checked':''}></label>`)}
@@ -710,9 +722,10 @@ function settingsView(){
   ['data','データ',`${settingRow('記憶・成果物・スキル','',null,'メディアファイルと認証情報は含みません。以前の版の記憶は、新しい会話と仕事に自動では渡しません。',`${btn('context-export','書き出す','download','button secondary','aria-label="記憶・成果物・スキルを書き出す"')}${btn('context-import','読み込む','upload','text-button','aria-label="記憶・成果物・スキルを読み込む"')}`)}
    ${settingRow('表示の設定','',null,'',`${btn('display-export','書き出す','download','button secondary','aria-label="表示の設定を書き出す"')}${btn('display-import','読み込む','upload','text-button','aria-label="表示の設定を読み込む"')}`)}`]
  ];
- return `<section class="page settings-page"><header class="page-head"><h1>設定</h1></header>
- <div class="settings-grid"><nav class="settings-nav" aria-label="設定の項目">${sections.map(([id,title])=>`<a href="#settings-${id}" data-action="settings-jump" data-id="${id}">${title}</a>`).join('')}</nav>
- <div class="settings-sections">${sections.map(([id,title,body])=>`<section class="settings-section" id="settings-${id}" aria-labelledby="settings-${id}-title"><h2 id="settings-${id}-title">${title}</h2>${body}</section>`).join('')}</div></div></section>`;
+  const curSection=settingsSection||sections[0][0];
+  return `<section class="page settings-page"><header class="page-head"><h1>設定</h1></header>
+  <div class="settings-grid"><nav class="settings-nav" aria-label="設定の項目">${sections.map(([id,title])=>`<a href="#settings-${id}" data-action="settings-jump" data-id="${id}" ${curSection===id?'aria-current="true"':''}>${title}</a>`).join('')}</nav>
+  <div class="settings-sections">${sections.map(([id,title,body])=>`<section class="settings-section" id="settings-${id}" aria-labelledby="settings-${id}-title"><h2 id="settings-${id}-title">${title}</h2>${body}</section>`).join('')}</div></div></section>`;
 }
 
 /* ---------- Render ---------- */
@@ -747,6 +760,7 @@ function render(){
    if(preview&&pinnedArtifact)setArtifactFrame(preview,pinnedArtifact);
   }
   restoreScroll(surface,scroll);restoreFocus(surface,focus);
+  if(target==='settings')paintSettingsNav();
  }
  renderedView=target;
  tick();showDialogue();showReply();showTarget();showRequestStatus();showInputFiles();paintMood();
@@ -1086,7 +1100,7 @@ const actions={
  proposals:()=>{closePanel();view='workspace';workTab='tasks';render();},
  'skill-details':el=>{const skill=state.skills.find(s=>s.id===el.dataset.id);openSheet(skill.name,`<p>${escape(skill.source==='learned-proposal'?'仕事から提案された手順です。確認して有効化するまで使用しません。':skill.description)}</p><pre>${escape(skill.content||'共有スキルです。実行時に出所とハッシュを照合して読み込みます。')}</pre><p class="small-text">${escape(skill.sourceJobId?'元の仕事: '+skill.sourceJobId:'')}</p>`);},
  view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}clearTimeout(toastTimer);toastEl.classList.remove('show');if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
- display:()=>{closePanel();view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
+ display:()=>{closePanel();settingsSection='home';view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
  'stage-customize':()=>{activePanel?.kind==='stage-studio'?closePanel():openStageStudio();},
  'scene-apply':el=>{const key=el.dataset.scene||el.dataset.value,sc=MONITOR_SCENES[key];if(sc)return patchDisplay(sc.patch);},
  'layout-set':el=>patchDisplay({layout:el.dataset.value}),
@@ -1121,7 +1135,7 @@ const actions={
  'talk-open':()=>{if(narrow()){view='talk';render();setTimeout(()=>$('#composer-input')?.focus(),0);return;}setTalkOpen(true);},
  'talk-close':()=>setTalkOpen(false),
  'display-menu':el=>{const list=$('#display-menu-list');if(!list)return;if(!list.hidden){closeDisplayMenu();return;}list.hidden=false;el.setAttribute('aria-expanded','true');setTimeout(()=>list.querySelector('button')?.focus(),0);},
- 'settings-jump':el=>{$(`#settings-${el.dataset.id}`)?.scrollIntoView({block:'start',behavior:reducedMotion?'auto':'smooth'});},
+ 'settings-jump':el=>{selectSettingsSection(el.dataset.id);$(`#settings-${el.dataset.id}`)?.scrollIntoView({block:'start',behavior:reducedMotion?'auto':'smooth'});},
  demo:async()=>{requireComposerUnlocked();closeSheet();const job=await bridge.request('/api/jobs','POST',{input:'画面と途中更新を体験する',kind:'demo'});await navigateFocus(job.id);pendingArtifactJobId=job.id;view='workspace';followArtifact=true;pinnedArtifact=null;selectedArtifact=state.artifacts.find(a=>a.jobId===job.id)?.id||null;render();},
  'display-undo':async()=>{await bridge.request('/api/display/undo','POST',{expectedRevision:display().revision});},
  'display-reset':async()=>{await bridge.request('/api/display/reset','POST',{expectedRevision:display().revision});},

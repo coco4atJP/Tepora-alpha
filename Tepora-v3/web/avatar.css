@@ -411,16 +411,16 @@
 /* ---------- The avatar studio (a sheet in settings) ---------- */
 .avatar-sheet{display:flex;flex-direction:column;gap:14px}
 /* The preview stays in view while the choices scroll underneath it: every choice is seen as it is made. */
-.av-top{position:sticky;top:-18px;z-index:5;display:grid;grid-template-columns:minmax(170px,230px) minmax(0,1fr);gap:18px;align-items:start;margin:-18px -22px 0;padding:18px 22px 12px;background:var(--surface-2);border-bottom:1px solid var(--line)}
-.av-preview{position:relative;aspect-ratio:200/224;width:100%;background:radial-gradient(ellipse at 50% 85%,var(--surface),transparent 70%),var(--bg-2);border-radius:18px;border:1px solid var(--line);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
-.av-preview .cx-host{width:88%;margin-bottom:6px}
+.av-top{position:sticky;top:-18px;z-index:5;display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:18px;align-items:center;margin:-18px -22px 0;padding:16px 22px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);box-shadow:var(--shadow-sm)}
+.av-preview{position:relative;aspect-ratio:200/224;max-height:224px;width:100%;padding-top:16px;background:radial-gradient(ellipse at 50% 85%,var(--surface),transparent 70%),var(--bg-2);border-radius:var(--radius-lg,18px);border:1px solid var(--line);box-shadow:var(--edge-light);overflow:visible;display:flex;align-items:flex-end;justify-content:center}
+.av-preview .cx-host{width:76%;margin-bottom:6px}
 .av-preview svg.cx-kitsune{transform:scale(.76);transform-origin:50% 92%}   /* the fox is wider than its frame (the tail); the home stage has room, this box clips */
 .av-side{display:flex;flex-direction:column;gap:10px;min-width:0}
 .av-moods{align-self:flex-start}
 .av-actions{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}.av-actions-gap{flex:1 1 12px}
 .av-moods button{height:30px;padding:0 10px;font-size:.78rem}
 .av-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-.av-group{border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;margin:0;min-width:0;background:var(--surface)}
+.av-group{border:1px solid var(--line);border-radius:var(--radius-md,14px);padding:12px 16px 14px;margin:0;min-width:0;background:var(--surface);box-shadow:var(--edge-light)}
 .av-group legend{font:700 .88rem var(--font-display);padding:0 6px}
 .av-group .small-text{margin:2px 0 8px}
 .av-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}.av-row>span{font-size:.76rem;font-weight:700;color:var(--muted);min-width:3.2em}

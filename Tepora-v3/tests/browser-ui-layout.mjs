@@ -104,6 +104,35 @@ try{
   await evaluate('uiTest.closePanel()');assert.equal(await visible('.workbench .approval-card'),true);
   assert.equal(await evaluate('document.querySelector("#panel").hasAttribute("data-kind")'),false);
  });
+ await check('settings navigation tracks scrolling, the last section and re-entry at the top',async()=>{
+  await viewport(1440);await nav('settings');
+  const current=()=>evaluate('document.querySelector(".settings-nav [aria-current=true]")?.dataset.id');
+  await evaluate('document.querySelector("#settings-character").scrollIntoView({block:"start"})');await settle();
+  assert.equal(await current(),'character');
+  await evaluate('document.querySelector("#surface").scrollTop=1e6');await settle();
+  assert.equal(await current(),'data','the last section is current at the bottom');
+  await nav('home');await nav('settings');
+  assert.equal(await evaluate('document.querySelector("#surface").scrollTop'),0);
+  assert.equal(await current(),'ai','re-entering settings resets the current section with its scroll position');
+ });
+ await check('docked panels fill the layout height even when the home composer takes its own row',async()=>{
+  for(const width of [1440,1180]){
+   await viewport(width);await nav('home');
+   await evaluate('uiTest.openPanel("確認用のパネル","<p>パネルの内容</p>","creative")');await settle();
+   const rects=await evaluate('(()=>{const p=document.querySelector("#panel").getBoundingClientRect(),l=document.querySelector("#layout").getBoundingClientRect();return {panel:{top:p.top,bottom:p.bottom,height:p.height},layout:{top:l.top,bottom:l.bottom}};})()');
+   assert.ok(Math.abs(rects.panel.top-rects.layout.top)<=1&&Math.abs(rects.panel.bottom-rects.layout.bottom)<=1,JSON.stringify({width,...rects}));
+   await evaluate('uiTest.closePanel()');
+  }
+ });
+ await check('settings adapt to the remaining surface width with conversation and a docked panel open',async()=>{
+  await viewport(1440);await nav('settings');
+  await evaluate('uiTest.actions["talk-open"]();uiTest.openPanel("確認用のパネル","<p>パネルの内容</p>","creative")');await settle();
+  const layout=await evaluate('(()=>{const s=document.querySelector("#surface"),g=document.querySelector(".settings-grid");return {width:s.clientWidth,scrollWidth:s.scrollWidth,columns:getComputedStyle(g).gridTemplateColumns};})()');
+  assert.ok(layout.width<1024,JSON.stringify(layout));
+  assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));
+  assert.equal(layout.columns.split(" ").length,1,'settings navigation must stack above narrow content');
+  await evaluate('uiTest.closePanel();uiTest.actions["talk-close"]()');
+ });
  await check('toast can be dismissed, and navigation clears it; dark mode and idle mode still work',async()=>{
   await evaluate('uiTest.notice("確認用のお知らせ")');assert.equal(await evaluate('document.querySelector("#toast").classList.contains("show")'),true);
   await evaluate('document.querySelector("#toast").click()');assert.equal(await evaluate('document.querySelector("#toast").classList.contains("show")'),false);
