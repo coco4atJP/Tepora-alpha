@@ -3,8 +3,10 @@ import array
 import base64
 import collections
 import http.client
+import importlib.util
 import json
 import os
+import random
 import sys
 import tempfile
 import threading
@@ -12,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 from speech_server import AudioSessions, make_server
-from wake_server import OpenWakeWord, local_onnx, main
+from wake_server import OpenWakeWord, echo_correlated, local_onnx, main
 
 
 def pcm(samples=None):
@@ -285,9 +287,255 @@ class WakeTests(unittest.TestCase):
             factory.return_value.server_port = 8769
             factory.return_value.serve_forever.side_effect = KeyboardInterrupt
             main()
-            adapter.assert_called_once_with(*self.paths, 0.5)
+            adapter.assert_called_once_with(*self.paths, 0.5, barge_in=False,
+                                            reference_veto_seconds=2.0, echo_window_ms=500)
             factory.assert_called_once_with(adapter.return_value, 8769, "local-token")
             factory.return_value.server_close.assert_called_once_with()
+
+    def duplex_backend(self, microphone=None, reference=None, matcher=None, **options):
+        microphone, reference = microphone or FakeModel(), reference or FakeModel()
+        models = iter((microphone, reference))
+        backend = OpenWakeWord(*self.paths, barge_in=True, _model_factory=lambda **_: next(models),
+                               _pcm_converter=lambda samples: samples,
+                               _echo_matcher=matcher or (lambda mic, ref: False), **options)
+        return backend, microphone, reference
+
+    def test_cli_barge_in_opt_in_and_bounded_window_arguments(self):
+        arguments = ["wake_server.py", "--model", self.paths[0], "--melspec-model", self.paths[1],
+                     "--embedding-model", self.paths[2], "--barge-in",
+                     "--reference-veto-seconds", "3", "--echo-window-ms", "1000"]
+        with patch.object(sys, "argv", arguments), patch("wake_server.OpenWakeWord") as adapter, \
+             patch("wake_server.make_server") as factory, patch("builtins.print"):
+            factory.return_value.server_port = 8769
+            factory.return_value.serve_forever.side_effect = KeyboardInterrupt
+            main()
+            adapter.assert_called_once_with(*self.paths, 0.5, barge_in=True,
+                                            reference_veto_seconds=3.0, echo_window_ms=1000)
+
+    @staticmethod
+    def interleaved(microphone=0.1, reference=0.2):
+        return array.array("f", [microphone, reference] * 3200)
+
+    def test_duplex_requires_explicit_opt_in_and_two_model_instances(self):
+        backend = self.backend()
+        self.assertIsNone(backend.reference_model)
+        with self.assertRaises(ValueError):
+            AudioSessions(backend).start(channels=2)
+        duplex, microphone, reference = self.duplex_backend()
+        self.assertIs(duplex.model, microphone)
+        self.assertIs(duplex.reference_model, reference)
+        self.assertIsNot(microphone, reference)
+        state = duplex.start_duplex()
+        self.assertTrue(state["duplex"])
+        self.assertEqual((microphone.resets, reference.resets), (1, 1))
+        duplex.cancel(state)
+        mono = duplex.start()
+        self.assertFalse(mono["duplex"])
+        duplex.chunk([0.0] * 3200, mono)
+        self.assertEqual(len(reference.frames), 0)
+
+    def test_duplex_configuration_is_finite_and_bounded(self):
+        for options in ({"reference_veto_seconds": 0}, {"reference_veto_seconds": 5.1},
+                        {"reference_veto_seconds": float("nan")}, {"reference_veto_seconds": True},
+                        {"echo_window_ms": 39}, {"echo_window_ms": 2001},
+                        {"echo_window_ms": 500.5}, {"echo_window_ms": True}):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                self.duplex_backend(**options)
+
+    def test_reference_is_fully_processed_before_microphone_with_current_history(self):
+        order, compared = [], []
+        class OrderedModel(FakeModel):
+            def __init__(self, label, scores):
+                super().__init__(scores)
+                self.label = label
+            def predict(self, frame):
+                order.append(self.label)
+                return super().predict(frame)
+        def matcher(mic, history):
+            compared.append((list(mic), history))
+            return True
+        backend, microphone, reference = self.duplex_backend(
+            OrderedModel("microphone", [{"wake": 0.9}]),
+            OrderedModel("reference", [{"wake": 0.0}]), matcher)
+        state = backend.start_duplex()
+        backend.chunk(self.interleaved(), state)
+        self.assertEqual(order, ["reference", "reference", "microphone", "microphone"])
+        self.assertFalse(backend.detection(state))
+        self.assertEqual(compared, [], "Incomplete delay history is ambiguous")
+        for _ in range(3):
+            backend.chunk(self.interleaved(), state)
+        self.assertEqual(len(compared), 1)
+        self.assertAlmostEqual(compared[0][0][-1], 0.1, places=6)
+        self.assertAlmostEqual(compared[0][1][-1], 0.2, places=6)
+        self.assertEqual(microphone.frames[0][0], 3277)
+        self.assertEqual(reference.frames[0][0], 6554)
+
+    def test_reference_wake_veto_persists_two_seconds_without_triggering(self):
+        calls = []
+        backend, _, _ = self.duplex_backend(FakeModel([{"wake": 1.0}]),
+                                            FakeModel([{"wake": 1.0}, {"wake": 0.0}]),
+                                            lambda mic, ref: calls.append(True) or False)
+        state = backend.start_duplex()
+        for _ in range(11):
+            backend.chunk(self.interleaved(), state)
+            self.assertFalse(backend.detection(state))
+        self.assertEqual(calls, [])
+        backend.chunk(self.interleaved(), state)
+        self.assertTrue(backend.detection(state))
+        self.assertEqual(calls, [True])
+
+    def test_nonwake_microphone_never_triggers_from_reference_energy_or_wake(self):
+        calls = []
+        backend, _, _ = self.duplex_backend(FakeModel([{"wake": 0.1}]), FakeModel([{"wake": 1.0}]),
+                                            lambda mic, ref: calls.append(True) or False)
+        state = backend.start_duplex()
+        for _ in range(20):
+            backend.chunk(self.interleaved(0.9, 0.9), state)
+        self.assertFalse(backend.detection(state))
+        self.assertEqual(calls, [])
+        self.assertEqual(len(state["reference_history"]), 11200)
+        self.assertLess(len(state["reference_pending"]), 1280)
+        self.assertLess(len(state["pending"]), 1280)
+
+    def test_uncorrelated_nearend_wake_candidate_requires_fresh_mono_confirmation_outside_worker(self):
+        backend, _, _ = self.duplex_backend(FakeModel([{"wake": 0.9}]))
+        state = backend.start_duplex()
+        for _ in range(3):
+            self.assertEqual(backend.chunk(self.interleaved(), state), "")
+            self.assertFalse(backend.detection(state))
+        backend.chunk(self.interleaved(), state)
+        self.assertTrue(backend.detection(state))
+        backend.cancel(state)
+        replacement = backend.start()
+        self.assertFalse(backend.detection(replacement))
+        with self.assertRaises(ValueError):
+            backend.detection(state)
+
+    def test_duplex_cancellation_during_reference_predict_rejects_candidate_and_serializes_reset(self):
+        reference = FakeModel()
+        reference.release = threading.Event()
+        self.addCleanup(reference.release.set)
+        backend, microphone, _ = self.duplex_backend(FakeModel([{"wake": 1.0}]), reference)
+        state = backend.start_duplex()
+        chunk_thread, results, errors = self.start_thread(lambda: backend.chunk(self.interleaved(), state))
+        self.assertTrue(reference.entered.wait(2))
+        backend.cancel(state)
+        start_thread, states, start_errors = self.start_thread(backend.start_duplex)
+        self.assertEqual(microphone.resets, 1)
+        self.assertEqual(reference.resets, 1)
+        reference.release.set()
+        chunk_thread.join(3)
+        start_thread.join(3)
+        self.assertEqual(results, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], ValueError)
+        self.assertEqual(start_errors, [])
+        self.assertEqual((microphone.resets, reference.resets), (2, 2))
+        self.assertEqual(microphone.frames, [])
+        self.assertFalse(backend.detection(states[0]))
+
+    def test_duplex_transport_shape_retry_and_per_channel_budget(self):
+        backend, microphone, _ = self.duplex_backend()
+        sessions = AudioSessions(backend)
+        sid = sessions.start(channels=2)["session_id"]
+        for count in (3199, 3200, 6399, 6401, 12800):
+            with self.subTest(count=count), self.assertRaises(ValueError):
+                sessions.chunk(sid, 0, pcm([0.0] * count))
+        for value in (float("nan"), float("inf"), 1.5):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                sessions.chunk(sid, 0, pcm([value] * 6400))
+        self.assertEqual(microphone.frames, [])
+        packet = pcm(self.interleaved())
+        reply = sessions.chunk(sid, 0, packet)
+        self.assertEqual(sessions.sessions[sid]["samples"], 3200)
+        self.assertEqual(sessions.chunk(sid, 0, packet), reply)
+        self.assertEqual(len(microphone.frames), 2)
+        sessions.sessions[sid]["samples"] = 16000 * 120 - 3200
+        sessions.chunk(sid, 1, packet)
+        self.assertEqual(sessions.sessions[sid]["samples"], 16000 * 120)
+        with self.assertRaises(ValueError):
+            sessions.chunk(sid, 2, packet)
+        self.assertEqual(sessions.sessions[sid]["next"], 2)
+        state = sessions.sessions[sid]["state"]
+        sessions.cancel(sid)
+        with self.assertRaises(ValueError):
+            backend.detection(state)
+
+    def test_duplex_http_channels_are_forwarded_and_malformed_chunks_rejected(self):
+        backend, _, _ = self.duplex_backend(FakeModel([{"wake": 0.9}]))
+        server = make_server(backend, 0, "duplex-token")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        def cleanup():
+            server.shutdown()
+            server.server_close()
+            thread.join(3)
+        self.addCleanup(cleanup)
+        auth = {"Authorization": "Bearer duplex-token"}
+        status, result = self.request(server, "POST", "/api/start", {"sample_rate": 16000, "channels": 2}, auth)
+        self.assertEqual(status, 200)
+        sid = result["session_id"]
+        request = {"session_id": sid, "sequence": 0, "pcm": pcm()}
+        self.assertEqual(self.request(server, "POST", "/api/chunk", request, auth)[0], 422)
+        request["pcm"] = pcm(self.interleaved())
+        self.assertEqual(self.request(server, "POST", "/api/chunk", request, auth),
+                         (200, {"text": "", "final": False, "detected": False}))
+        for sequence in range(1, 4):
+            request["sequence"] = sequence
+            status, result = self.request(server, "POST", "/api/chunk", request, auth)
+            self.assertEqual(status, 200)
+        self.assertTrue(result["detected"])
+        self.assertEqual(self.request(server, "POST", "/api/cancel", {"session_id": sid}, auth)[0], 200)
+
+    @unittest.skipUnless(importlib.util.find_spec("numpy") is not None,
+                         "Optional NumPy FFT maths unavailable; runtime-free duplex contract tests still run")
+    def test_synthetic_echo_and_independent_nearend_through_duplex_fake_detectors(self):
+        rng = random.Random(51)
+        reference = [rng.uniform(-0.3, 0.3) for _ in range(3200 * 8)]
+        for delay in (0, 17, 4799, 8000):
+            with self.subTest(delay=delay):
+                backend, _, _ = self.duplex_backend(FakeModel([{"wake": 1.0}]), matcher=echo_correlated)
+                state = backend.start_duplex()
+                for start in range(0, len(reference), 3200):
+                    packet = array.array("f")
+                    for index in range(start, start + 3200):
+                        packet.extend((reference[index - delay] * -0.4 if index >= delay else 0.0,
+                                       reference[index]))
+                    backend.chunk(packet, state)
+                    self.assertFalse(backend.detection(state))
+        backend, _, _ = self.duplex_backend(FakeModel([{"wake": 1.0}]), matcher=echo_correlated)
+        state = backend.start_duplex()
+        for start in range(0, 3200 * 4, 3200):
+            packet = array.array("f")
+            for index in range(start, start + 3200):
+                packet.extend((rng.uniform(-0.3, 0.3), reference[index]))
+            backend.chunk(packet, state)
+        self.assertTrue(backend.detection(state))
+
+
+@unittest.skipUnless(importlib.util.find_spec("numpy") is not None,
+                     "Optional NumPy FFT maths unavailable; runtime-free duplex contract tests still run")
+class EchoMathTests(unittest.TestCase):
+    def test_gain_polarity_dc_and_all_sample_delay_echoes_are_vetoed(self):
+        rng = random.Random(71)
+        reference = [rng.uniform(-0.3, 0.3) for _ in range(11200)]
+        for delay in (0, 1, 17, 3199, 3200, 7999, 8000):
+            for gain in (0.05, 0.5, -0.8):
+                start = len(reference) - 3200 - delay
+                microphone = [gain * v + 0.02 for v in reference[start:start + 3200]]
+                with self.subTest(delay=delay, gain=gain):
+                    self.assertTrue(echo_correlated(microphone, reference))
+
+    def test_uncorrelated_nearend_during_nonwake_playback_is_not_echo(self):
+        rng = random.Random(17)
+        reference = [rng.uniform(-0.3, 0.3) for _ in range(11200)]
+        microphone = [rng.uniform(-0.3, 0.3) + 0.1 * v for v in reference[-3200:]]
+        self.assertFalse(echo_correlated(microphone, reference))
+        self.assertFalse(echo_correlated(microphone, [0.0] * 3200))
+
+    def test_flat_microphone_with_active_reference_is_ambiguous_and_vetoed(self):
+        self.assertTrue(echo_correlated([0.0] * 3200, [0.0] * 3199 + [0.2]))
+        self.assertFalse(echo_correlated([0.0] * 3200, [0.0] * 3200))
 
 
 if __name__ == "__main__":

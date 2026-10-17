@@ -1,6 +1,65 @@
 # Tepora 3.0.0-beta.11 — QA
 
-## Local hands-free voice (2026-10-17 UTC)
+## Confirmed voice interruption and runtime cost (2026-10-17 UTC)
+
+The opt-in reference-aware path adds playback → candidate pause → acoustic-tail
+wait → fresh wake confirmation → ASR, with owned-playback resume on timeout.
+It retains the default half-duplex path. These are synthetic model/audio
+contracts, not proof of acoustic echo cancellation or real-room wake quality.
+No real microphone, model download, credentials or paid inference were used.
+
+Final local source checks under Node 24.19.0:
+
+- **253/253** focused audio/controller/playback/dialogue/bundle/Node/native HTTP
+  checks passed, including malformed stereo pairs, cancellation, delayed/stale
+  output and timer races, exact-player resume, mute and a 500-readout source
+  lifetime bound. Another **6/6** runtime projection and **5/5** route-inventory
+  checks passed. Projection checks include 800 seeded histories, 480 admission
+  cases, two real Rust controllers and preservation of real SQLite payloads.
+- Rust: **561 native library + 2 native CLI + 142 core = 705** tests passed.
+- Python: **50/50** passed with local NumPy. The isolated stdlib-only CI command
+  runs the same 50 cases with **46 passes and 4 explicit NumPy math skips**;
+  model/transport/cancellation fakes still run there.
+- **13/13** rendered production-bundle browser checks cover default opt-out,
+  the double-wake interruption/confirmation path, timeout resume, immediate mute
+  and the visible status at 320 px. Audio, reference and worker responses are
+  synthetic; Chromium uses an isolated profile with `--no-sandbox` and external
+  HTTP(S) blocked. This does not verify actual audio capture or AEC.
+- Broad `npm test`: **1005/1009** passed, zero skips. The same four host
+  environment failures remain: three existing Computer Use browser fixtures
+  cannot start the installed Chromium SUID sandbox; one bwrap fixture cannot
+  create its UID map on the read-only host. They were executed and failed,
+  rather than skipped or weakened. This is not a passing local quality gate.
+- **296** JavaScript syntax modules, preview build, scenario traceability,
+  **5/5** synthetic capability checks and **13/13** repository entry checks
+  passed. OS CI and packaged startup evidence are recorded on
+  [PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+With synthetic eight-worker plus foreground traffic, scheduling facts shrink
+from **3,177,731 to 80,331 bytes**. Forty alternating real Rust SQLite dispatches
+give median **273.530 → 207.877 ms**, CPU **276.185 → 209.310 ms** and p95
+**309.325 → 251.223 ms**. The full transcript stays in storage and model context;
+there is no new cache or telemetry write. SQLite reads still dominate. The
+bridge-only result is **69.792 → 4.228 ms** and must not be presented as the
+end-to-end dispatch time. See [the benchmark recipe](HARNESS-RELIABILITY.md#scheduling-snapshot-projection).
+
+The final worklet's mono path preserves 960,000 output samples for each 60-second
+fixture at 16/44.1/48/96 kHz. Compared with `31d4353` in the same Node VM run,
+process CPU was **611.72/1,223.10/1,045.13/1,626.17 ms**, versus
+**1,867.56/4,081.73/3,377.87/5,850.08 ms** (about **67–72% less**). This excludes
+models, browser deadlines, reference inference, power and RSS. The opt-in FFT
+veto alone measured median **1.317 ms** for a 500 ms history and **4.845 ms** for
+a 2000 ms history over 100 synthetic comparisons; these are not wake-model costs.
+
+Required hardware acceptance remains: compatible real wake/ASR/TTS checkpoints,
+voice quality and false activations, nonlinear/delayed echo and double-talk,
+headphones/speakers, real AEC, CPU/model RSS, autoplay, microphone unplug,
+sleep/resume and Windows/macOS native WebViews. The new option reports browser
+AEC configuration and uses conservative reference veto plus confirmation;
+it does not establish reliable speakerphone barge-in.
+[Setup, bounds and exact behavior](HANDS-FREE-VOICE.md).
+
+## Initial local hands-free voice (`64f56be`, 2026-10-17 UTC)
 
 Base: canonical V3 `31d4353` (remote branches and open PRs inspected first).
 The original manual voice path passed 31 Node tests and 13 Python contracts.
@@ -57,8 +116,9 @@ where the supplied baseline is `31d4353:Tepora-v3/web/pcm-worklet.js`.
 Real-device acceptance remains: actual compatible models, wake quality and
 false activation rates, noisy rooms, feedback/headphones, CPU/model RAM,
 ASR/TTS latency, autoplay, unplug, sleep/resume and packaged native WebViews.
-Voice-only TTS barge-in is not implemented; the current path is half duplex
-with immediate explicit interruption and an 800 ms output tail. Endpointing is
+The initial path above is half duplex with immediate explicit interruption
+and an 800 ms output tail. The subsequent experimental two-stage voice
+interruption retains that default and is recorded below. Endpointing is
 a local energy gate rather than learned speech VAD. [Setup and exact limits](HANDS-FREE-VOICE.md).
 
 

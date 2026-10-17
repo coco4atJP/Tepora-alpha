@@ -122,3 +122,21 @@ test('wake: cancelling a worker response body reports cancellation before detect
  const pending=speech.chunk({id,sequence:0,pcm:samples()}),rejected=assert.rejects(pending,{status:499});
  await waiting;await speech.cancel(id);await rejected;assert.equal(speech.sessions.size,0);
 });
+test('barge: interleaved microphone and reference share the slot and budget by frame',async t=>{
+ wakeEndpoint(t);const calls=[];
+ const speech=new SpeechStream(store,async(url,options)=>{
+  calls.push({url,body:JSON.parse(options.body)});
+  return Response.json(url.endsWith('/api/start')?{session_id:'barge-worker'}:url.endsWith('/api/chunk')?{text:'',detected:false}:{cancelled:true});
+ });t.after(()=>speech.close());
+ const {id}=await speech.start(true,2);
+ assert.deepEqual(calls[0],{url:'http://127.0.0.1:8769/api/start',body:{sample_rate:16000,channels:2}});
+ await assert.rejects(speech.start(),{status:409});await assert.rejects(speech.start(true),{status:409});
+ await assert.rejects(speech.chunk({id,sequence:0,pcm:Buffer.alloc(3*4).toString('base64')}),{status:400,message:'Incomplete audio channel pair'});
+ assert.equal(calls.length,1);
+ const pcm=Buffer.alloc(16000*4).toString('base64');
+ for(let sequence=0;sequence<240;sequence++)assert.equal((await speech.chunk({id,sequence,pcm})).detected,false);
+ await assert.rejects(speech.chunk({id,sequence:240,pcm:Buffer.alloc(2*4).toString('base64')}),{status:413});
+ assert.equal(calls.length,241);
+ await speech.cancel(id);assert.equal(calls.at(-1).url,'http://127.0.0.1:8769/api/cancel');
+ assert.equal(speech.sessions.size,0);
+});

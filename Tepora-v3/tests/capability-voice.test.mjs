@@ -10,9 +10,9 @@ async function until(check){for(let i=0;i<50;i++){if(check())return;await Promis
 
 function fixture(t,{domain='device',previewMode=false,reply='今回の返事です。'}={}){
  const previous={document:globalThis.document,setTimeout:globalThis.setTimeout,clearTimeout:globalThis.clearTimeout};
- const listeners=new Map(),nodes=new Map(),timers=new Map(),timerHistory=[],calls=[],notices=[],sheets=[],audios=[],playback=[],plans=new Map(),subscribers=[];
+ const listeners=new Map(),nodes=new Map(),timers=new Map(),timerHistory=[],calls=[],notices=[],sheets=[],audios=[],playback=[],playbackRefs=[],plans=new Map(),subscribers=[];
  let nextTimer=0,privateView=true,playing=false;
- const f={calls,notices,sheets,audios,playback,timers,timerHistory,reply,jobs:[],
+ const f={calls,notices,sheets,audios,playback,playbackRefs,timers,timerHistory,reply,jobs:[],
   profile:{id:'voice',identity:'voice-v1',name:'Fixture voice',role:'tts',domain,model:'fixture',baseUrl:domain==='device'?'http://127.0.0.1:8880/v1':'https://voice.invalid/v1',enabled:true},
   plan(path,method,value){const key=method+' '+path;if(!plans.has(key))plans.set(key,[]);plans.get(key).push(value);},
   get speaking(){return playing;},
@@ -35,7 +35,7 @@ function fixture(t,{domain='device',previewMode=false,reply='今回の返事で�
      addEventListener(name,callback){if(!callbacks.has(name))callbacks.set(name,[]);callbacks.get(name).push(callback);},
      emit(name){if(name==='play'){this.paused=false;this.ended=false;}if(name==='pause')this.paused=true;if(name==='ended'){this.paused=true;this.ended=true;}
       this['on'+name]?.({target:this});for(const callback of callbacks.get(name)||[])callback({target:this});},
-     play(){this.emit('play');return f.nextPlay?.promise||Promise.resolve();},pause(){if(!this.paused)this.emit('pause');}
+     play(){if(f.playStarts!==false)this.emit('play');return f.nextPlay?.promise||Promise.resolve();},pause(){if(!this.paused)this.emit('pause');}
     };this.audio=audio;audios.push(audio);
    }
   },get(){return this.html||'';}});
@@ -57,7 +57,7 @@ function fixture(t,{domain='device',previewMode=false,reply='今回の返事で�
  }};
  f.ui=createCapabilityUI({bridge,previewMode,isPrivate:()=>privateView,isOpen:()=>false,
   attached:()=>[],latestReply:()=>f.reply,notice:message=>notices.push(message),closeSheet:()=>{},
-  openSheet:(title,body,kind)=>sheets.push({title,body,kind}),onPlayback:value=>{playing=value;playback.push(value);}});
+  openSheet:(title,body,kind)=>sheets.push({title,body,kind}),onPlayback:(value,audio)=>{playing=value;playback.push(value);playbackRefs.push({active:value,audio});}});
  t.after(()=>{f.ui.stop();Object.assign(globalThis,previous);});
  return f;
 }
@@ -222,4 +222,83 @@ test('a stale timeout cannot clear a replacement output reservation',async t=>{
 test('hiding the document stops output and suppresses pending autoplay',async t=>{
  const f=fixture(t);await f.ui.readReply();globalThis.document.hidden=true;f.event('visibilitychange');assert.equal(f.speaking,false);assert.equal(f.timers.size,0);
  f.emit(ready());assert.equal(f.audios.length,0);
+});
+
+
+test('playback callbacks distinguish pending generation from its exact media reference',async t=>{
+ const f=fixture(t),generation=deferred();f.plan('/api/media/jobs','POST',generation);
+ const reading=f.ui.readReply();await until(()=>f.posts().length===1);
+ assert.deepEqual(f.playbackRefs.at(-1),{active:true,audio:null});assert.equal(f.ui.pauseForBarge(),null);
+ f.jobs=[ready()];generation.resolve({id:'tts-1'});await reading;const audio=f.audios[0];
+ assert.deepEqual(f.playbackRefs.at(-1),{active:true,audio});
+ audio.emit('pause');assert.deepEqual(f.playbackRefs.at(-1),{active:false,audio});
+ audio.emit('play');assert.deepEqual(f.playbackRefs.at(-1),{active:true,audio});
+ f.ui.stopPlayback();assert.deepEqual(f.playbackRefs.at(-1),{active:false,audio:null});
+});
+
+test('barge pause resumes the same audio without generating another request',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge();
+ assert.ok(handle);assert.equal(audio.paused,true);assert.equal(f.speaking,false);
+ assert.equal(await handle.resume(),true);assert.equal(audio.paused,false);assert.equal(f.speaking,true);assert.equal(f.audios.length,1);assert.equal(f.posts().length,1);
+ assert.equal(await handle.resume(),false);handle.cancel();assert.equal(audio.paused,false,'consumed handle cannot stop resumed audio');
+});
+
+test('barge cancellation stops only its owned output and ignores later ready events',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const handle=f.ui.pauseForBarge();handle.cancel();
+ assert.equal(f.speaking,false);assert.equal(await handle.resume(),false);f.emit(ready());assert.equal(f.audios.length,1);
+});
+
+test('stale barge handles cannot resume or stop a replacement player',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const old=f.audios[0],handle=f.ui.pauseForBarge();
+ f.reply='Replacement reply';f.jobs=[ready('tts-2','replacement')];await f.ui.readReply();const replacement=f.audios[1];
+ assert.equal(await handle.resume(),false);handle.cancel();assert.equal(old.paused,true);assert.equal(replacement.paused,false);assert.equal(f.speaking,true);
+});
+
+for(const mode of ['paused','muted','zero-volume','ended','error','disconnected','hidden','shared'])test(`barge pause refuses ${mode} output`,async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0];
+ if(mode==='paused')audio.emit('pause');if(mode==='muted')audio.muted=true;if(mode==='zero-volume')audio.volume=0;if(mode==='ended')audio.ended=true;if(mode==='error')audio.error={code:3};if(mode==='disconnected')audio.isConnected=false;if(mode==='hidden')document.hidden=true;if(mode==='shared')f.setPrivate(false);
+ assert.equal(f.ui.pauseForBarge(),null);
+});
+
+for(const change of ['volumechange','ended','error','seeking','ratechange','pointerdown','keydown','input','change','pause','play'])test(`media ${change} invalidates a barge resume`,async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge();audio.emit(change);
+ assert.equal(await handle.resume(),false);const paused=audio.paused;handle.cancel();assert.equal(audio.paused,paused,'invalidated handle cannot stop manually controlled audio');
+});
+
+for(const change of ['muted','zero-volume','private','hidden','deleted','stopped'])test(`barge resume cannot autoplay after output becomes ${change}`,async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge();
+ if(change==='muted')audio.muted=true;if(change==='zero-volume')audio.volume=0;if(change==='private')f.setPrivate(false);if(change==='hidden'){document.hidden=true;f.event('visibilitychange');}if(change==='deleted')f.deleted('tts-1');if(change==='stopped')f.ui.stopPlayback();
+ assert.equal(await handle.resume(),false);assert.equal(audio.paused,true);audio.muted=false;audio.volume=1;f.setPrivate(true);document.hidden=false;assert.equal(await handle.resume(),false,'an invalid handle stays invalid');
+});
+
+test('a rejected barge resume stays paused and releases its handle',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge(),play=deferred();f.nextPlay=play;
+ const resuming=handle.resume();play.reject(Error('synthetic autoplay refusal'));assert.equal(await resuming,false);assert.equal(audio.paused,true);assert.equal(f.speaking,false);assert.equal(await handle.resume(),false);
+});
+
+for(const change of ['muted','volumechange','replacement','hidden'])test(`pending barge resume is fenced after ${change}`,async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge(),play=deferred();f.nextPlay=play;
+ const resuming=handle.resume();
+ if(change==='muted'){audio.muted=true;audio.emit('volumechange');}if(change==='volumechange')audio.emit('volumechange');if(change==='hidden'){document.hidden=true;f.event('visibilitychange');}
+ if(change==='replacement'){f.nextPlay=null;f.reply='Replacement';f.jobs=[ready('tts-2','replacement')];await f.ui.readReply();}
+ audio.emit('play');assert.equal(audio.paused,true,'a late play event cannot revive invalid output');play.resolve();assert.equal(await resuming,false);assert.equal(audio.paused,true);
+ if(change==='replacement'){assert.equal(f.audios[1].paused,false);assert.equal(f.speaking,true);}
+});
+
+
+test('a player awaiting autoplay cannot provide a barge pause handle',async t=>{
+ const f=fixture(t),play=deferred();f.playStarts=false;f.nextPlay=play;f.jobs=[ready()];await f.ui.readReply();
+ assert.equal(f.audios[0].paused,true);assert.equal(f.ui.pauseForBarge(),null);
+ play.reject(Error('synthetic autoplay refusal'));await settle();assert.equal(f.speaking,false);
+});
+
+test('cancel during a pending resume fences a delayed play event',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge(),play=deferred();f.playStarts=false;f.nextPlay=play;
+ const resuming=handle.resume();handle.cancel();audio.emit('play');assert.equal(audio.paused,true);play.resolve();assert.equal(await resuming,false);assert.equal(f.speaking,false);
+});
+
+test('a player permits only one pending resume and releases that slot after settlement',async t=>{
+ const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const audio=f.audios[0],handle=f.ui.pauseForBarge(),play=deferred();f.nextPlay=play;
+ const resuming=handle.resume();assert.equal(audio.paused,false);assert.equal(f.ui.pauseForBarge(),null,'pending play cannot accumulate another owned resume');
+ play.resolve();assert.equal(await resuming,true);const next=f.ui.pauseForBarge();assert.ok(next,'settled play releases its per-element slot');next.cancel();assert.equal(audio.paused,true);
 });

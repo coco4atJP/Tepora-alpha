@@ -86,6 +86,11 @@ impl Fixture {
             .start_wake(&json!({"voiceEnabled":true,"asrStreamUrl":"https://unused-asr.invalid"}))
             .unwrap()
     }
+    fn start_barge(&self) -> Value {
+        self.speech
+            .start_barge(&json!({"voiceEnabled":true,"asrStreamUrl":"https://unused-asr.invalid"}))
+            .unwrap()
+    }
 }
 fn pcm(samples: usize) -> String {
     STANDARD.encode(vec![0u8; samples * 4])
@@ -185,15 +190,15 @@ fn validation_budget_and_worker_failure() {
 }
 #[test]
 fn stop_and_close_drain_start_chunk_finish_without_resurrection() {
-    for wake in [false, true] {
+    for mode in ["asr", "wake", "barge"] {
         for route in ["/api/start", "/api/chunk", "/api/finish"] {
             for close in [false, true] {
                 let f = Fixture::new();
                 let s = if route != "/api/start" {
-                    if wake {
-                        f.start_wake()
-                    } else {
-                        f.start()
+                    match mode {
+                        "barge" => f.start_barge(),
+                        "wake" => f.start_wake(),
+                        _ => f.start(),
                     }
                 } else {
                     Value::Null
@@ -202,10 +207,14 @@ fn stop_and_close_drain_start_chunk_finish_without_resurrection() {
                 let speech = f.speech.clone();
                 let route = route.to_owned();
                 let task = std::thread::spawn(move || match route.as_str() {
-                    "/api/start" => {
-                        speech.start_mode(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}), wake)
-                    }
-                    "/api/chunk" => speech.chunk(&json!({"id":s["id"],"sequence":0,"pcm":pcm(1)})),
+                    "/api/start" => speech.start_channels(
+                        &json!({"asrStreamUrl":"http://127.0.0.1:8756"}),
+                        mode != "asr",
+                        if mode == "barge" { 2 } else { 1 },
+                    ),
+                    "/api/chunk" => speech.chunk(
+                        &json!({"id":s["id"],"sequence":0,"pcm":pcm(if mode=="barge"{2}else{1})}),
+                    ),
                     _ => speech.finish(&json!({"id":s["id"]})),
                 });
                 let deadline = std::time::Instant::now() + Duration::from_secs(5);
@@ -233,6 +242,62 @@ fn stop_and_close_drain_start_chunk_finish_without_resurrection() {
             }
         }
     }
+}
+
+#[test]
+fn barge_interleaved_channels_validate_pairs_and_count_budget_per_frame() {
+    let f = Fixture::new();
+    let s = f.start_barge();
+    assert_eq!(
+        f.worker.calls.lock().unwrap()[0],
+        (
+            "/api/start".into(),
+            json!({"sample_rate":16000,"channels":2})
+        )
+    );
+    assert_eq!(f.speech.start_wake(&json!({})).unwrap_err().status, 409);
+    assert_eq!(
+        f.speech
+            .start(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}))
+            .unwrap_err()
+            .status,
+        409
+    );
+    assert_eq!(
+        f.speech
+            .chunk(&json!({"id":s["id"],"sequence":0,"pcm":pcm(3)}))
+            .unwrap_err()
+            .status,
+        400
+    );
+    assert_eq!(f.worker.calls.lock().unwrap().len(), 1);
+    let b = json!({"id":s["id"],"sequence":0,"pcm":pcm(16000)});
+    for detected in [Value::Null, json!(0), json!("true"), json!([]), json!({})] {
+        *f.worker.bad.lock().unwrap() = Some(json!({"text":"","detected":detected}));
+        assert_eq!(f.speech.chunk(&b).unwrap_err().status, 502);
+    }
+    for sequence in 0..240 {
+        *f.worker.bad.lock().unwrap() = Some(json!({"text":"","detected":false}));
+        assert_eq!(
+            f.speech
+                .chunk(&json!({"id":s["id"],"sequence":sequence,"pcm":pcm(16000)}))
+                .unwrap()["detected"],
+            false
+        );
+    }
+    assert_eq!(
+        f.speech
+            .chunk(&json!({"id":s["id"],"sequence":240,"pcm":pcm(2)}))
+            .unwrap_err()
+            .status,
+        413
+    );
+    f.speech.cancel(s["id"].as_str(), false).unwrap();
+    assert!(f.speech.life.lock().unwrap().session.is_none());
+    assert_eq!(
+        f.worker.calls.lock().unwrap().last().unwrap().0,
+        "/api/cancel"
+    );
 }
 
 #[test]

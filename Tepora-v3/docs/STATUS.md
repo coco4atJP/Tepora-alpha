@@ -1,6 +1,6 @@
 # Tepora 3.0.0-beta.11 — current status
 
-Local wake standby (2026-10-17): explicit per-window opt-in, bounded PCM, local energy endpointing, optional device-only readout and CPU endpoint ASR adapter are implemented. See [setup/limits](HANDS-FREE-VOICE.md) and [synthetic validation](QA.md#local-hands-free-voice-2026-10-17-utc). Real microphones/models, noise/echo behavior and native WebViews remain acceptance work.
+Local wake standby (2026-10-17): explicit per-window opt-in, bounded PCM, local energy endpointing, optional device-only readout and CPU endpoint ASR adapter are implemented. See [setup/limits](HANDS-FREE-VOICE.md) and [synthetic validation](QA.md#local-hands-free-voice-2026-10-17-utc). Experimental two-stage voice interruption now adds a same-clock playback reference, local wake/correlation vetoes and fresh confirmation after pausing; it is not proven acoustic echo cancellation. Scheduling snapshots also omit unused transcript bodies while preserving stored content. Real microphones/models, noise/echo behavior and native WebViews remain acceptance work.
 
 ## pi-ai integration (2026-10-16)
 

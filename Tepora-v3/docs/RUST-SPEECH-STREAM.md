@@ -4,6 +4,8 @@ The explicit `--dev-native --agent` host owns R074–R077 (`/api/voice/start`, `
 
 The explicit opt-in wake route `POST /api/voice/wake/start` shares this owner in Node and native. `TEPORA_WAKE_URL` defaults to loopback port 8769, with strict loopback admission and boolean `detected` in wake chunk replies. Idle and ASR sessions cannot overlap. Effect-free mode returns 503. The Node host now also aborts transport and invalidates late results after Stop/cancel. [Hands-free setup and limits](HANDS-FREE-VOICE.md).
 
+`POST /api/voice/barge/start` is the explicit two-channel experimental variant: upstream start receives `channels:2`, 200 ms contains 6,400 interleaved Float32 values, and the 120-second audio budget is counted per channel. The same single slot, strict boolean reply, loopback admission, cancel/Stop and effect-free 503 boundaries apply. Speakerphone quality is not established.
+
 ## Contract
 
 - One ephemeral session, including a pending start. No audio or transcript is stored in SQLite or written to disk.

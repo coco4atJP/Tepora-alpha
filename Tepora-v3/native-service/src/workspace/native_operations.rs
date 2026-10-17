@@ -6,7 +6,7 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::MediaEmbed { .. } | Operation::MediaView { .. } | Operation::SpeechStart | Operation::SpeechWakeStart | Operation::SpeechChunk {..} | Operation::SpeechFinish {..} | Operation::SpeechCancel {..} | Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
+            Operation::MediaEmbed { .. } | Operation::MediaView { .. } | Operation::SpeechStart | Operation::SpeechWakeStart | Operation::SpeechBargeStart | Operation::SpeechChunk {..} | Operation::SpeechFinish {..} | Operation::SpeechCancel {..} | Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
                 | Operation::ModelCatalogImport{..}
                 | Operation::ModelCatalogRefresh
                 | Operation::Setup
@@ -63,6 +63,7 @@ impl Workspace {
             Operation::MediaView { token } => return self.media_view(token, &native.network).map(Some),
             Operation::SpeechStart => {let settings=self.lock()?.settings()?;native.speech.start(&settings)?},
             Operation::SpeechWakeStart => {let settings=self.lock()?.settings()?;native.speech.start_wake(&settings)?},
+            Operation::SpeechBargeStart => {let settings=self.lock()?.settings()?;native.speech.start_barge(&settings)?},
             Operation::SpeechChunk {body} => native.speech.chunk(body)?,
             Operation::SpeechFinish {body} => native.speech.finish(body)?,
             Operation::SpeechCancel {body} => native.speech.cancel(Some(body["id"].as_str().unwrap_or("")),false)?,

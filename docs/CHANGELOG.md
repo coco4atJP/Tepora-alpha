@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Confirmed voice interruption and lighter scheduling (beta.11)
+
+- Add explicit experimental reference-gated, two-stage voice interruption during local TTS: reference-wake/correlation veto, pause, acoustic tail, then a fresh wake before opening ASR; retain half-duplex default and hardware/AEC limitations
+- Bind pause/resume/cancel to the exact readout, fence stale timers and media changes, bound dual-channel capture and require reported microphone echo cancellation
+- Project only Rust-consumed transcript scheduling flags and inbox counts across the synchronous runtime bridge; preserve stored content and pi-ai behavior, with differential tests and a real-SQLite synthetic benchmark
+- See [voice setup and safety limits](../Tepora-v3/docs/HANDS-FREE-VOICE.md) and [runtime measurements](../Tepora-v3/docs/HARNESS-RELIABILITY.md#scheduling-snapshot-projection)
+
 ## Local hands-free voice (beta.11)
 
 - Add explicitly started local wake standby, energy endpointing, bounded PCM transport, immediate mute and optional device-only reply readout; preserve foreground conversation and independent workers

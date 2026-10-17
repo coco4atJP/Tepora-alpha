@@ -3,7 +3,7 @@
   "checkpoint": "native-local-wake-voice",
   "baseline": "765d786d711321890db5c9d7260d8c45bc2e52c3",
   "counting": {
-    "implemented": 95,
+    "implemented": 96,
     "partial": 12,
     "unavailable": 20
   },
@@ -1645,6 +1645,17 @@
       "agent": "implemented",
       "success_status": 200,
       "limit": "Local-only wake session shares the bounded speech owner and cancellation; strict detected boolean. Synthetic worker/browser evidence only; real wake/model/hardware acceptance remains separate.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R150",
+      "method": "POST",
+      "path": "/api/voice/barge/start",
+      "family": "speech",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Experimental device-only playback-reference wake candidates share the speech owner; channels=2, per-channel budget and explicit worker opt-in. Fresh post-pause wake confirmation is required in the UI; this is not validated speakerphone AEC.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     }
   ]

@@ -293,6 +293,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    }
    if(p==='/api/voice/start'&&method==='POST')return json(res,await speech.start());
    if(p==='/api/voice/wake/start'&&method==='POST')return json(res,await speech.start(true));
+   if(p==='/api/voice/barge/start'&&method==='POST')return json(res,await speech.start(true,2));
    if(p==='/api/voice/chunk'&&method==='POST')return json(res,await speech.chunk(await body(req)));
    if(p==='/api/voice/finish'&&method==='POST'){const b=await body(req);return json(res,await speech.finish(b.id));}
    if(p==='/api/voice/cancel'&&method==='POST'){const b=await body(req);return json(res,await speech.cancel(b.id));}

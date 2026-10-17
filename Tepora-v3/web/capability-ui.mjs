@@ -7,7 +7,8 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  const presets={laya:{name:'Laya 多言語版',protocol:'system-one',baseUrl:'http://127.0.0.1:8767/v1',model:'multilingual',domain:'device'},liquid:{name:'Liquid d1',protocol:'system-one',baseUrl:'https://api.liquid.ai/decisions/v1',model:'d1:free',domain:'cloud',apiKeyEnv:'LIQUID_API_KEY',maxParallel:1},embedding:{name:'このPCの意味検索',protocol:'ollama-embed',baseUrl:'http://127.0.0.1:11434/api',model:'',domain:'device'},tts:{name:'ローカル音声',protocol:'openai-speech',baseUrl:'http://127.0.0.1:8880/v1',model:'',domain:'device'},image:{name:'画像生成 API',protocol:'openai-images',baseUrl:'https://api.openai.com/v1',model:'',domain:'cloud'},edit:{name:'画像編集 API',protocol:'openai-image-edit',baseUrl:'https://api.openai.com/v1',model:'',domain:'cloud'},video:{name:'xAI Video',protocol:'xai-video',baseUrl:'https://api.x.ai/v1',model:'grok-imagine-video-1.5',domain:'cloud',assetOrigins:['https://vidgen.x.ai']}};
  const opts=(entries,selected)=>entries.map(([v,l])=>`<option value="${escape(v)}" ${v===selected?'selected':''}>${escape(l)}</option>`).join('');
  const editable=p=>Object.fromEntries(['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','timeoutMs','maxParallel','resource','voice','dimensions','assetOrigins'].filter(k=>p[k]!==undefined&&p[k]!==null).map(k=>[k,p[k]]));
- let config={revision:0,profiles:[],routes:{}},selected=null,jobs=[],pending=null,loginTimer=null,querySerial=0,playing=null,pendingPlaybackId=null,speechEpoch=0,readoutRequest=null,readoutStarting=false,playbackTimer=null;
+ let config={revision:0,profiles:[],routes:{}},selected=null,jobs=[],pending=null,loginTimer=null,querySerial=0,playing=null,pendingPlaybackId=null,speechEpoch=0,readoutRequest=null,readoutStarting=false,playbackTimer=null,bargePause=null;
+ const bargeResumes=new WeakMap();
  const guard=()=>{if(!isPrivate())throw Error('個人表示に戻してから開いてください。');};
  async function refresh(){config=await bridge.request('/api/capabilities');onChanged({capabilities:config});}
  function reportError(e){if(isPrivate())notice(e.message||String(e));}
@@ -48,7 +49,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
    if(slot.dataset.assetId===a.id)continue;slot.querySelector('video')?.pause();slot.replaceChildren();slot.dataset.assetId=a.id;
    if(a.mime.startsWith('audio/')){slot.innerHTML=btn('creative-listen','聴く','volume','button secondary',`data-asset="${a.id}" data-title="${escape(j.title)}"`);continue;}
    const el=document.createElement(a.mime.startsWith('image/')?'img':'video');el.dataset.mediaId=a.id;el.src=`/api/media/assets/${a.id}`;
-   if(el.tagName==='IMG'){el.alt=j.title;el.loading='lazy';}else{el.controls=true;el.preload='metadata';el.playsInline=true;el.addEventListener('play',()=>{if(playing!==el)playing?.pause();playing=el;});}
+   if(el.tagName==='IMG'){el.alt=j.title;el.loading='lazy';}else{el.controls=true;el.preload='metadata';el.playsInline=true;el.addEventListener('play',()=>{if(playing!==el){invalidateBarge();playing?.pause();playing=el;onPlayback(false,null);}});}
    slot.append(el);
   }
  }
@@ -76,14 +77,48 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
   $('#managed-login').innerHTML=status.phase==='waiting'?`<p>Codexが発行した認証先で手続きを進めてください。</p>${status.userCode?`<strong class="device-code">${escape(status.userCode)}</strong>`:''}${btn('codex-login-open','OpenAIで認証する','','button secondary',`data-id="${escape(status.loginId)}"`)}<p>認証情報はCodexが保存します。Teporaはトークンを取り出しません。</p>`:`<p>${escape({idle:'まだ開始していません',starting:'Codexに接続しています',complete:'Codexの認証を確認しました',failed:'認証できませんでした。Codexの導入と対応版を確認してください。',cancelled:'手続きを取り消しました'}[status.phase]||status.phase)}</p>`;
  }
  async function login(){guard();openSheet('ChatGPTの契約でCodexを使う',`<p>インストール済みのCodex App Serverがサインインを担当します。利用枠・費用・使用できるモデルは契約に従います。まずCodex連携を有効にしてください。</p><div class="sheet-actions">${btn('codex-login-device','デバイスコードで接続','','button')}${btn('codex-login-browser','ブラウザで接続','','button secondary')}${btn('codex-login-cancel','手続きを取り消す','','text-button')}</div><div id="managed-login" role="status"></div>`,'codex-login');loginView(await bridge.request('/api/codex/login'));}
+ // A pause handle owns one exact player and speech epoch. Media controls and
+ // lifecycle changes invalidate it; a delayed play promise cannot reclaim output.
+ const ownsBarge=token=>bargePause===token&&playing===token.audio&&speechEpoch===token.epoch;
+ const canResumeBarge=token=>ownsBarge(token)&&isPrivate()&&!document.hidden&&token.audio.isConnected&&!token.audio.muted&&token.audio.volume>0&&!token.audio.ended&&!token.audio.error;
+ function invalidateBarge(){bargePause=null;}
+ function pauseForBarge(){
+  const audio=playing;
+  if(!audio||audio.tagName!=='AUDIO'||audio.paused||audio.ended||audio.error||audio.muted||!(audio.volume>0)||!audio.isConnected||!isPrivate()||document.hidden||bargeResumes.has(audio))return null;
+  const token={audio,epoch:speechEpoch,ownPause:true,resuming:false};bargePause=token;audio.pause();
+  return {
+   async resume(){
+    if(!canResumeBarge(token)||!audio.paused||token.resuming){if(ownsBarge(token))invalidateBarge();return false;}
+    token.resuming=true;bargeResumes.set(audio,token);
+    try{
+     await audio.play();
+     if(!canResumeBarge(token)||audio.paused){audio.pause();if(ownsBarge(token))invalidateBarge();return false;}
+     invalidateBarge();return true;
+    }catch{if(ownsBarge(token))invalidateBarge();audio.pause();return false;}
+    finally{bargeResumes.delete(audio);token.resuming=false;}
+   },
+   cancel(){if(ownsBarge(token))stopPlayback();}
+  };
+ }
  function listenAsset(id,title){
   guard();stopPlayback();const epoch=speechEpoch;let dock=$('#ability-now-playing');if(!dock){dock=document.createElement('div');dock.id='ability-now-playing';dock.className='ability-now-playing';$('.input-region').prepend(dock);}
   dock.innerHTML=`<div><small>読み上げ · ${escape(title.slice(0,55))}</small><audio controls data-media-id="${id}" src="/api/media/assets/${id}"></audio></div>${btn('creative-audio-stop','停止','stop','text-button')}`;playing=dock.querySelector('audio');const audio=playing,current=()=>playing===audio&&epoch===speechEpoch;
-  const audible=()=>{if(current())onPlayback(!audio.paused&&!audio.ended&&!audio.muted&&audio.volume>0);};
-  onPlayback(true);audio.onplay=audio.onvolumechange=audible;audio.onpause=audio.onended=audio.onerror=()=>{if(current()){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);}};
-  audio.play().catch(()=>{if(current()){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);notice('音声の準備ができました。再生ボタンを押してください。');}});
+  const audible=()=>{if(current())onPlayback(!audio.paused&&!audio.ended&&!audio.muted&&audio.volume>0,audio);};
+  const quiet=()=>{if(current()){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false,audio);}};
+  audio.onplay=()=>{
+   const token=bargeResumes.get(audio);if(token&&!canResumeBarge(token)){audio.pause();return;}
+   if(!current())return;
+   if(bargePause?.audio===audio&&!bargePause.resuming)invalidateBarge();
+   if(!isPrivate()||document.hidden){stopPlayback();return;}audible();
+  };
+  audio.onvolumechange=()=>{if(current()){invalidateBarge();audible();}};
+  audio.onpause=()=>{if(current()){if(bargePause?.audio===audio&&bargePause.ownPause)bargePause.ownPause=false;else invalidateBarge();quiet();}};
+  audio.onended=audio.onerror=()=>{if(current()){invalidateBarge();quiet();}};
+  for(const name of ['seeking','ratechange','pointerdown','keydown','input','change'])audio.addEventListener(name,()=>{if(current())invalidateBarge();});
+  onPlayback(true,audio);
+  audio.play().catch(()=>{if(current()){invalidateBarge();quiet();notice('音声の準備ができました。再生ボタンを押してください。');}});
  }
- function stopPlayback(){clearTimeout(playbackTimer);playbackTimer=null;speechEpoch++;readoutStarting=false;pendingPlaybackId=null;const previous=playing;playing=null;previous?.pause();for(const el of document.querySelectorAll('audio[data-media-id],video[data-media-id]'))el.pause();$('#ability-now-playing')?.remove();onPlayback(false);}
+ function stopPlayback(){invalidateBarge();clearTimeout(playbackTimer);playbackTimer=null;speechEpoch++;readoutStarting=false;pendingPlaybackId=null;const previous=playing;playing=null;previous?.pause();for(const el of document.querySelectorAll('audio[data-media-id],video[data-media-id]'))el.pause();$('#ability-now-playing')?.remove();onPlayback(false,null);}
  function settleReadout(job){
   if(!job||job.id!==pendingPlaybackId)return false;
   if(['failed','cancelled','paused'].includes(job.status)){stopPlayback();return true;}
@@ -103,7 +138,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
    // A non-device recipient still gets the full prompt/recipient confirmation sheet.
    if(p.domain!=='device'){if(automatic)return;return generate('tts',full);}
    if(previewMode)throw Error('プレビューでは音声を生成しません。実サービスでローカル音声に接続してください。');
-   onPlayback(true);playbackTimer=setTimeout(()=>{if(epoch!==speechEpoch)return;stopPlayback();notice('読み上げの準備が時間内に終わりませんでした。');},60000);
+   onPlayback(true,null);playbackTimer=setTimeout(()=>{if(epoch!==speechEpoch)return;stopPlayback();notice('読み上げの準備が時間内に終わりませんでした。');},60000);
    const identity=p.identity+'\n'+full;
    if(readoutRequest?.identity!==identity)readoutRequest={identity,id:globalThis.crypto?.randomUUID?.()||Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('')};
    const created=await bridge.request('/api/media/jobs','POST',{kind:'tts',prompt:full,requestId:readoutRequest.id,profileIdentity:p.identity,consent:true});
@@ -112,7 +147,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
    jobs=(await bridge.request('/api/media/jobs')).jobs;if(epoch!==speechEpoch)return;if(!isPrivate()){stopPlayback();return;}
    if(!settleReadout(jobs.find(j=>j.id===created.id)))notice('このPCで音声を準備しています。別の画面を見ながら聴けます。');
   }catch(error){if(epoch===speechEpoch)stopPlayback();throw error;}
-  finally{if(epoch===speechEpoch){readoutStarting=false;if(!pendingPlaybackId&&!playing){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);}}}
+  finally{if(epoch===speechEpoch){readoutStarting=false;if(!pendingPlaybackId&&!playing){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false,null);}}}
  }
  const actions={
   'abilities-open':open,'ability-new':el=>editor(el.dataset.role),'ability-edit':el=>editor(null,el.dataset.id),
@@ -164,5 +199,5 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
   if(e.type==='media.deleted'){const victim=jobs.find(j=>j.id===e.data.id);if(e.data.id===pendingPlaybackId||(victim?.asset?.id&&victim.asset.id===playing?.dataset.mediaId))stopPlayback();jobs=jobs.filter(j=>j.id!==e.data.id);onChanged({mediaJobs:jobs});if(isOpen('creative'))paintJobs();}
   if(e.type==='capabilities.updated'){config=e.data;onChanged({capabilities:config});}});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
- return {open,gallery,semantic,readReply,stopPlayback,stop:()=>{stopPlayback();clearInterval(loginTimer);querySerial++;},onClose:()=>{for(const el of document.querySelectorAll('#creative-feed video'))el.pause();clearInterval(loginTimer);querySerial++;}};
+ return {open,gallery,semantic,readReply,stopPlayback,pauseForBarge,stop:()=>{stopPlayback();clearInterval(loginTimer);querySerial++;},onClose:()=>{for(const el of document.querySelectorAll('#creative-feed video'))el.pause();clearInterval(loginTimer);querySerial++;}};
 }

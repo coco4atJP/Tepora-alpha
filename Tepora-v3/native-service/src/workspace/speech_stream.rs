@@ -8,6 +8,7 @@ use std::{sync::Condvar, time::Duration};
 
 struct Session {
     wake: bool,
+    channels: usize,
     id: String,
     base: String,
     upstream: Option<String>,
@@ -128,7 +129,18 @@ impl SpeechStream {
     pub(super) fn start_wake(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
         self.start_mode(settings, true)
     }
+    pub(super) fn start_barge(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_channels(settings, true, 2)
+    }
     fn start_mode(self: &Arc<Self>, settings: &Value, wake: bool) -> Result<Value, ApiError> {
+        self.start_channels(settings, wake, 1)
+    }
+    fn start_channels(
+        self: &Arc<Self>,
+        settings: &Value,
+        wake: bool,
+        channels: usize,
+    ) -> Result<Value, ApiError> {
         require(
             settings["voiceEnabled"] != false,
             403,
@@ -163,6 +175,7 @@ impl SpeechStream {
             )?;
             life.session = Some(Session {
                 wake,
+                channels,
                 id: id.clone(),
                 base: base.clone(),
                 upstream: None,
@@ -176,12 +189,11 @@ impl SpeechStream {
             life.active += 1;
         }
         let _flight = Flight(self);
-        let result = self.upstream(
-            &base,
-            "/api/start",
-            json!({"sample_rate":16000}),
-            cancel.clone(),
-        );
+        let mut body = json!({"sample_rate":16000});
+        if channels == 2 {
+            body["channels"] = json!(2);
+        }
+        let result = self.upstream(&base, "/api/start", body, cancel.clone());
         let mut life = self.life.lock().map_err(error)?;
         require(!cancel.is_cancelled(), 499, "Speech session cancelled")?;
         let result = result.and_then(|v| {
@@ -293,6 +305,12 @@ impl SpeechStream {
                     )?;
                 }
                 samples = bytes.len() / 4;
+                require(
+                    samples % s.channels == 0,
+                    400,
+                    "Incomplete audio channel pair",
+                )?;
+                samples /= s.channels;
                 require(
                     s.samples + samples <= 16000 * 120,
                     413,

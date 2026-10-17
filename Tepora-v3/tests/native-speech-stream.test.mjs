@@ -63,16 +63,21 @@ test('native speech: ordinary source parity and effect-free mode availability',{
   const next=await c.json('/api/voice/start','POST');await c.json('/api/voice/cancel','POST',{id:next.id});await c.json('/api/voice/finish','POST',{id:next.id},409);
   await c.json('/api/settings','PATCH',{voiceEnabled:false});await c.json('/api/voice/start','POST',undefined,403);await c.close();
  }
- const offline=await f.start(true,false);for(const route of ['start','wake/start','chunk','finish','cancel'])await offline.json('/api/voice/'+route,'POST',route.endsWith('start')?undefined:{},503);await offline.close();
+ const offline=await f.start(true,false);for(const route of ['start','wake/start','barge/start','chunk','finish','cancel'])await offline.json('/api/voice/'+route,'POST',route.endsWith('start')?undefined:{},503);await offline.close();
 });
-test('wake speech: HTTP parity, ASR isolation, strict detection and cancellation',{timeout:60000},async t=>{
+for(const mode of ['wake','barge'])test(`${mode} speech: HTTP parity, ASR isolation, strict detection and cancellation`,{timeout:60000},async t=>{
  const f=await fixture(t),previous=process.env.TEPORA_WAKE_URL;process.env.TEPORA_WAKE_URL=f.wakeOrigin;
  t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
  for(const native of [false,true]){
   const c=await f.start(native);await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
-  const initial=await c.json('/api/agent'),before=f.records.length,s=await c.json('/api/voice/wake/start','POST');
+  const startRoute='/api/voice/'+mode+'/start',initial=await c.json('/api/agent'),before=f.records.length,s=await c.json(startRoute,'POST');
+  assert.deepEqual(f.records.at(-1).body,{sample_rate:16000,...(mode==='barge'?{channels:2}:{})});
   await c.json('/api/voice/start','POST',undefined,409);
-  const body={id:s.id,sequence:0,pcm:pcm(3200)};
+  await c.json('/api/voice/'+(mode==='barge'?'wake':'barge')+'/start','POST',undefined,409);
+  const body={id:s.id,sequence:0,pcm:pcm(mode==='barge'?6400:3200)};
+  if(mode==='barge'){
+   const count=f.records.length;await c.json('/api/voice/chunk','POST',{...body,pcm:pcm(3)},400);assert.equal(f.records.length,count);
+  }
   for(const detected of [undefined,null,0,1,'true',[],{}]){
    f.setChunkReply({text:'',...(detected===undefined?{}:{detected})});await c.json('/api/voice/chunk','POST',body,502);
   }
@@ -83,13 +88,13 @@ test('wake speech: HTTP parity, ASR isolation, strict detection and cancellation
   assert.equal((await c.json('/api/voice/finish','POST',{id:s.id})).submitted,false);
   assert.ok(f.records.slice(before).every(r=>r.kind==='wake'));
   f.setChunkReply({text:'ordinary ASR',detected:'ignored'});const asr=await c.json('/api/voice/start','POST');
-  await c.json('/api/voice/wake/start','POST',undefined,409);
+  await c.json(startRoute,'POST',undefined,409);
   assert.equal((await c.json('/api/voice/chunk','POST',{...body,id:asr.id})).detected,undefined);
   await c.json('/api/voice/cancel','POST',{id:asr.id});assert.equal(f.records.at(-1).kind,'asr');
-  f.setChunkReply(undefined);const wake=await c.json('/api/voice/wake/start','POST');await c.json('/api/voice/cancel','POST',{id:wake.id});
+  f.setChunkReply(undefined);const wake=await c.json(startRoute,'POST');await c.json('/api/voice/cancel','POST',{id:wake.id});
   assert.equal(f.records.at(-1).kind,'wake');await c.json('/api/voice/chunk','POST',{...body,id:wake.id},409);
   const final=await c.json('/api/agent');assert.deepEqual(final.dialogue,initial.dialogue);assert.deepEqual(final.jobs,initial.jobs);
-  await c.json('/api/settings','PATCH',{voiceEnabled:false});await c.json('/api/voice/wake/start','POST',undefined,403);await c.close();
+  await c.json('/api/settings','PATCH',{voiceEnabled:false});await c.json(startRoute,'POST',undefined,403);await c.close();
  }
 });
 test('wake speech: external and malformed endpoints are refused before transport',{timeout:60000},async t=>{
@@ -97,18 +102,20 @@ test('wake speech: external and malformed endpoints are refused before transport
  t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
  for(const url of ['https://example.invalid','http://192.168.1.2:8769','http://127.0.0.1:8769?secret=synthetic','http://user:synthetic@127.0.0.1:8769','file:///tmp/wake'])for(const native of [false,true]){
   process.env.TEPORA_WAKE_URL=url;const c=await f.start(native,true,url),before=f.records.length;
-  const response=await c.request('/api/voice/wake/start','POST');assert.ok([400,403].includes(response.status),await response.text());
+  for(const mode of ['wake','barge']){
+   const response=await c.request('/api/voice/'+mode+'/start','POST');assert.ok([400,403].includes(response.status),await response.text());
+  }
   assert.equal(f.records.length,before);await c.close();
  }
 });
-test('speech: Stop All, native tray Stop and shutdown drain pending ASR and wake calls',{timeout:90000},async t=>{
+test('speech: Stop All, native tray Stop and shutdown drain pending ASR, wake and barge calls',{timeout:90000},async t=>{
  const f=await fixture(t),previous=process.env.TEPORA_WAKE_URL;process.env.TEPORA_WAKE_URL=f.wakeOrigin;
  t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
- for(const native of [false,true])for(const wake of [false,true])for(const stop of (native?['http','tray','close']:['http','close']))for(const route of ['start','chunk','finish']){
+ for(const native of [false,true])for(const mode of ['asr','wake','barge'])for(const stop of (native?['http','tray','close']:['http','close']))for(const route of ['start','chunk','finish']){
   const c=await f.start(native);await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
-  const startRoute='/api/voice/'+(wake?'wake/start':'start');
+  const startRoute='/api/voice/'+(mode==='asr'?'start':mode+'/start');
   const s=route==='start'?null:await c.json(startRoute,'POST');f.setHold('/api/'+route);const count=f.held.length;
-  const pending=c.request(route==='start'?startRoute:'/api/voice/'+route,'POST',route==='start'?undefined:{id:s.id,sequence:0,pcm:pcm(1)}).then(async r=>({status:r.status,body:await r.json()})).catch(error=>({error}));
+  const pending=c.request(route==='start'?startRoute:'/api/voice/'+route,'POST',route==='start'?undefined:{id:s.id,sequence:0,pcm:pcm(mode==='barge'?2:1)}).then(async r=>({status:r.status,body:await r.json()})).catch(error=>({error}));
   await wait(()=>f.held.length===count+1,'held worker '+route);const held=f.held[count];
   if(stop==='http')await c.json('/api/stop','POST',{});else if(stop==='tray')c.trayStop();else await c.close();
   await wait(()=>held.closed,'closed worker transport');const result=await pending;if(stop!=='close')assert.equal(result.status,499,JSON.stringify(result));

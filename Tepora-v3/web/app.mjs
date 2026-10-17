@@ -60,9 +60,9 @@ const lightsHost=document.createElement('div');lightsHost.className='stage-light
 const draftContext=new DialogueDraftContext();
 const draft=new VoiceDraft();
 let capabilityUI=null;
-function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onPlayback:active=>handsFreeVoice.setSpeaking(active),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
+function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onPlayback:(active,audio)=>handsFreeVoice.setSpeaking(active,audio),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
 let handsFreeAnchor=null,handsFreeReadout=false;
-const handsFreeVoice=new HandsFreeVoice({bridge,onState:paintHandsFree,onError:error=>notice(error.message,'error'),stopOutput:()=>capabilityUI?.stopPlayback(),
+const handsFreeVoice=new HandsFreeVoice({bridge,onState:paintHandsFree,onError:error=>notice(error.message,'error'),stopOutput:()=>capabilityUI?.stopPlayback(),pauseOutput:()=>abilities().pauseForBarge(),
  onWake:()=>{
   if(sharedView||!online||activeDialog||composerLocked()||draft.content||attachedFiles.length||state.dialogue.status==='running')return false;
   cancelVoice({keepHandsFree:true});pinDraft();
@@ -77,9 +77,9 @@ const handsFreeVoice=new HandsFreeVoice({bridge,onState:paintHandsFree,onError:e
  }});
 function paintHandsFree(status){
  const el=$('#hands-free-status');if(!el)return;
- const labels={starting:'マイク準備中',idle:'呼びかけ待ち',waking:'音声入力を準備',listening:'聴いています',endpointing:'音声を認識中',processing:'返事を待っています',speaking:'読み上げ中',cooldown:'呼びかけ待ちへ復帰中',off:'マイク停止',interrupted:'音声会話を中断',error:'マイク停止・再開始が必要',suspended:'マイク休止・再開始が必要'};
- el.hidden=status==='off';el.textContent=labels[status]||status;el.dataset.state=status;
- el.setAttribute('aria-label',`${el.textContent}。押すと直ちにミュートして音声会話を中断`);
+ const labels={starting:'マイク準備中',idle:'呼びかけ待ち',waking:'音声入力を準備',listening:'聴いています',endpointing:'音声を認識中',processing:'返事を待っています',speaking:'読み上げ中','barge-listening':'読み上げ中・呼びかけ可','barge-quiet':'中断確認の準備中','barge-confirm':'中断するならもう一度呼びかけてください',cooldown:'呼びかけ待ちへ復帰中',off:'マイク停止',interrupted:'音声会話を中断',error:'マイク停止・再開始が必要',suspended:'マイク休止・再開始が必要'};
+ el.hidden=status==='off';el.textContent=status==='barge-confirm'?'もう一度呼びかけ':labels[status]||status;el.dataset.state=status;
+ el.setAttribute('aria-label',`${labels[status]||status}。押すと直ちにミュートして音声会話を中断`);
  el.setAttribute('aria-pressed',String(handsFreeVoice.active));
  if(['idle','listening','waking'].includes(status))musicUI?.pause();
 }
@@ -89,8 +89,10 @@ async function startHandsFree(){
  if(!online||sharedView||!settings().voiceEnabled||!settings().asrStreamUrl||settings().dictationEditing)throw Error('個人表示で音声入力とローカルASRを設定し、言い直し編集をオフにしてください。');
  if(draft.content||attachedFiles.length||state.dialogue.status==='running')throw Error('入力と添付を送信または整理し、現在の返事が完了してから開始してください。');
  if(!state.providers?.profiles?.some(p=>p.enabled!==false&&p.model))throw Error('先に会話モデルを接続してください。');
- handsFreeReadout=!!$('#hands-free-readout')?.checked;cancelVoice();capabilityUI?.stopPlayback();closeSheet();
- await handsFreeVoice.enable();
+ handsFreeReadout=!!$('#hands-free-readout')?.checked;
+ const bargeIn=!!$('#hands-free-barge')?.checked,echoTailMs=Number($('#hands-free-echo-tail')?.value||1200);
+ cancelVoice();capabilityUI?.stopPlayback();closeSheet();
+ await handsFreeVoice.enable({bargeIn,echoTailMs});
 }
 function waitHandsFreeReply(prior,signal){
  return new Promise((resolve,reject)=>{
@@ -991,7 +993,10 @@ function voiceSheet(){
  <button class="button" type="submit">保存する</button></form>
  <section class="panel-section"><h3>呼びかけで会話する</h3><p>ローカルのウェイクワーカーと上記のASRが必要です。インストール済みの英語モデルの呼びかけ（例: Hey Jarvis）の後、少し待って話してください。話し終えると現在の会話へ自動送信します。音声はこのPC内だけで処理し、待機中はASRへ送りません。会話の文章は設定済みの会話モデルへ送られます。</p>
  <label class="widget-option"><span><input id="hands-free-readout" type="checkbox"> この開始中はローカル音声で返事を読む</span></label>
- <p class="small-text">生成音声は既存の「つくったもの」に保存されます。読み上げ中と終了後0.8秒は音声入力を抑止します。上部のマイク状態を押すと直ちにミュートします。画面非表示・休止・エラー後は手動で再開始してください。設定は先に保存してください。</p>
+ <label class="widget-option"><span><input id="hands-free-barge" type="checkbox"> 呼びかけを2回使って読み上げを中断する（実験的）</span></label>
+ <label class="field"><span>中断確認前に残響を待つ時間（ミリ秒）</span><input id="hands-free-echo-tail" type="number" min="800" max="3000" step="200" value="1200"></label>
+ <p class="small-text">音声中断には、参照音を比較するウェイクワーカーの --barge-in 設定と、エコーキャンセルを報告するマイクが必要です。最初の呼びかけで一時停止し、上部の確認表示が出てから再度呼びかけると中断します。確認しなければ読み上げを再開します。スピーカーフォンでの音響性能は実機確認が必要です。</p>
+ <p class="small-text">生成音声は既存の「つくったもの」に保存されます。通常は読み上げ中と終了後0.8秒の音声入力を抑止します。上部のマイク状態を押すと直ちにミュートします。画面非表示・休止・エラー後は手動で再開始してください。設定は先に保存してください。</p>
  ${btn('hands-free-start','待機開始・発話を自動送信','mic','button')}
  ${btn('hands-free-mute','ミュートして中断','stop','button secondary')}</section>`,'voice');
 }

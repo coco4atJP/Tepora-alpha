@@ -80,6 +80,12 @@ stateDiagram-v2
     Processing --> Idle: reply complete
     Processing --> Speaking: optional local TTS
     Speaking --> Cooldown: ended or stopped
+    Speaking --> BargeListening: explicit option and playback reference
+    BargeListening --> BargeQuiet: learned candidate survives echo veto
+    BargeQuiet --> BargeConfirm: pause and acoustic tail
+    BargeConfirm --> Waking: second fresh wake
+    BargeConfirm --> Speaking: confirmation timeout resumes owned output
+    BargeConfirm --> Off: mute or error
     Cooldown --> Idle: 800 ms tail
     Idle --> Starting: renew lease
     Listening --> Off: mute or error
@@ -111,7 +117,7 @@ TTS generation/playback gates incoming audio, followed by an 800 ms acoustic
 tail and fresh wake session. This is **half duplex**: use the visible interruption
 control during speech, then explicitly restart. Echo cancellation is requested
 but not assumed sufficient for voice barge-in. Other room audio can still cause
-false activations. There is no voice-only interruption during TTS yet.
+false activations. Optional two-stage voice interruption is described below; the default remains half duplex.
 
 Wake sessions renew after 110 seconds within the shared 120-second server
 lease. Device/worker loss, malformed replies, audio heartbeat loss and a clock
@@ -124,6 +130,62 @@ wake chunks add a strict boolean `detected`. The effect-free native mode returns
 503. No speech route itself submits a conversation or runs a tool. Node now
 aborts transport and rejects late results after cancellation, like native.
 Remote cancellation is best effort when a session ID never reached the host.
+
+## Experimental voice interruption
+
+This is an explicit per-start checkbox, off by default. Start the local wake
+worker with `--barge-in`; it loads a second independent reference detector from
+those same explicitly installed model files. The microphone track must report
+`echoCancellation: true`; absent/false is rejected. That setting reports browser
+configuration, **not measured acoustic quality**.
+
+The playing same-origin TTS element is routed through the microphone's AudioContext,
+with its reference connected to a separate Worklet input. Both streams share one
+render clock and resampler. During actual playback, `/api/voice/barge/start`
+opens a two-channel wake session; chunks contain 3,200 microphone/reference
+pairs. Generation with no playing element does not enable barge-in. During
+normal idle the reference path is disabled and only mono wake inference runs.
+
+The worker feeds reference audio before microphone audio, rejects reference wake
+phrases for `--reference-veto-seconds` (default 2, bounds 0.5–5), and vetoes
+waveforms correlated with current or delayed playback over `--echo-window-ms`
+(default 500, bounds 40–2000). Normalized correlation is insensitive to gain and
+polarity, and checks every sample delay using a bounded FFT. With the default
+window, the first 800 ms of a new reference session are ambiguous and cannot
+produce a candidate. A learned microphone wake detection is required; reference
+energy or a residual-energy threshold never initiates interruption.
+
+A surviving candidate **pauses**, rather than cancels, its exact TTS element.
+After the configured 800–3000 ms acoustic tail (default 1200), a newly reset mono
+wake session requires another wake phrase. No old PCM or detector state is reused.
+A second wake cancels only the paused readout and opens ASR for a new utterance.
+Without confirmation within five seconds, the exact owned readout can resume;
+manual mute, new playback, deletion, hidden/shared state, device loss and stale
+timers cannot resume or cancel replacement output. The top-bar state explains
+when to repeat the wake phrase. No UI click is needed for this interruption path.
+
+Dual-channel queue limits are ten pairs of chunks (**256,000 PCM bytes**), two
+outstanding Worklet messages (**51,200 bytes**) and a fixed **25,600-byte**
+producer buffer. Server sample/time budgets count each channel correctly, with
+one shared wake/ASR slot, serial requests and the same cancellation/Stop limits.
+The extra detector and reference work are opt-in; real model RSS is unmeasured.
+Finished/replaced playback sources are disconnected and removed from strong
+cleanup sets; only the active or confirmation-paused source stays connected.
+The per-element cache is weak so same-element resume does not create a second
+MediaElementAudioSource. A synthetic 500-readout check covers these bounds.
+
+These are conservative rejection/confirmation gates, **not an acoustic echo
+canceller or proof of robust speakerphone operation**. Nonlinear distortion,
+multiple echoes beyond the selected window/tail, clock/device behavior and
+browser/OS AEC need real microphones and speakers. Ambiguous double-talk can be
+rejected, especially when TTS itself says the wake phrase. A native WebRTC/Speex
+AEC integration would require correctly timed playback reference, device testing
+and platform support; a new general inference engine would not solve that.
+The [Speex echo-cancellation guidance](https://speex.org/docs/manual/speex-manual/node7.html)
+describes reference timing and hardware limitations; the
+[Web Audio specification](https://www.w3.org/TR/webaudio-1.1/)
+defines the reference graph. Hardware acceptance remains required before treating
+this experimental option as reliable speakerphone barge-in.
 
 ## Backend choice and verification
 

@@ -18,17 +18,18 @@ export class SpeechStream {
       throw error;
     }
   }
-  async start(wake=false) {
+  async start(wake=false,channels=1) {
+    invariant(channels===1||wake&&channels===2,'Invalid speech channels');
     invariant(this.store.settings.voiceEnabled!==false,'Microphone is disabled',403);
     invariant(!this.starting&&!this.sessions.size,'A microphone session is already active',409);
     const base=endpoint(wake?(process.env.TEPORA_WAKE_URL||'http://127.0.0.1:8769'):this.store.settings.asrStreamUrl,false).href.replace(/\/$/,'');
     this.starting=true;const epoch=this.epoch,abort=new AbortController();this.startAbort=abort;
     try {
-      const result=await this.upstream(base,'/api/start',{sample_rate:16000},abort.signal);
+      const result=await this.upstream(base,'/api/start',{sample_rate:16000,...(channels===2?{channels:2}:{})},abort.signal);
       invariant(typeof result.session_id==='string'&&result.session_id.length<200,'Invalid speech session',502);
       if(epoch!==this.epoch){await this.upstream(base,'/api/cancel',{session_id:result.session_id}).catch(()=>{});invariant(false,'Speech session cancelled',499);}
       const id=randomUUID();
-      const session={id,base,wake,abort,upstreamId:result.session_id,next:0,samples:0,busy:false,text:'',last:null};
+      const session={id,base,wake,channels,abort,upstreamId:result.session_id,next:0,samples:0,busy:false,text:'',last:null};
       session.timer=setTimeout(()=>this.cancel(id).catch(()=>{}),120000);
       session.timer.unref?.();
       this.sessions.set(id,session);
@@ -49,14 +50,16 @@ export class SpeechStream {
     const data=Buffer.from(pcm,'base64');
     invariant(data.length>0&&data.length%4===0&&data.length<=64000,'Use at most one second of Float32 PCM');
     for(let i=0;i<data.length;i+=4) invariant(Number.isFinite(data.readFloatLE(i))&&Math.abs(data.readFloatLE(i))<=1.01,'Invalid audio sample');
-    invariant(s.samples+data.length/4<=16000*120,'Speech session reached its two-minute budget',413);
+    invariant(data.length/4%s.channels===0,'Incomplete audio channel pair');
+    const samples=data.length/4/s.channels;
+    invariant(s.samples+samples<=16000*120,'Speech session reached its two-minute budget',413);
     s.busy=true;
     try {
       const result=await this.upstream(s.base,'/api/chunk',{session_id:s.upstreamId,sequence,pcm},s.abort.signal);
       invariant(this.sessions.get(id)===s,'Speech session cancelled',499);
       invariant(typeof result.text==='string'&&result.text.length<=32000,'Invalid partial transcript',502);
       if(s.wake)invariant(typeof result.detected==='boolean','Invalid wake detection',502);
-      s.samples+=data.length/4;s.next++;s.text=result.text;
+      s.samples+=samples;s.next++;s.text=result.text;
       const reply={id,sequence,text:s.text,final:false,...(s.wake?{detected:result.detected}:{})};
       s.last={sequence,pcm,reply};return reply;
     } finally {s.busy=false;}
