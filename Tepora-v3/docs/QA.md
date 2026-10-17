@@ -346,6 +346,13 @@ Windows also sets `RUST_TEST_THREADS=2` in both gates. An unchanged native integ
 The first two-file Windows replay passed delegation, the first compaction fixture and all three browser fixtures, but deterministic fallback reached only step 17 of 18 within its unchanged 30-second deadline. The Node stage reached 592 tests before its former 360,000 ms aggregate limit. The serial Windows replay therefore has a bounded 480,000 ms Node budget, a 10-minute native Node step and a 20-minute regression job budget. All inner behavioral deadlines and assertions are unchanged; the longer outer bounds do not turn an individual failure into a pass.
 
 
+## Windows aggregate Node budget (2026-10-17)
+
+At `6c86be0`, the [Windows regression job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39056142303/job/117464658538) stopped the serial Node suite at **480,013 ms** under its 480,000 ms aggregate limit. The diagnostic log showed successful tests through test 921 and no TAP failure blocks before the cutoff. The [same commit's native Windows job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39056142275/job/117464627868) completed the full serial Node suite successfully from **18:07:24 to 18:15:58 UTC (514 seconds)** within its existing 600-second step budget.
+
+The aggregate Node budget now matches that 600,000 ms bound. The 120,000 ms individual file deadline, test selection and assertions, and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace. These fixture checks do not replace the complete regression and package CI matrices.
+
+
 ## Browser shutdown and Windows profile cleanup (2026-10-16)
 
 At `933a7b7b`, the Windows regression Node suite completed inside its 480,000 ms budget but failed a browser fixture's after-hook with `EBUSY` removing `browser-profile/lockfile`. The same commit passed the native Windows/browser/package job. This is separate from the earlier stage-budget and failed-start repairs.
