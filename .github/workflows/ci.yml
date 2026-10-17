@@ -73,6 +73,56 @@ jobs:
         run: |
           node tests/browser-monitor.mjs
           node tests/browser-ui-layout.mjs
+      - name: Failed regression stage diagnostics
+        if: failure()
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, uuid
+          root = pathlib.Path('Tepora-v3/validation/loop').resolve()
+          report_path = root / 'latest.json'
+          if not report_path.is_file():
+              print('No improve-loop report; failure occurred before stage reporting.')
+              raise SystemExit(0)
+          report = json.loads(report_path.read_text(encoding='utf-8'))
+          print(json.dumps({key: report.get(key) for key in ('passed', 'stable', 'results')}, indent=2))
+          folder = pathlib.Path(report['folder']).resolve()
+          if not folder.is_relative_to(root):
+              raise SystemExit('Refusing a stage log outside the validation folder')
+          token = 'stage-log-' + uuid.uuid4().hex
+          print('::stop-commands::' + token, flush=True)
+          try:
+              for stage in report.get('results', []):
+                  if stage.get('code') == 0:
+                      continue
+                  log = (folder / (stage['name'] + '.log')).resolve()
+                  if not log.is_relative_to(folder) or not log.is_file():
+                      continue
+                  print('Failed stage log: ' + stage['name'])
+                  lines = log.read_text(encoding='utf-8', errors='replace').splitlines()
+                  subtest, failures = None, 0
+                  for index, line in enumerate(lines):
+                      if re.match(r'^\s*# Subtest:', line):
+                          subtest = line
+                      if not re.match(r'^\s*not ok ', line):
+                          continue
+                      failures += 1
+                      if failures > 10:
+                          print('Additional TAP failure blocks omitted.')
+                          break
+                      print('TAP failure block ' + str(failures))
+                      if subtest is not None:
+                          print(subtest)
+                      for offset, detail in enumerate(lines[index:index + 61]):
+                          if offset and re.match(r'^(?:# Subtest:|(?:not )?ok \d+)', detail):
+                              break
+                          print(detail)
+                  print('Last 180 log lines:')
+                  print('\n'.join(lines[-180:]), flush=True)
+          finally:
+              print('::' + token + '::', flush=True)
+          PY
       - name: Validation evidence
         if: always()
         uses: actions/upload-artifact@v4
