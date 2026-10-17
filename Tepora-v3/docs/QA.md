@@ -24,6 +24,16 @@ controller probes do not establish live OAuth, browser or installer acceptance.
 
 ## Configurable monitor and bounded redraws
 
+Follow-up review adds display-reset defaults/history/revision/undo regressions, exact customizer
+control-focus regressions, and actual Scheduler/bootstrap/event/replay coverage for the schedule
+card. Saved schedules load with bootstrap/reconnect; live views carry one committed row or its
+removal, so recurring receipts with the old occurrence and one-shot receipts without a tombstone
+cannot leave stale rows. The offline monitor test also covers repeated Space/Enter changes, and
+Linux regression CI now runs it plus the existing layout browser suite without sandbox bypasses.
+Local pure Node checks and preview generation pass. Rust/core-backed/HTTP and browser execution
+were unavailable in this Linux executor: Rust/Cargo is absent and Chromium's process-singleton IPC
+socket is denied. Their new exact-commit CI results are required before claiming those stages pass.
+
 The monitor changes retain the Node/Tauri default host and explicit native development boundary.
 Focused regressions cover wall-clock countdowns, pause/resume, delayed completion, display-only
 scene validation, UTF-16 note limits, carousel deadlines and the generated-image widget identity.

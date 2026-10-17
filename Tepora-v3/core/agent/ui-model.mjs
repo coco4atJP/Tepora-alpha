@@ -6,7 +6,7 @@ import {nativeCompute} from '../native-state.mjs';
 const JOB_KEYS=['id','title','kind','status','note','step','output','createdAt','endedAt','revision','priority','engine','parentId','sessionKind','depth','todo','cwd','retryAt','stats','route','executionRoute','pendingApprovals','verification'];
 const APPROVAL_KEYS=['id','jobId','jobTitle','name','args','status','createdAt','decidedAt','note','mode','stacked'];
 const MESSAGE_PREFIX=['id','sessionId','role','kind','content'];
-const SOURCE_EVENTS=new Set(['session.updated','session.entry','agent.delta','approval.updated']);
+const SOURCE_EVENTS=new Set(['session.updated','session.entry','agent.delta','approval.updated','schedule.updated']);
 // JSON omits undefined. Reconstitute declared own properties without turning
 // them into null, or putting the projection/business logic back into JS.
 const shape=(value,keys)=>Object.fromEntries(keys.map(key=>[key,value[key]]));
@@ -49,7 +49,10 @@ export class AgentUIModel{
    if(!SOURCE_EVENTS.has(e.type))return;
    const sessions=['session.entry','agent.delta'].includes(e.type)?runtime.sessions.list():[];
    const approvals=e.type==='session.updated'&&e.data.kind!=='main'?store.list('approval'):[];
-   for(const projected of nativeCompute('ui.event',{event:e,sessions,approvals})){
+   // A fire receipt can carry the old occurrence (or omit a one-shot removal).
+   // Project the committed list instead of treating that receipt as a UI row.
+   const schedule=e.type==='schedule.updated'?store.get('schedule',e.data.id):undefined;
+   for(const projected of nativeCompute('ui.event',{event:e,sessions,approvals,...(schedule===undefined?{}:{schedule})})){
     let data=projected.data;
     if(projected.type==='job.updated')data=publicJob(data,e.data);
     else if(projected.type==='approval.view')data=publicApproval(data,e.data);

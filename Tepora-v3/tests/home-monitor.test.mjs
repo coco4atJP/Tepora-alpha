@@ -82,7 +82,7 @@ test('new smart monitor widgets (focus, schedule, memo, system, almanac) render 
  const cards=ambientCards({
   widgets,
   focus:{minutes:25,remainingSeconds:1500,running:false,completed:2},
-  schedule:{routines:[{id:'r1',title:'朝のブリーフィング',schedule:'毎日 08:30',status:'active'}],plans:[{id:'p1',title:'リリース確認',status:'active'}]},
+  schedule:{items:[{id:'sch_1',text:'朝のブリーフィング',at:'2026-10-18T08:30:00.000Z',every:1440,mode:'remind'},{id:'sch_2',text:'リリース確認',at:'2026-10-18T12:00:00.000Z',mode:'task'}]},
   memo:{note:'牛乳を買う\n資料を送る',memory:null},
   system:{model:'qwen3-8b',ready:true,safety:'protected',todayRequests:12,activeJobs:1,memoryCount:8},
   almanac:{now:new Date(2026,9,8,10,0),sun:{rise:5.75,set:17.35}}

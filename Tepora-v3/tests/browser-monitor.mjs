@@ -40,6 +40,30 @@ try{
   const actual=await evaluate(`(()=>{monitorTest.actions['stage-customize']();const panel=document.querySelector('#panel .panel-body'),control=panel.querySelector('.scene-card');control.focus();const observer=new MutationObserver(()=>{});observer.observe(panel,{childList:true,subtree:true});for(let i=0;i<10;i++)monitorTest.render();const mutations=observer.takeRecords().length;observer.disconnect();return {mutations,connected:control.isConnected,focused:document.activeElement===control};})()`);
   assert.deepEqual(actual,{mutations:0,connected:true,focused:true});
  });
+ await check('repeated keyboard changes keep the exact customizer checkbox and pin button focused',async()=>{
+  const waitForReplacement=async()=>{
+   for(let i=0;i<100&&await evaluate('window.previousMonitorControl.isConnected');i++)await new Promise(r=>setTimeout(r,50));
+   assert.equal(await evaluate('window.previousMonitorControl.isConnected'),false,'changed control is redrawn');
+  };
+  const beforeWidgets=await evaluate('[...monitorTest.state.display.widgets].sort()');
+  await evaluate(`window.previousMonitorControl=document.querySelector('#panel [data-action="widget-toggle"][value="focus"]');previousMonitorControl.focus()`);
+  for(const enabled of [false,true]){
+   await page.key('Space');await waitForReplacement();
+   const actual=await evaluate(`({action:document.activeElement.dataset.action,value:document.activeElement.value,checked:document.activeElement.checked,widgets:[...monitorTest.state.display.widgets].sort()})`);
+   assert.deepEqual(actual,{action:'widget-toggle',value:'focus',checked:enabled,widgets:enabled?beforeWidgets:beforeWidgets.filter(w=>w!=='focus')});
+   await evaluate('window.previousMonitorControl=document.activeElement');
+  }
+  let expectedPinned=await evaluate('[...monitorTest.state.display.pinnedWidgets]');
+  const wasPinned=expectedPinned.includes('memo');
+  await evaluate(`window.previousMonitorControl=document.querySelector('#panel [data-action="toggle-pin-widget"][data-widget="memo"]');previousMonitorControl.focus()`);
+  for(const pinned of [!wasPinned,wasPinned]){
+   await page.key('Enter');await waitForReplacement();
+   const actual=await evaluate(`({action:document.activeElement.dataset.action,widget:document.activeElement.dataset.widget,pressed:document.activeElement.getAttribute('aria-pressed'),pinned:[...monitorTest.state.display.pinnedWidgets].sort()})`);
+   expectedPinned=pinned?[...expectedPinned,'memo'].slice(-4):expectedPinned.filter(w=>w!=='memo');
+   assert.deepEqual(actual,{action:'toggle-pin-widget',widget:'memo',pressed:String(pinned),pinned:[...expectedPinned].sort()});
+   await evaluate('window.previousMonitorControl=document.activeElement');
+  }
+ });
  await check('standby-clock leaves an accessible inbox entry even when companion remains enabled',async()=>{
   const actual=await evaluate(`(()=>{monitorTest.actions['close-panel']();monitorTest.state.approvals=[{id:'synthetic-approval',jobId:'monitor-job',name:'run_command',args:{executable:'node',args:[]},status:'pending'}];monitorTest.state.display.layout='standby-clock';monitorTest.render();const button=document.querySelector('#inbox-button');return {hidden:button.hidden,width:button.getBoundingClientRect().width};})()`);
   assert.equal(actual.hidden,false);assert.ok(actual.width>0);

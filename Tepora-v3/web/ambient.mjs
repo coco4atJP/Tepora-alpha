@@ -145,15 +145,21 @@ function ambientFocusCard(focus){
 }
 function ambientScheduleCard(schedule,{shared=false}={}){
  if(!schedule)return null;
- if(shared)return {id:'schedule',title:'予定・定期タスク',html:'<p class="work-shared">定期タスクと予定が設定されています</p>'};
- const routines=(schedule.routines||[]).filter(r=>r&&r.enabled!==false&&r.status!=='disabled');
- const plans=(schedule.plans||[]).filter(p=>p&&p.status!=='archived');
- const items=[
-  ...routines.slice(0,3).map(r=>({kind:'定期',title:r.title||r.name||'定期タスク',sub:r.schedule||r.cron||'毎日'})),
-  ...plans.slice(0,2).map(p=>({kind:'計画',title:p.title||p.goal||'計画',sub:p.status==='active'?'進行中':'待機中'}))
- ].slice(0,4);
- if(!items.length)return {id:'schedule',title:'予定・定期タスク',html:`<div class="schedule-widget is-empty"><p class="muted">予定されている定期タスクはまだありません。</p><button type="button" class="ghost-button is-compact" data-action="open-routines">定期タスクを確認</button></div>`};
+ const saved=(Array.isArray(schedule.items)?schedule.items:[]).filter(d=>d&&typeof d.text==='string'&&Number.isFinite(Date.parse(d.at))).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+ if(shared)return {id:'schedule',title:'予定・定期タスク',html:`<p class="work-shared">${saved.length?`${saved.length}件の予定があります`:'予定はありません'}</p>`};
+ const items=saved.slice(0,4).map(d=>({kind:d.every?'定期':d.mode==='task'?'仕事':'通知',title:d.text,sub:d.lastError?'再試行待ち':`${new Date(d.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${d.every?` · ${d.every}分ごと`:''}`}));
+ if(!items.length)return {id:'schedule',title:'予定・定期タスク',html:'<div class="schedule-widget is-empty"><p class="muted">予定されているタスクやリマインダーはありません。</p><p class="small-text">予定の追加や確認は、会話で頼めます。</p></div>'};
  return {id:'schedule',title:'予定・定期タスク',html:`<ul class="schedule-list">${items.map(it=>`<li><span class="schedule-badge">${escape(it.kind)}</span><span class="schedule-title">${escape(it.title)}</span><small class="schedule-sub">${escape(it.sub)}</small></li>`).join('')}</ul>`};
+}
+/** Apply a committed read-only schedule delta; source fire receipts are not state. */
+export function applyScheduleView(items,change){
+ const current=Array.isArray(items)?items:[],id=change?.id,item=change?.item;
+ if(typeof id!=='string'||!id)return current;
+ if(item===null)return current.filter(d=>d.id!==id);
+ if(!item||typeof item!=='object'||Array.isArray(item)||item.id!==id)return current;
+ const next=[...current],index=next.findIndex(d=>d.id===id);
+ if(index<0)next.unshift(item);else next[index]=item;
+ return next;
 }
 function ambientMemoCard(memo,{shared=false}={}){
  if(!memo||shared)return null;

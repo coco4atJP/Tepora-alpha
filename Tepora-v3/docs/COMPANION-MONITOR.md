@@ -60,8 +60,12 @@ use a single-column arrangement. In the clock-only layout, pending requests rema
 Up to four cards can be pinned; remaining enabled cards rotate independently. Weather can optionally
 stay in the deck on calm days, and running work can be shown as a card as well as lights. New cards are
 **集中タイマー**, **予定・定期タスク**, **メモ・記憶**, **システム状態** and **二十四節気・暦**.
-Schedule and system cards only project already-loaded state; they do not start tasks, inference or
-new requests. A pinned note is a display preference, not an instruction to the agent, and is limited
+The schedule card shows saved reminders and recurring work, ordered by their next occurrence.
+Bootstrap/reconnect loads the saved list; committed per-item updates remove fired/cancelled one-shots
+and advance repeating items without treating old fire receipts as current state. It is read-only,
+and shared view hides reminder text and dates. Schedule and system cards only project already-loaded
+state; they do not start tasks, inference or new requests. A pinned note is a display preference,
+not an instruction to the agent, and is limited
 to 240 UTF-16 units consistently in the Node and explicit native hosts.
 
 The focus timer is local to the current window. Presets are 15, 25 and 45 minutes; saved durations
@@ -73,6 +77,9 @@ duration is saved. It is not a durable reminder or an OS notification service.
 Timer ticks update the timer's text/progress without replacing its controls or unrelated cards.
 Refreshing card data does not restart the carousel deadline. An unchanged customizer preserves its
 DOM, scroll and keyboard focus rather than regenerating the panel on every state update.
+After a changed setting redraws the customizer, exact widget/scene/input identities preserve keyboard
+focus. Display reset restores all monitor defaults, including the standard layout, clock and pins;
+the existing revision check, bounded history and undo retain their normal behavior.
 
 - **Caption**: the character speaks in this order: what happened while you were away, a fresh reply,
   a request that waits for you, and otherwise a short greeting tied to the hour (the weather is

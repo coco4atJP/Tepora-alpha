@@ -258,7 +258,7 @@ fn settings(state: &mut NativeState) -> CoreResult<Value> {
 }
 fn snapshot(state: &mut NativeState) -> CoreResult<Value> {
     Ok(
-        json!({"seq":call(state,"event.seq",json!({}))?,"artifacts":list(state,"artifact")?,"display":value(state,"display")?,"skills":list(state,"skill")?,"mcp":list(state,"mcp")?,"memories":list(state,"memory")?,"settings":settings(state)?}),
+        json!({"seq":call(state,"event.seq",json!({}))?,"artifacts":list(state,"artifact")?,"display":value(state,"display")?,"skills":list(state,"skill")?,"mcp":list(state,"mcp")?,"memories":list(state,"memory")?,"schedules":list(state,"schedule")?,"settings":settings(state)?}),
     )
 }
 fn export(state: &mut NativeState, payload: &Value) -> CoreResult<Value> {
@@ -652,6 +652,39 @@ mod tests {
             serde_json::from_str::<Value>(bodies[0]["body"].as_str().unwrap()).unwrap(),
             json!({"id":id})
         );
+    }
+
+    #[test]
+    fn workspace_snapshot_reads_current_schedule_documents_without_restoring_authority() {
+        let mut s = state();
+        assert_eq!(
+            run(&mut s, "store.snapshot", json!({}))["value"]["schedules"],
+            json!([])
+        );
+        let schedule = json!({"id":"sch_fixture","text":"private reminder 日本語","mode":"remind","at":"2026-10-17T04:00:00.000Z","every":5,"fired":0,"future":{"kept":true}});
+        run(
+            &mut s,
+            "document.put",
+            json!({"kind":"schedule","doc":schedule}),
+        );
+        let snapshot = run(&mut s, "store.snapshot", json!({}));
+        assert_eq!(snapshot["value"]["schedules"], json!([schedule]));
+        assert_eq!(snapshot["value"]["seq"], 0);
+        assert_eq!(snapshot["events"], json!([]));
+        // A private UI read does not add schedules to portable context imports.
+        assert!(run(&mut s, "store.export", json!({}))["value"]["collections"]
+            .get("schedule")
+            .is_none());
+        run(
+            &mut s,
+            "document.remove",
+            json!({"kind":"schedule","id":"sch_fixture"}),
+        );
+        assert_eq!(
+            run(&mut s, "store.snapshot", json!({}))["value"]["schedules"],
+            json!([])
+        );
+        assert_eq!(run(&mut s, "event.seq", json!({})), 0);
     }
 
     #[test]

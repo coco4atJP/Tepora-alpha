@@ -67,6 +67,12 @@ jobs:
         env:
           PYTHON: python
         run: npm run quality
+      - name: Offline monitor and layout browser regressions
+        if: runner.os == 'Linux'
+        working-directory: Tepora-v3
+        run: |
+          node tests/browser-monitor.mjs
+          node tests/browser-ui-layout.mjs
       - name: Validation evidence
         if: always()
         uses: actions/upload-artifact@v4

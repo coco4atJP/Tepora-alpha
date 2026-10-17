@@ -19,7 +19,7 @@ import {createAvatar,avatarAssetUrl} from './avatar/stage.mjs';
 import {avatarGeometry} from './avatar/geometry.mjs';
 import {createAvatarStudio} from './avatar/settings.mjs';
 import {VOICE_PROACTIVE,VOICE_SCENES,VOICE_TONES,voiceAddress,voiceLine,voiceSpeaks} from './voice-lines.mjs';
-import {ambientCards,createPinnedBoard,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
+import {ambientCards,applyScheduleView,createPinnedBoard,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
 import {inboxItems,inboxHTML,ago,approvalSlip} from './inbox.mjs';
 import {createMusic} from './music.mjs';
 import {seasonLine} from './seasons.mjs';
@@ -309,7 +309,7 @@ function monitorCardPayloads(now=new Date()){
  const memories=(state.memories||[]).filter(m=>m.confirmed!==false);
  return {
   focus:focusTimer.snapshot(),
-  schedule:{routines:state.routines||[],plans:state.plans||[]},
+  schedule:{items:state.schedules||[]},
   memo:{note:mcfg.pinnedNote,memory:memories[0]||null},
   system:{model:modelName,ready,safety:(state.agent?.settings?.sandbox?.mode||'off')==='off'?'host':'protected',todayRequests:usage.calls||0,activeJobs:activeJobs().length,memoryCount:memories.length},
   almanac:{now,sun:sunTimes(now,weatherData)}
@@ -716,10 +716,15 @@ function settingsView(){
 }
 
 /* ---------- Render ---------- */
-function captureFocus(scope){const el=document.activeElement;if(!el||!scope.contains(el)||el===scope)return null;return {action:el.dataset?.action,id:el.dataset?.id,view:el.dataset?.view,value:el.dataset?.value,tab:el.dataset?.tab,elementId:el.id};}
+function captureFocus(scope){
+ const el=document.activeElement;if(!el||!scope.contains(el)||el===scope)return null;
+ return {action:el.dataset?.action,id:el.dataset?.id,view:el.dataset?.view,value:el.dataset?.value,tab:el.dataset?.tab,widget:el.dataset?.widget,scene:el.dataset?.scene,inputValue:el.tagName==='INPUT'&&['checkbox','radio'].includes(el.type)?el.value:undefined,elementId:el.id};
+}
 function restoreFocus(scope,key){
- if(!key)return;let el=key.elementId?scope.querySelector(`#${CSS.escape(key.elementId)}`):null;
- if(!el&&key.action){const sel=[`[data-action="${CSS.escape(key.action)}"]`,key.id&&`[data-id="${CSS.escape(key.id)}"]`,key.value&&`[data-value="${CSS.escape(key.value)}"]`,key.tab&&`[data-tab="${CSS.escape(key.tab)}"]`].filter(Boolean).join('');el=scope.querySelector(sel);}
+ if(!key)return;
+ // Compare identities directly: native checkbox values and widget/scene keys distinguish sibling controls.
+ let el=key.elementId?[...scope.querySelectorAll('[id]')].find(el=>el.id===key.elementId):null;
+ if(!el&&key.action)el=[...scope.querySelectorAll('[data-action]')].find(el=>el.dataset.action===key.action&&['id','view','value','tab','widget','scene'].every(k=>key[k]===undefined||el.dataset[k]===key[k])&&(key.inputValue===undefined||el.tagName==='INPUT'&&el.value===key.inputValue));
  (el||scope).focus({preventScroll:true});
 }
 function captureScroll(scope){return {surface:scope.scrollTop,list:$('.job-list',scope)?.scrollTop||0,bench:$('.workbench',scope)?.scrollTop||0};}
@@ -1098,7 +1103,6 @@ const actions={
  'focus-reset':()=>{focusTimer.reset();if(view==='home')paintFocus();},
  'focus-preset':el=>{const mins=Number(el.dataset.minutes)||25;focusTimer.setMinutes(mins);if(view==='home')paintFocus();return patchDisplay({focusMinutes:mins});},
  'memo-edit':memoSheet,
- 'open-routines':()=>{closePanel();view='workspace';workTab='tasks';render();},
  'discard-close':closeSheet,'discard-cancel':()=>{$('.discard-bar',overlay)?.remove();$('.modal-body input,.modal-body textarea',overlay)?.focus();},
  share:async()=>{capabilityUI?.stop();sharedView=!sharedView;if(sharedView){invalidatePendingSubmit();view='home';closeSheet();closePanel();cancelVoice();}dialogueRenderKey='';render();paintHome();},
  fullscreen:async()=>{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();},
@@ -1306,6 +1310,7 @@ bridge.on(e=>{
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
  if(e.type==='plan.updated'){upsert('plans',e.data);scheduleRender();return;}
+ if(e.type==='schedule.view'){state.schedules=applyScheduleView(state.schedules,e.data);if(view==='home')paintDeck();return;}
  if(e.type==='display.updated'){const interval=display().ambient.rotateSeconds;state.display=e.data;wallpaperDirty=true;if(deck&&display().ambient.rotateSeconds!==interval){deck.stop();deck=null;deckHost.replaceChildren();renderedView='';}idleWatcher?.set(display().ambient.idleMinutes*60000);mountCharacters();scheduleRender();return;}
  if(e.type==='frame.updated'){state.frame=e.data;wallpaperDirty=true;paintBackdrop();frameUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='avatar.updated'){state.avatar=e.data;mountCharacters();avatarStudioUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
@@ -1330,7 +1335,7 @@ bridge.on(e=>{
 });
 try{
  state=await bridge.init();state.companion={revision:0,focusJobId:null,returnStack:[]};state.dialogue||=await bridge.request('/api/agent/dialogue');
- state.display||=structuredClone(DISPLAY_DEFAULT);state.jobs||=[];state.artifacts||=[];state.routines=[];state.plans=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
+ state.display||=structuredClone(DISPLAY_DEFAULT);state.jobs||=[];state.artifacts||=[];state.routines=[];state.plans=[];state.schedules||=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
  globalThis.__TEPORA_LIVE__=!previewMode;lastSeenMessage=state.dialogue?.messages?.at(-1)?.id||'';
  shell();setInterval(()=>{tick();paintMood();},1000);
  document.documentElement.style.setProperty('--seal-hold',`${SEAL_HOLD_MS}ms`);

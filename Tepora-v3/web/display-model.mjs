@@ -6,10 +6,6 @@ export const FRAME_FITS=Object.freeze(['cover','contain','mat']);
 export const FRAME_CLOCKS=Object.freeze(['off','small','large']);
 export const AMBIENT_DEFAULT=Object.freeze({idleMinutes:5,rotateSeconds:12,nightDim:true,wallpaper:'room',keepAwake:false,
   frameSeconds:30,frameShuffle:true,frameFit:'cover',frameMotion:true,frameClock:'small',frameCreated:true});
-export const DISPLAY_DEFAULT = Object.freeze({
-  schema:1,revision:0,theme:'system',textScale:1,
-  widgets:['clock','companion','work','weather','news','media','artifact'],hiddenUntil:{},ambient:AMBIENT_DEFAULT
-});
 export const STAGE_LAYOUTS=Object.freeze(['companion-split','dashboard-bento','center-stage','standby-clock']);
 export const CLOCK_STYLES=Object.freeze(['editorial','modern','mono']);
 export const CLOCK_SIZES=Object.freeze(['compact','medium','hero']);
@@ -23,6 +19,11 @@ export const MONITOR_SCENES=Object.freeze({
 export const MONITOR_DEFAULT=Object.freeze({
   scene:'standard',layout:'companion-split',clockStyle:'editorial',clockSize:'medium',clockSeconds:false,
   pinnedWidgets:Object.freeze([]),weatherMode:'notable',workCard:false,focusMinutes:25,pinnedNote:''
+});
+export const DISPLAY_DEFAULT = Object.freeze({
+  schema:1,revision:0,theme:'system',textScale:1,
+  widgets:['clock','companion','work','weather','news','media','artifact'],hiddenUntil:{},ambient:AMBIENT_DEFAULT,
+  ...MONITOR_DEFAULT
 });
 const KEYS = new Set([
   'theme','textScale','widgets','hiddenUntil','ambient',
