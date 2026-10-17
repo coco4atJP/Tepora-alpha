@@ -126,7 +126,7 @@ function ambientWorkCard(jobs,{shared=false}={}){
 }
 function ambientPhotoCard(images,index=0){
  if(!images.length)return null;const img=images[((index%images.length)+images.length)%images.length];
- return {id:'photos',title:'つくったもの',html:`<figure class="photo-frame"><img src="${escape(img.src)}" alt="${escape(img.title)}" loading="lazy"><figcaption>${escape(img.title)}</figcaption></figure>`};
+ return {id:'photos',widget:'artifact',title:'つくったもの',html:`<figure class="photo-frame"><img src="${escape(img.src)}" alt="${escape(img.title)}" loading="lazy"><figcaption>${escape(img.title)}</figcaption></figure>`};
 }
 function ambientFocusCard(focus){
  if(!focus)return null;
@@ -134,7 +134,7 @@ function ambientFocusCard(focus){
  const m=String(Math.floor(rem/60)).padStart(2,'0'),s=String(Math.floor(rem%60)).padStart(2,'0');
  const pct=Math.min(100,Math.max(0,Math.round(((total-rem)/total)*100)));
  const mins=Number(focus.minutes)||25;
- return {id:'focus',title:'集中タイマー',html:`<div class="focus-widget${focus.running?' is-running':''}">
+ return {id:'focus',title:'集中タイマー',focus:{time:`${m}:${s}`,meta:`${focus.running?'集中中':'待機中'}${focus.completed?` · 今日 ${focus.completed}回`:''}`,progress:pct,minutes:mins,running:!!focus.running},html:`<div class="focus-widget${focus.running?' is-running':''}">
   <div class="focus-readout"><strong class="focus-time">${m}:${s}</strong><span class="focus-meta">${focus.running?'集中中':'待機中'}${focus.completed?` · 今日 ${focus.completed}回`:''}</span></div>
   <div class="music-progress focus-progress" aria-hidden="true"><span style="--p:${pct}%"></span></div>
   <div class="focus-controls">
@@ -205,31 +205,79 @@ export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],fo
 
 /** Multi-slot pinned board renderer for the smart monitor stage. */
 export function renderPinnedCards(cards=[]){
- return cards.filter(Boolean).map(c=>`<article class="deck-card pinned-card" data-card="${escape(c.id)}"><header class="deck-title"><span>${escape(c.title)}</span><button type="button" class="card-pin-btn" data-action="toggle-pin-widget" data-widget="${escape(c.id)}" aria-label="固定を解除" title="固定を解除">固定中</button></header><div class="deck-body">${c.html}</div></article>`).join('');
+ return cards.filter(Boolean).map(c=>`<article class="deck-card pinned-card" data-card="${escape(c.id)}"><header class="deck-title"><span>${escape(c.title)}</span><button type="button" class="card-pin-btn" data-action="toggle-pin-widget" data-widget="${escape(c.widget||c.id)}" aria-label="固定を解除" title="固定を解除">固定中</button></header><div class="deck-body">${c.html}</div></article>`).join('');
 }
 
-/** One card at a time; the next one rises into place. Hover or focus holds the current card. */
+// A running clock must not replace controls (or the keyboard focus inside them).
+function paintFocusCard(article,card){
+ const value=card.focus;if(!value||!article?.querySelector('.focus-widget'))return false;
+ const text=(selector,value)=>{const el=article.querySelector(selector);if(el.textContent!==value)el.textContent=value;};
+ text('.focus-time',value.time);text('.focus-meta',value.meta);
+ text('[data-action="focus-toggle"]',value.running?'一時停止':'開始');
+ article.querySelector('.focus-widget').classList.toggle('is-running',value.running);
+ article.querySelector('.focus-progress span').style.setProperty('--p',`${value.progress}%`);
+ article.querySelectorAll('[data-action="focus-preset"]').forEach(el=>el.classList.toggle('is-on',Number(el.dataset.minutes)===value.minutes));
+ return true;
+}
+/** Keyed pinned cards: update only the changed widget, keeping other cards and their focus. */
+export function createPinnedBoard(host){
+ const records=new Map();
+ const update=card=>{
+  const record=records.get(card.id);if(!record)return;
+  if(record.card.html===card.html&&record.card.title===card.title)return;
+  if(!paintFocusCard(record.el,card)){
+   record.el.querySelector('.deck-title span').textContent=card.title;
+   record.el.querySelector('.deck-body').innerHTML=card.html;
+  }
+  record.card=card;
+ };
+ return {
+  set(cards){
+   const ids=new Set(cards.map(c=>c.id));
+   for(const [id,record] of records)if(!ids.has(id)){record.el.remove();records.delete(id);}
+   cards.forEach((card,index)=>{
+    if(!records.has(card.id)){
+     const box=host.ownerDocument.createElement('div');box.innerHTML=renderPinnedCards([card]);
+     records.set(card.id,{el:box.firstElementChild,card});
+    }else update(card);
+    const el=records.get(card.id).el;if(host.children[index]!==el)host.insertBefore(el,host.children[index]||null);
+   });
+   host.classList.toggle('is-empty',!cards.length);
+  },
+  update
+ };
+}
+
+/** One card at a time; data refreshes do not postpone rotation. Hover or focus holds the card. */
 export function createDeck(host,{interval=12000,reducedMotion=false,onChange=()=>{}}={}){
- let cards=[],index=0,timer=0,paused=false,stopped=false,lastSig='';
+ let cards=[],index=0,timer=0,hovered=false,focused=false,stopped=false,lastSig='',lastCard='',lastPager='';
  const paint=(animate=false)=>{
-  if(!cards.length){if(lastSig!==''){host.innerHTML='';lastSig='';}onChange(null);return;}
+  if(!cards.length){if(lastSig!==''){host.innerHTML='';lastSig='';lastCard='';}onChange(null);return;}
   index=((index%cards.length)+cards.length)%cards.length;const c=cards[index];
-  const sig=`${index}|${cards.map(x=>`${x.id}:${x.title}:${x.html}`).join('||')}`;
+  // Only the displayed content and pager labels can affect the displayed DOM.
+  const pager=JSON.stringify(cards.map(x=>[x.id,x.title])),sig=JSON.stringify([index,c.id,c.title,c.html,pager]);
   if(!animate&&sig===lastSig){onChange(c.id);return;}
-  lastSig=sig;
-  host.innerHTML=`<article class="deck-card${animate&&!reducedMotion?' is-arriving':''}" data-card="${escape(c.id)}"><header class="deck-title">${escape(c.title)}</header><div class="deck-body">${c.html}</div></article>
+  const live=!animate&&lastCard===c.id&&lastPager===pager&&paintFocusCard(host.querySelector?.('.deck-card'),c);
+  lastSig=sig;lastCard=c.id;lastPager=pager;
+  if(!live)host.innerHTML=`<article class="deck-card${animate&&!reducedMotion?' is-arriving':''}" data-card="${escape(c.id)}"><header class="deck-title">${escape(c.title)}</header><div class="deck-body">${c.html}</div></article>
    ${cards.length>1?`<div class="deck-pager" role="group" aria-label="表示するカード">${cards.map((x,n)=>`<button type="button" data-deck="${n}" aria-label="${escape(x.title)}" aria-pressed="${n===index}"></button>`).join('')}</div>`:''}`;
   onChange(c.id);
  };
- const schedule=()=>{clearTimeout(timer);if(stopped||paused||reducedMotion||cards.length<2)return;timer=setTimeout(()=>{index++;paint(true);schedule();},interval);};
- host.addEventListener('click',e=>{const b=e.target.closest('[data-deck]');if(!b)return;index=Number(b.dataset.deck);paint(true);schedule();});
- host.addEventListener('pointerenter',()=>{paused=true;clearTimeout(timer);});host.addEventListener('pointerleave',()=>{paused=false;schedule();});
- host.addEventListener('focusin',()=>{paused=true;clearTimeout(timer);});host.addEventListener('focusout',()=>{paused=false;schedule();});
+ const clear=()=>{clearTimeout(timer);timer=0;};
+ const schedule=(restart=false)=>{
+  if(stopped||hovered||focused||reducedMotion||cards.length<2){clear();return;}
+  if(timer&&!restart)return;
+  clear();timer=setTimeout(()=>{timer=0;index++;paint(true);schedule();},interval);
+ };
+ host.addEventListener('click',e=>{const b=e.target.closest('[data-deck]');if(!b)return;index=Number(b.dataset.deck);paint(true);schedule(true);});
+ host.addEventListener('pointerenter',()=>{hovered=true;clear();});host.addEventListener('pointerleave',()=>{hovered=false;schedule();});
+ host.addEventListener('focusin',()=>{focused=true;clear();});host.addEventListener('focusout',e=>{if(e.relatedTarget&&host.contains?.(e.relatedTarget))return;focused=false;schedule();});
  return {
   set(next,{keep=true}={}){const current=cards[index]?.id;cards=next;if(keep&&current){const at=cards.findIndex(c=>c.id===current);if(at>=0)index=at;}paint();schedule();},
-  next(){index++;paint(true);schedule();},
+  update(card){const at=cards.findIndex(c=>c.id===card.id);if(at>=0){cards[at]=card;paint();}},
+  next(){index++;paint(true);schedule(true);},
   current(){return cards[index]?.id||null;},
-  stop(){stopped=true;clearTimeout(timer);}
+  stop(){stopped=true;clear();}
  };
 }
 

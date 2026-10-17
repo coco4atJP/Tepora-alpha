@@ -45,8 +45,34 @@ this PC played in place through blob URLs; nothing is uploaded and the list last
 is open; YouTube is in 設定), つくったもの (generated images as a photo frame) and 天気 (Open-Meteo,
 current/hourly/high-low) — the weather card only when the weather changes what you would do: rain or
 snow now or soon, a hot or a cold day. A card appears only when it has something to show; setup
-lives in 設定 → ホームと待機画面, and an empty deck leaves a single 「ホームのカードを設定」 link.
-Feeds load only with the existing network permission and configured sources.
+lives in 設定 → ホームと待機画面. 「ステージをカスタマイズ」 opens an in-place panel, and
+「表示の設定」 opens the full settings. Feeds load only with the existing network permission and
+configured sources.
+
+### Scenes, pinned widgets and clocks
+
+Four presets combine display preferences: **いつもの部屋**, **ワークデスク**, **くつろぎの窓辺**
+and **ナイトクロック**. Layout, clock font, size and seconds can also be chosen individually. The
+layouts are companion split, dashboard bento, center stage and clock-only standby; narrow surfaces
+use a single-column arrangement. In the clock-only layout, pending requests remain accessible through
+「あなたの番」 in the top bar (or the idle-screen fallback), even if the companion widget remains enabled.
+
+Up to four cards can be pinned; remaining enabled cards rotate independently. Weather can optionally
+stay in the deck on calm days, and running work can be shown as a card as well as lights. New cards are
+**集中タイマー**, **予定・定期タスク**, **メモ・記憶**, **システム状態** and **二十四節気・暦**.
+Schedule and system cards only project already-loaded state; they do not start tasks, inference or
+new requests. A pinned note is a display preference, not an instruction to the agent, and is limited
+to 240 UTF-16 units consistently in the Node and explicit native hosts.
+
+The focus timer is local to the current window. Presets are 15, 25 and 45 minutes; saved durations
+accept 5–90 minutes. Pause/resume preserves the remaining time. The timer uses a wall-clock deadline,
+not render counts: delayed callbacks catch up once and completion stops instead of starting another
+interval. The interval state and completion count reset when the window reloads; only the chosen
+duration is saved. It is not a durable reminder or an OS notification service.
+
+Timer ticks update the timer's text/progress without replacing its controls or unrelated cards.
+Refreshing card data does not restart the carousel deadline. An unchanged customizer preserves its
+DOM, scroll and keyboard focus rather than regenerating the panel on every state update.
 
 - **Caption**: the character speaks in this order: what happened while you were away, a fresh reply,
   a request that waits for you, and otherwise a short greeting tied to the hour (the weather is
@@ -55,7 +81,8 @@ Feeds load only with the existing network permission and configured sources.
   jobs are only in 仕事). A light shows the title and state on hover and opens the job. A job that
   needs the person is not a light.
 - **The amber lamp** appears while anything waits in あなたの番, says how many, and is the one way in
-  from ホーム. It is the only control the idle screen keeps.
+  from ホーム when the character is visible. Without the character, the top-bar inbox or idle-screen
+  fallback remains available. It is the only work control the idle screen keeps.
 - **Welcome back**: when the person returns from the idle screen or after the window was hidden for
   a while, the caption says what finished and what waits (「おかえりなさい。確認がひとつ、お待ちです。」),
   and says nothing when nothing happened.

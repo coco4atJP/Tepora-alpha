@@ -86,4 +86,3 @@ export function validateDisplay(input,previous=DISPLAY_DEFAULT) {
   next.ambient=ambient;
   return next;
 }
-

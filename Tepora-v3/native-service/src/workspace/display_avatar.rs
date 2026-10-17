@@ -171,9 +171,7 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
             || next["pinnedWidgets"].as_array().is_some_and(|pinned| {
                 pinned.len() <= 4
                     && pinned.iter().all(|w| {
-                        listed(w, "widgets")
-                            && w != &json!("clock")
-                            && w != &json!("companion")
+                        listed(w, "widgets") && w != &json!("clock") && w != &json!("companion")
                     })
                     && pinned
                         .iter()
@@ -184,8 +182,7 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
         "Invalid pinned widgets",
     )?;
     require(
-        next.get("weatherMode").is_none()
-            || member(&next["weatherMode"], &["notable", "always"]),
+        next.get("weatherMode").is_none() || member(&next["weatherMode"], &["notable", "always"]),
         400,
         "Invalid weather mode",
     )?;
@@ -204,7 +201,7 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
         next.get("pinnedNote").is_none()
             || next["pinnedNote"]
                 .as_str()
-                .is_some_and(|s| s.chars().count() <= 240),
+                .is_some_and(|s| json_codec::utf16_units(s).len() <= 240),
         400,
         "Invalid pinned note",
     )?;
@@ -738,16 +735,23 @@ mod tests;
 
 impl State {
     pub(super) fn avatar_asset_removed(&mut self, id: &str) -> Result<(), ApiError> {
-        let current=self.value("avatar")?;
-        if current["asset"] != id {return Ok(());}
-        let mut next=default_avatar(&json!("shiro"));
-        next["revision"]=plus_one(current.get("revision"));
-        let mut previous=history(&self.value("avatar-history")?)?;
+        let current = self.value("avatar")?;
+        if current["asset"] != id {
+            return Ok(());
+        }
+        let mut next = default_avatar(&json!("shiro"));
+        next["revision"] = plus_one(current.get("revision"));
+        let mut previous = history(&self.value("avatar-history")?)?;
         previous.push(current);
-        if previous.len()>20 {previous.drain(..previous.len()-20);}
-        self.set_value("avatar-history",json!(previous))?;
-        self.set_value("avatar",next.clone())?;
-        let event=self.call("event.append",json!({"type":"avatar.updated","data":next,"at":now()}))?;
+        if previous.len() > 20 {
+            previous.drain(..previous.len() - 20);
+        }
+        self.set_value("avatar-history", json!(previous))?;
+        self.set_value("avatar", next.clone())?;
+        let event = self.call(
+            "event.append",
+            json!({"type":"avatar.updated","data":next,"at":now()}),
+        )?;
         self.publish_value(event)
     }
 }

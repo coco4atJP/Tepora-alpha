@@ -309,6 +309,47 @@ fn avatar_metadata_only_selection_and_missing_asset_undo_keep_import_authority_l
     assert_eq!(f.run(Kind::Avatar,VisualAction::Import,json!({"expectedRevision":3,"preset":{"format":"tepora-avatar","version":1,"settings":{"body":"image"}}})).unwrap_err().status,409);
 }
 #[test]
+fn monitor_preferences_validate_scene_widgets_limits_and_utf16_notes() {
+    let previous = default_config(Kind::Display);
+    let widgets = constants()["widgets"].clone();
+    let valid = json!({
+        "scene":"work", "layout":"dashboard-bento", "clockStyle":"modern",
+        "clockSize":"compact", "clockSeconds":true, "widgets":widgets,
+        "pinnedWidgets":["focus","work","schedule","system"],
+        "weatherMode":"always", "workCard":true, "focusMinutes":45,
+        "pinnedNote":"😀".repeat(120)
+    });
+    let accepted = validate_display(&valid, &previous).unwrap();
+    assert_eq!(accepted["widgets"].as_array().unwrap().len(), 12);
+    assert_eq!(accepted["focusMinutes"], 45);
+    assert_eq!(accepted["pinnedNote"], valid["pinnedNote"]);
+    for invalid in [
+        json!({"scene":"unknown"}),
+        json!({"layout":"grid-99"}),
+        json!({"clockStyle":"unknown"}),
+        json!({"clockSize":"huge"}),
+        json!({"clockSeconds":1}),
+        json!({"pinnedWidgets":["clock"]}),
+        json!({"pinnedWidgets":["companion"]}),
+        json!({"pinnedWidgets":["focus","focus"]}),
+        json!({"pinnedWidgets":["weather","news","media","work","focus"]}),
+        json!({"weatherMode":"sometimes"}),
+        json!({"workCard":"yes"}),
+        json!({"focusMinutes":4}),
+        json!({"focusMinutes":91}),
+        json!({"focusMinutes":25.5}),
+        json!({"pinnedNote":"x".repeat(241)}),
+        json!({"pinnedNote":"😀".repeat(121)}),
+    ] {
+        assert_eq!(
+            validate_display(&invalid, &previous).unwrap_err().status,
+            400,
+            "{invalid}"
+        );
+    }
+}
+
+#[test]
 fn visual_presets_cannot_modify_personas_or_permissions() {
     let f = Fixture::new();
     let settings = f.workspace.lock().unwrap().settings().unwrap();

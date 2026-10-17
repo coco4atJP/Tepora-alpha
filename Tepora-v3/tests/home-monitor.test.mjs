@@ -98,4 +98,11 @@ test('new smart monitor widgets (focus, schedule, memo, system, almanac) render 
  assert.match(almanacCard.html,/寒露/);
  assert.match(almanacCard.html,/鴻雁来る/);
 });
-
+test('all scene presets are valid display-only patches and note limits use UTF-16 in both hosts',()=>{
+ for(const scene of Object.values(MONITOR_SCENES))assert.doesNotThrow(()=>validateDisplay(scene.patch));
+ assert.equal(validateDisplay({pinnedNote:'😀'.repeat(120)}).pinnedNote.length,240);
+ assert.throws(()=>validateDisplay({pinnedNote:'😀'.repeat(121)}),/Invalid pinned note/);
+ assert.throws(()=>validateDisplay({pinnedWidgets:['focus','focus']}),/Invalid pinned widgets/);
+ assert.throws(()=>validateDisplay({focusMinutes:91}),/Invalid focus timer minutes/);
+ assert.throws(()=>validateDisplay({allowNetwork:true}),/Display cannot change/);
+});

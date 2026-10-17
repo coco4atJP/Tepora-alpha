@@ -1,5 +1,13 @@
 # Tepora V3 changelog
 
+## Configurable companion monitor (beta.11)
+
+- Add four scene/layout presets, clock fonts/sizes/seconds, an in-place customizer and up to four pinned cards, while keeping display changes separate from execution permissions
+- Add local focus, schedule, memo, system and almanac widgets; retain the carousel, optional always-visible weather/work cards and drawn-avatar refinements
+- Base countdowns on elapsed wall-clock time and preserve pinned controls/focus with per-widget updates; cache unchanged customizer markup and keep carousel deadlines independent of data refreshes
+- Preserve approval access in clock-only layouts, correct generated-image unpinning and align native note validation with JavaScript UTF-16 limits
+- Cover the repaired behavior with unit/native and installed-browser regressions; see [monitor behavior](../Tepora-v3/docs/COMPANION-MONITOR.md) and [bounded local performance evidence](../Tepora-v3/docs/QA.md#configurable-monitor-and-bounded-redraws)
+
 ## Actual pi-ai integration (beta.11)
 
 - Use pinned `@earendil-works/pi-ai` 1.3.0 for new SDK-backed inference, streaming, tool calls, model metadata and all nine SDK OAuth flows, rather than only adding templates

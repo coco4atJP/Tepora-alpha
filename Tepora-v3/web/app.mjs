@@ -5,6 +5,7 @@ import {bridge,previewMode,previewAvatar} from './bridge.mjs';
 import {escape,icon,btn,toolbtn,statuses,setArtifactFrame,field,toggle,modal,registerForms,isTrustedForm} from './ui.mjs';
 import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS,STAGE_LAYOUTS,CLOCK_STYLES,CLOCK_SIZES,MONITOR_SCENES,monitorConfig} from './display-model.mjs';
 import {VoiceDraft} from './draft.mjs';
+import {createFocusTimer} from './focus-timer.mjs';
 import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
 import {VoiceCapture} from './voice.mjs';
@@ -18,7 +19,7 @@ import {createAvatar,avatarAssetUrl} from './avatar/stage.mjs';
 import {avatarGeometry} from './avatar/geometry.mjs';
 import {createAvatarStudio} from './avatar/settings.mjs';
 import {VOICE_PROACTIVE,VOICE_SCENES,VOICE_TONES,voiceAddress,voiceLine,voiceSpeaks} from './voice-lines.mjs';
-import {ambientCards,renderPinnedCards,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
+import {ambientCards,createPinnedBoard,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
 import {inboxItems,inboxHTML,ago,approvalSlip} from './inbox.mjs';
 import {createMusic} from './music.mjs';
 import {seasonLine} from './seasons.mjs';
@@ -43,7 +44,8 @@ let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendin
 // Home monitor and companion presentation. None of this changes permissions or work.
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
-let focusTimer={minutes:25,remainingSeconds:1500,running:false,completed:0,syncedMinutes:25};
+const focusTimer=createFocusTimer(),stageStudioCache=new WeakMap();
+let pinnedBoard=null,focusCardKey='';
 // Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
 let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
 // The conversation column is opened on demand; on the home stage the message box sits under the character.
@@ -82,7 +84,8 @@ const display=()=>{const d=state?.display||DISPLAY_DEFAULT;return {...DISPLAY_DE
 const inboxList=()=>state?inboxItems({approvals:state.approvals||[],jobs:state.jobs,dialogue:state.dialogue,routines:state.routines||[],plans:state.plans||[]}):[];
 const narrow=()=>wideScreen?wideScreen.matches===false:false;
 // The lamp (character, antenna, amber light) is on screen only on a home stage that shows the character.
-const lampAvailable=()=>view==='home'&&!sharedView&&widgetsVisible().includes('companion')&&!(ambientMode&&backdropNow()==='photos');
+const companionVisible=()=>widgetsVisible().includes('companion')&&monitorConfig(display()).layout!=='standby-clock';
+const lampAvailable=()=>view==='home'&&!sharedView&&companionVisible()&&!(ambientMode&&backdropNow()==='photos');
 const safe=fn=>async(...args)=>{try{return await fn(...args);}catch(e){if(e.name!=='AbortError')notice(e.message||String(e),'error');}};
 // Composer errors already appear beside the message box; do not repeat them as a toast.
 const quiet=fn=>async(...args)=>{try{return await fn(...args);}catch(e){if(e.name!=='AbortError'&&e.message!==lastSubmitError)notice(e.message||String(e),'error');}};
@@ -250,7 +253,7 @@ function syncWallpaper(shown){
 /** Running work as lights around the character; what waits for the person as one amber light. */
 function paintLights(){
  if(!lights)return;
- const showWork=widgetsVisible().includes('companion')&&widgetsVisible().includes('work'),showLamp=widgetsVisible().includes('companion');
+ const showWork=companionVisible()&&widgetsVisible().includes('work'),showLamp=companionVisible();
  lights.set({jobs:showWork?lightJobs(workJobs()):[],waiting:showLamp&&!sharedView?inboxList().length:0,shared:sharedView});
 }
 /** The idle screen keeps the display on when asked (and for the photo frame). Not every environment allows it. */
@@ -290,6 +293,7 @@ function homeHTML(){
 function attachStage(){
  const slot=$('#stage-character-slot');if(slot)slot.append(glowHost,stageHost,lightsHost);
  lights||=createLights(lightsHost);if(state?.avatar)lights.setAnchor(avatarGeometry(state.avatar).amber);
+ pinnedBoard=createPinnedBoard($('#pinned-slot'));
  const deckSlot=$('#deck-slot');if(deckSlot)deckSlot.append(deckHost);
  deck||=createDeck(deckHost,{interval:display().ambient.rotateSeconds*1000,reducedMotion,onChange:id=>{
   // A card shows its next headline/picture the next time it comes to the front.
@@ -301,13 +305,13 @@ function monitorCardPayloads(now=new Date()){
  const s=settings(),mcfg=monitorConfig(display()),providers=state.providers?.profiles||[];
  const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model));
  const modelName=s.model||providers.find(p=>p.enabled!==false)?.model||'';
- const usage=state.usage?.today||state.agent?.usage?.today||{};
+ const usage=state.agent?.usage?.modelCalls?.today||state.agent?.usage?.today||{};
  const memories=(state.memories||[]).filter(m=>m.confirmed!==false);
  return {
-  focus:{...focusTimer},
+  focus:focusTimer.snapshot(),
   schedule:{routines:state.routines||[],plans:state.plans||[]},
   memo:{note:mcfg.pinnedNote,memory:memories[0]||null},
-  system:{model:modelName,ready,safety:(state.agent?.settings?.sandbox?.mode||'off')==='off'?'host':'protected',todayRequests:usage.requests||0,activeJobs:activeJobs().length,memoryCount:memories.length},
+  system:{model:modelName,ready,safety:(state.agent?.settings?.sandbox?.mode||'off')==='off'?'host':'protected',todayRequests:usage.calls||0,activeJobs:activeJobs().length,memoryCount:memories.length},
   almanac:{now,sun:sunTimes(now,weatherData)}
  };
 }
@@ -318,8 +322,7 @@ function paintHome(){
  document.body.dataset.stageLayout=mcfg.layout;
  $('#clock').hidden=!visible.includes('clock');
  $('#stage-figure').classList.toggle('is-empty',!visible.includes('companion')||mcfg.layout==='standby-clock');
- paintSpeech();paintStageNotes();paintDeck();paintLights();tick();
- if(activePanel?.kind==='stage-studio')paintStageStudio();
+ paintSpeech();paintStageNotes();paintDeck();paintLights();
 }
 function paintSpeech(){
  const el=$('#speech');if(!el)return;
@@ -353,16 +356,15 @@ function paintDeck(){
  const pinned=mcfg.pinnedWidgets.filter(w=>vis.includes(w));
  const sample={weather:!!weatherData?.sample,news:!!newsData?.sample},payloads=monitorCardPayloads();
  const common={weather:weatherData,news:newsData,music:musicState,jobs:workJobs(),images:sharedView?[]:imageAssets(),...payloads,shared:sharedView,newsIndex,photoIndex,sample};
- const pinSlot=$('#pinned-slot');
- if(pinSlot){
-  const pinnedCards=ambientCards({widgets:pinned,...common});
-  const sig=pinnedCards.map(c=>`${c.id}:${c.title}:${c.html}`).join('||');
-  if(pinSlot.dataset.sig!==sig){pinSlot.dataset.sig=sig;pinSlot.innerHTML=renderPinnedCards(pinnedCards);}
-  pinSlot.classList.toggle('is-empty',!pinnedCards.length);
- }
+ pinnedBoard?.set(ambientCards({widgets:pinned,...common}));
  const deckList=deckWidgets(vis,{weather:weatherData,weatherMode:mcfg.weatherMode,workCard:mcfg.workCard,pinned});
  deck.set(ambientCards({widgets:deckList,...common}));
  const slot=$('#deck-slot');if(slot)slot.classList.toggle('is-empty',!deckHost.querySelector('.deck-card'));
+}
+// The second hand updates only the timer, not feeds, memories, other cards or the studio.
+function paintFocus(){
+ const focus=focusTimer.snapshot(),key=JSON.stringify(focus);if(key===focusCardKey)return;focusCardKey=key;
+ const card=ambientCards({widgets:['focus'],focus})[0];pinnedBoard?.update(card);deck?.update(card);
 }
 async function loadFeeds(force=false){
  if(!state)return;const s=settings(),visible=widgetsVisible();
@@ -432,7 +434,7 @@ function applyAvatarGeometry(spec){
 }
 async function mountCharacters(){
  if(!state?.avatar)return;
- const spec=state.avatar,name=characterName(state.dialogue),shown=widgetsVisible().includes('companion');
+ const spec=state.avatar,name=characterName(state.dialogue),shown=companionVisible();
  const key=JSON.stringify([spec,avatarAssetList().map(a=>a.id),name,shown]);
  if(key===characterKey)return;characterKey=key;
  avatarAbort?.abort();avatarAbort=new AbortController();const signal=avatarAbort.signal;
@@ -653,11 +655,13 @@ function stageStudioHTML(){
 function openStageStudio(){
  if(sharedView)return;
  if(view!=='home'){view='home';render();}
- openPanel('ステージをカスタマイズ',stageStudioHTML(),'stage-studio');
+ const html=stageStudioHTML();openPanel('ステージをカスタマイズ',html,'stage-studio');
+ stageStudioCache.set($('#panel .panel-body'),html);
 }
 function paintStageStudio(){
  const body=$('#panel .panel-body');if(!body||activePanel?.kind!=='stage-studio')return;
- const top=body.scrollTop;body.innerHTML=stageStudioHTML();body.scrollTop=top;
+ const html=stageStudioHTML();if(stageStudioCache.get(body)===html)return;
+ const focus=captureFocus(body),top=body.scrollTop;body.innerHTML=html;body.scrollTop=top;stageStudioCache.set(body,html);restoreFocus(body,focus);
 }
 function memoSheet(){
  const mcfg=monitorConfig(display());
@@ -748,15 +752,9 @@ function syncLiveSurface(){render();}
 function scheduleRender(){clearTimeout(refreshTimer);refreshTimer=setTimeout(syncLiveSurface,80);}
 function tick(){
  const now=new Date(),mcfg=monitorConfig(display());
- if(!focusTimer.running&&focusTimer.syncedMinutes!==mcfg.focusMinutes){focusTimer.minutes=mcfg.focusMinutes;focusTimer.remainingSeconds=mcfg.focusMinutes*60;focusTimer.syncedMinutes=mcfg.focusMinutes;}
- if(focusTimer.running){
-  focusTimer.remainingSeconds=Math.max(0,focusTimer.remainingSeconds-1);
-  if(focusTimer.remainingSeconds===0){
-   focusTimer.running=false;focusTimer.completed+=1;focusTimer.remainingSeconds=focusTimer.minutes*60;
-   celebrateUntil=Date.now()+3200;notice('集中タイマーが完了しました。ひと息つきましょう。');
-  }
-  if(view==='home')paintDeck();
- }
+ focusTimer.sync(mcfg.focusMinutes);
+ if(focusTimer.tick()){celebrateUntil=Date.now()+3200;notice('集中タイマーが完了しました。ひと息つきましょう。');}
+ if(view==='home')paintFocus();
  if($('#clock-display'))$('#clock-display').textContent=now.toLocaleTimeString('ja-JP',mcfg.clockSeconds?{hour:'2-digit',minute:'2-digit',second:'2-digit'}:{hour:'2-digit',minute:'2-digit'});
  if($('#clock-date'))$('#clock-date').textContent=`${now.getMonth()+1}月${now.getDate()}日（${now.toLocaleDateString('ja-JP',{weekday:'short'})}）`;
  const season=$('#clock-season');if(season)season.textContent=seasonLine(now);
@@ -1096,9 +1094,9 @@ const actions={
   const nextWidgets=prefs.widgets.includes(w)?prefs.widgets:[...prefs.widgets,w];
   return patchDisplay({pinnedWidgets:nextPinned,widgets:nextWidgets});
  },
- 'focus-toggle':()=>{focusTimer.running=!focusTimer.running;if(view==='home')paintDeck();},
- 'focus-reset':()=>{focusTimer.running=false;focusTimer.remainingSeconds=(focusTimer.minutes||25)*60;if(view==='home')paintDeck();},
- 'focus-preset':el=>{const mins=Number(el.dataset.minutes)||25;focusTimer.running=false;focusTimer.minutes=mins;focusTimer.remainingSeconds=mins*60;focusTimer.syncedMinutes=mins;if(view==='home')paintDeck();return patchDisplay({focusMinutes:mins});},
+ 'focus-toggle':()=>{tick();focusTimer.toggle();if(view==='home')paintFocus();},
+ 'focus-reset':()=>{focusTimer.reset();if(view==='home')paintFocus();},
+ 'focus-preset':el=>{const mins=Number(el.dataset.minutes)||25;focusTimer.setMinutes(mins);if(view==='home')paintFocus();return patchDisplay({focusMinutes:mins});},
  'memo-edit':memoSheet,
  'open-routines':()=>{closePanel();view='workspace';workTab='tasks';render();},
  'discard-close':closeSheet,'discard-cancel':()=>{$('.discard-bar',overlay)?.remove();$('.modal-body input,.modal-body textarea',overlay)?.focus();},
