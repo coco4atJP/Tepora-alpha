@@ -128,6 +128,16 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             AudioSessions(FakeSpeech()).start(48000)
 
+    def test_mono_workers_reject_duplex_and_invalid_channel_counts_without_starting(self):
+        sessions = AudioSessions(FakeSpeech())
+        for channels in (2, 0, 3, True, 1.0, "2", None):
+            with self.subTest(channels=channels), self.assertRaises(ValueError):
+                sessions.start(channels=channels)
+            self.assertEqual(sessions.sessions, {})
+        sid = sessions.start(channels=1)["session_id"]
+        self.assertEqual(sessions.chunk(sid, 0, pcm())["text"], "日本語")
+        self.assertEqual(sessions.sessions[sid]["samples"], 3200)
+
     def test_speech_http_flow(self):
         server = self.running(speech_server, FakeSpeech())
         status, result = self.request(server, "POST", "/api/start", {"sample_rate": 16000})

@@ -292,6 +292,8 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     }finally{probes.delete('dictation');}
    }
    if(p==='/api/voice/start'&&method==='POST')return json(res,await speech.start());
+   if(p==='/api/voice/wake/start'&&method==='POST')return json(res,await speech.start(true));
+   if(p==='/api/voice/barge/start'&&method==='POST')return json(res,await speech.start(true,2));
    if(p==='/api/voice/chunk'&&method==='POST')return json(res,await speech.chunk(await body(req)));
    if(p==='/api/voice/finish'&&method==='POST'){const b=await body(req);return json(res,await speech.finish(b.id));}
    if(p==='/api/voice/cancel'&&method==='POST'){const b=await body(req);return json(res,await speech.cancel(b.id));}
@@ -376,7 +378,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/artifacts' && method==='GET')return json(res,store.list('artifact'));
    if(p.startsWith('/api/'))return json(res,{error:'Unknown endpoint or HTTP method'},404);
    invariant(['GET','HEAD'].includes(method),'Method not allowed',405);
-   const allowed=['/','/index.html','/styles.css','/avatar.css','/app.mjs','/ui.mjs','/bridge.mjs','/voice.mjs','/draft.mjs','/realtime-voice.mjs','/onboarding.mjs','/provider-settings.mjs','/capability-ui.mjs','/pcm-worklet.js','/display-model.mjs','/demo.mjs','/favicon.svg','/vrm-stage.mjs','/mesh-avatar.mjs','/three-body.mjs',...VENDOR_FILES.map(f=>'/vendor/'+f)];invariant(allowed.includes(p),'Not found',404);
+   const allowed=['/','/index.html','/styles.css','/avatar.css','/app.mjs','/ui.mjs','/bridge.mjs','/voice.mjs','/draft.mjs','/realtime-voice.mjs','/hands-free-voice.mjs','/onboarding.mjs','/provider-settings.mjs','/capability-ui.mjs','/pcm-worklet.js','/display-model.mjs','/demo.mjs','/favicon.svg','/vrm-stage.mjs','/mesh-avatar.mjs','/three-body.mjs',...VENDOR_FILES.map(f=>'/vendor/'+f)];invariant(allowed.includes(p),'Not found',404);
    const file=path.join(webDir,p==='/'?'index.html':p.slice(1));const data=await readFile(file);
    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
    res.writeHead(200,{'Content-Type':TYPES[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(method==='HEAD'?undefined:data);

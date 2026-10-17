@@ -12,7 +12,12 @@ export class RuntimeHost {
   const day=new Date(nowMs).toISOString().slice(0,10);
   return {nowMs,settings:rt.settings(),dailyCost:budgetCost(rt.store.value('agent-usage:'+day)?.cost||0,rt.store.value('model-usage:'+day)),
    decisionAvailable:rt.decisions.available(),hasHooks:!!rt.tools.hooks.length,
-   sessions:rt.sessions.list().map(session=>{const tail=rt.sessions.tail(session.id,12);return {session,tail,pending:rt.sessions.pending(session.id),lastAtMs:Date.parse(tail.at(-1)?.at)||0};})};
+   // Rust admission uses only these tail flags, inbox count and last activity.
+   // Keep full entries in storage/context; do not repeatedly serialize worker
+   // tool output and queued user text through the synchronous scheduler bridge.
+   sessions:rt.sessions.list().map(session=>{const tail=rt.sessions.tail(session.id,12);return {session,
+    tail:tail.map(({type,passive,toolCalls,truncated})=>({type,passive,toolCalls,truncated})),
+    pending:rt.sessions.pending(session.id).length,lastAtMs:Date.parse(tail.at(-1)?.at)||0};})};
  }
  query(operation,payload){return JSON.parse(this.core.query(operation,JSON.stringify(payload)));}
  dispatch(event){

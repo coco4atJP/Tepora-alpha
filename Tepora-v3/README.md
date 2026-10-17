@@ -35,6 +35,10 @@ artifact three times. Real requests need configured runtimes or providers. The a
 preview with the drawn and picture bodies (files you bring stay in the window only); the solid 3D, VRM and
 mesh bodies load their renderers from the service and are not available there.
 
+## Hands-free voice
+
+Explicit local wake standby, automatic endpointing and optional device TTS are available from voice settings. Nothing starts listening or downloads models automatically. See [local setup and hardware limits](docs/HANDS-FREE-VOICE.md).
+
 ## Companion monitor
 
 The home screen is a quiet monitor: the character (an avatar you shape yourself, or one you bring: **VRM**, a picture, a mesh-avatar-studio project) with its
