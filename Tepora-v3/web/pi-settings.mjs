@@ -7,12 +7,13 @@ export function createPiSettings({bridge,openSheet,notice,previewMode,onSaved}){
  const options=(rows,value)=>rows.map(([id,label])=>`<option value="${escape(id)}" ${id===value?'selected':''}>${escape(label)}</option>`).join('');
  const def=()=>providers.find(p=>p.id===providerId);
  const current=()=>config?.profiles.find(p=>p.id===selected);
+ const connectedAccount=id=>auth?.accounts.some(a=>a.id===id&&a.provider===providerId&&a.connected)===true;
  const fail=e=>notice(e.message);
  async function load(){const result=await Promise.all([bridge.request('/api/pi/providers'),bridge.request('/api/providers'),bridge.request('/api/pi/auth')]);providers=result[0].providers;config=result[1];auth=result[2];}
  function providerOptions(value){return options(providers.map(p=>[p.id,`${p.name} · ${p.modelCount}モデル${p.oauth?' · OAuth':''}${p.available?'':' · 未接続の方式'}`]),value);}
- function authOptions(value){return options([['','この接続専用のAPIキー'],...auth.accounts.filter(a=>a.provider===providerId&&a.connected).map(a=>[a.id,`${a.label} · ${a.type==='oauth'?'OAuth':'APIキー'}`])],value);}
+ function authOptions(value){return options([['','この接続専用のAPIキー'],...auth.accounts.filter(a=>a.provider===providerId&&(a.connected||a.id===value)).map(a=>[a.id,`${a.label} · ${a.type==='oauth'?'OAuth':'APIキー'}${a.connected?'':' · 未接続'}`])],value);}
  function modelOptions(query='',value=current()?.model){return options(models.filter(m=>(m.name+' '+m.id).toLowerCase().includes(query.toLowerCase())).map(m=>[m.id,`${m.name} · ${m.id}`]),value);}
- async function modelList(){const chosen=$('#pi-profile-form')?.elements.accountId?.value||current()?.accountId||'';const a=auth.accounts.some(x=>x.id===chosen&&x.provider===providerId)?chosen:'';const result=await bridge.request('/api/pi/models?provider='+encodeURIComponent(providerId)+(a?'&accountId='+encodeURIComponent(a):''));models=result.models;}
+ async function modelList(explicitAccountId){const form=$('#pi-profile-form'),chosen=explicitAccountId??(form?form.elements.accountId.value:current()?.accountId||'');const a=auth.accounts.some(x=>x.id===chosen&&x.provider===providerId)?chosen:'';const result=await bridge.request('/api/pi/models?provider='+encodeURIComponent(providerId)+(a?'&accountId='+encodeURIComponent(a):''));models=result.models;}
  function modelFields(){const form=$('#pi-profile-form');if(!form)return;const m=models.find(x=>x.id===form.elements.model.value),account=auth.accounts.find(a=>a.id===form.elements.accountId.value);if(!m)return;
   form.elements.baseUrl.readOnly=account?.type==='oauth';form.elements.baseUrl.value=m.baseUrl;form.elements.maxTokens.value=Math.min(current()?.maxTokens||8192,m.maxTokens||8192,131072);
   $('#pi-model-note').textContent=`${m.api} · 文脈 ${m.contextTokens?.toLocaleString()||'未記載'} · 画像 ${m.vision?'対応':'非対応'} · 推論 ${m.reasoning?'対応':'未記載'}`;
@@ -23,6 +24,8 @@ export function createPiSettings({bridge,openSheet,notice,previewMode,onSaved}){
   <form id="pi-profile-form"><label>プロバイダー<select name="provider" id="pi-provider">${providerOptions(providerId)}</select></label><p class="small-text">${escape(provider.note)}</p>
   <div class="provider-toolbar">${btn('pi-auth-open','アカウント / OAuthを接続','connect','button secondary',`data-provider="${escape(providerId)}"`)}</div>
   <label>認証<select name="accountId" id="pi-account">${authOptions(p?.accountId||'')}</select></label>
+  <label class="toggle-row"><span>選択したアカウントのモデル一覧を外部取得し、このPCに保存することを許可する</span><input type="checkbox" id="pi-model-refresh-consent"></label>
+  <div class="provider-toolbar">${btn('pi-model-refresh','モデル一覧を取得・更新','','button secondary',connectedAccount(p?.accountId)?'':'disabled')}</div><p id="pi-model-refresh-note" class="small-text" role="status"></p>
   <label>モデルを絞り込む<input type="search" id="pi-model-search" placeholder="モデル名・IDで検索" autocomplete="off"></label>
   <label>モデル<select name="model" id="pi-model" required>${modelOptions()}</select></label><p id="pi-model-note" class="small-text"></p>
   <div class="form-grid">${field('接続ID','id',p?.id||'pi-'+providerId+'-'+Date.now().toString(36))}${field('表示名','name',p?.name||provider.name)}</div>
@@ -36,7 +39,7 @@ export function createPiSettings({bridge,openSheet,notice,previewMode,onSaved}){
   if(p)$('#pi-profile-form').elements.id.readOnly=true;
   modelFields();if(p)$('#pi-profile-form').elements.baseUrl.value=p.baseUrl;
  }
- async function open({id=null,provider=null,accountId=null}={}){clearTimeout(poll);generation++;await load();selected=id;providerId=current()?.piProvider||provider||providers.find(p=>p.id==='openai')?.id||providers[0].id;await modelList();drawEditor();if(accountId){$('#pi-account').value=accountId;modelFields();}}
+ async function open({id=null,provider=null,accountId=null}={}){clearTimeout(poll);generation++;await load();selected=id;providerId=current()?.piProvider||provider||providers.find(p=>p.id==='openai')?.id||providers[0].id;await modelList(accountId||current()?.accountId||'');drawEditor();if(accountId){$('#pi-account').value=accountId;modelFields();$('[data-action="pi-model-refresh"]').disabled=!connectedAccount(accountId);}}
  function link(url,label){return url?`<a class="button secondary" href="${escape(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`:'';}
  function promptHTML(p){if(!p?.prompt)return '';const q=p.prompt;return `<form id="pi-auth-prompt" data-attempt="${escape(p.id)}" data-prompt="${q.id}"><label>${escape(q.message)}${q.type==='select'?`<select name="value">${options(q.options.map(o=>[o.id,o.label+' '+(o.description||'')]),'')}</select>`:`<input name="value" type="${q.type==='secret'?'password':'text'}" placeholder="${escape(q.placeholder||'')}" autocomplete="off" spellcheck="false">`}</label><button class="button" type="submit">認証へ送信</button></form>`;}
  function drawAuth(){
@@ -61,6 +64,18 @@ export function createPiSettings({bridge,openSheet,notice,previewMode,onSaved}){
  const actions={
   'pi-open':()=>open(), 'pi-auth-open':e=>authOpen(e.dataset.provider),
   'pi-account-models':e=>open({provider:e.dataset.provider,accountId:e.dataset.account}),
+  'pi-model-refresh':async e=>{
+   const form=$('#pi-profile-form'),accountId=form?.elements.accountId?.value,provider=providerId,g=generation;
+   if(!accountId)throw Error('モデル一覧を取得するアカウントを選んでください。');
+   if(!connectedAccount(accountId))throw Error('選択したアカウントに再接続してください。');
+   if(!$('#pi-model-refresh-consent')?.checked)throw Error('モデル一覧の外部取得と保存を許可してください。');
+   e.disabled=true;const value=form.elements.model.value,baseUrl=form.elements.baseUrl.value,maxTokens=form.elements.maxTokens.value;
+   try{
+    const result=await bridge.request('/api/pi/models/refresh','POST',{provider,accountId,consent:true});
+    if(g!==generation||$('#pi-profile-form')!==form||providerId!==provider||form.elements.accountId.value!==accountId)return;
+    models=result.models;$('#pi-model').innerHTML=modelOptions('',value);if(!models.some(m=>m.id===value))form.elements.model.value='';modelFields();form.elements.maxTokens.value=maxTokens;if(auth.accounts.find(a=>a.id===accountId)?.type!=='oauth')form.elements.baseUrl.value=baseUrl;form.querySelector('[type="submit"]').disabled=!models.find(m=>m.id===form.elements.model.value)?.available;$('#pi-model-refresh-note').textContent=result.note||'モデル一覧を保存しました。';
+   }finally{if(e.isConnected)e.disabled=!connectedAccount(form.elements.accountId.value);}
+  },
   'pi-auth-cancel':async()=>{auth=await bridge.request('/api/pi/auth/cancel','POST',{id:auth.pending?.id});drawAuth();},
   'pi-disconnect':async e=>{auth=await bridge.request('/api/pi/auth/disconnect','POST',{accountId:e.dataset.account});drawAuth();},
   'pi-relogin':async e=>{providerId=e.dataset.provider;auth=await bridge.request('/api/pi/auth/start','POST',{provider:providerId,type:e.dataset.type,accountId:e.dataset.account,consent:true});drawAuth();}
@@ -69,8 +84,8 @@ export function createPiSettings({bridge,openSheet,notice,previewMode,onSaved}){
  document.addEventListener('input',e=>{if(e.target.id==='pi-model-search'){const value=$('#pi-model').value;$('#pi-model').innerHTML=modelOptions(e.target.value,value);modelFields();}});
  document.addEventListener('change',e=>{(async()=>{
   if(e.target.id==='pi-provider'){providerId=e.target.value;selected=null;await modelList();drawEditor();}
-  if(e.target.id==='pi-model')modelFields();
-  if(e.target.id==='pi-account'){const value=$('#pi-model').value;await modelList();$('#pi-model').innerHTML=modelOptions('',value);modelFields();}
+  if(e.target.id==='pi-model'){modelFields();$('#pi-profile-form').querySelector('[type="submit"]').disabled=!models.find(m=>m.id===e.target.value)?.available;}
+  if(e.target.id==='pi-account'){const value=$('#pi-model').value;await modelList();$('#pi-model').innerHTML=modelOptions('',value);modelFields();$('#pi-model-refresh-consent').checked=false;$('[data-action="pi-model-refresh"]').disabled=!connectedAccount(e.target.value);$('#pi-profile-form').querySelector('[type="submit"]').disabled=!models.some(m=>m.available);}
   if(e.target.id==='pi-auth-provider'){providerId=e.target.value;drawAuth();}
  })().catch(fail);});
  document.addEventListener('submit',e=>{const form=e.target,formId=form.getAttribute('id');if(!['pi-profile-form','pi-auth-start','pi-auth-prompt'].includes(formId))return;e.preventDefault();if(!isTrustedForm(form))return;

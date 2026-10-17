@@ -1,5 +1,27 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## pi-ai refresh durability and saved catalogs (2026-10-17 UTC)
+
+Focused local checks under Node **24.19.0** passed **19 tests**: seven inert
+catalog-validation fixtures, three production settings-controller fixtures, the
+production dependency staging test and eight existing UI regressions. The full
+JavaScript syntax gate and preview bundle also passed. A socket-free schema
+smoke accepted all **1,407 models across 39 supported SDK providers**, including
+Azure's inert empty-endpoint sentinel and Radius's bounded gateway labels.
+Separate real-SDK Worker probes verified Radius discovery and inference using a
+new returned model, and caller-cancelled Kimi refresh committing its rotated
+credential without inference dispatch.
+
+The added core-backed regressions cover cancellation/drain bounds and failure
+cleanup, account-scoped discovery/save/inference, durable service re-open,
+overlapping refresh/logout, stale limits/prices, empty/disabled snapshots,
+SDK-version mismatch and corrupt-vault preservation. They were **not run
+locally**: the Rust toolchain and native addon were absent, and `build:core`
+failed rather than substituting another storage engine. Exact-head Node 22,
+Rust, full host suites and Windows/macOS/Linux CI remain required. These checks
+use synthetic credentials and no external account or paid inference; Worker and
+controller probes do not establish live OAuth, browser or installer acceptance.
+
 ## Harness reliability repairs (2026-10-13 JST)
 
 The [reliability repair record](HARNESS-RELIABILITY.md) links the changed behavior

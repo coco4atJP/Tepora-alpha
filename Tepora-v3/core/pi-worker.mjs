@@ -2,17 +2,17 @@
  * No ambient credentials, SDK telemetry sinks, shell tools or global fetch mutation in the app. */
 import {parentPort,workerData,MessageChannel} from 'node:worker_threads';
 import {toPiContext,fromPiMessage,observePiUsage} from './pi-message-codec.mjs';
-const controller=new AbortController(),pending=new Map();let sequence=0;
+const controller=new AbortController(),hardController=new AbortController(),pending=new Map(),mutations=new Set();let sequence=0,credentialLease=null;
 const send=x=>parentPort.postMessage(x);
-function rpc(kind,value){const id=++sequence;return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});send({type:'rpc',id,kind,value});});}
+function rpc(kind,value,{durable=false}={}){const id=++sequence;return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject,durable});send({type:'rpc',id,kind,value});});}
 parentPort.on('message',m=>{
- if(m.type==='abort'){controller.abort(new Error('Pi operation cancelled'));for(const p of pending.values())p.reject(controller.signal.reason);pending.clear();}
+ if(m.type==='abort'){controller.abort(new Error('Pi operation cancelled'));if(m.hard)hardController.abort(controller.signal.reason);for(const [id,p] of pending)if(m.hard||!p.durable){pending.delete(id);p.reject(controller.signal.reason);}}
  if(m.type==='reply'){const p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(new Error(m.error)):p.resolve(m.value);}}
 });
 async function checkedFetch(input,init={}){
  const request=new Request(input,init),bytes=request.body?new Uint8Array(await request.arrayBuffer()):null;
  if(bytes&&bytes.length>16*1024*1024)throw new Error('Request body exceeds budget');
- const signal=AbortSignal.any([controller.signal,request.signal]);signal.throwIfAborted();
+ const lease=credentialLease,signal=AbortSignal.any([lease?hardController.signal:controller.signal,request.signal]);signal.throwIfAborted();
  const {port1,port2}=new MessageChannel();
  return new Promise((resolve,reject)=>{
   let bodyController,settled=false,closed=false;
@@ -30,7 +30,7 @@ async function checkedFetch(input,init={}){
    }else if(m.type==='chunk'){bodyController.enqueue(m.bytes);}
    else if(m.type==='end'){bodyController.close();close();}
   });
-  parentPort.postMessage({type:'fetch',url:request.url,init:{method:request.method,headers:[...request.headers],body:bytes},port:port2},[port2]);
+  parentPort.postMessage({type:'fetch',credentialLease:lease,url:request.url,init:{method:request.method,headers:[...request.headers],body:bytes},port:port2},[port2]);
  });
 }
 globalThis.fetch=checkedFetch;
@@ -43,9 +43,16 @@ const credentialStore={
  list:async()=>[],
  async modify(provider,fn){
   if(!data.accountId)return fn(await this.read());
-  const {lease,credential}=await rpc('credential-lock');
-  try{const next=await fn(credential);return await rpc('credential-commit',{lease,credential:next});}
-  catch(e){await rpc('credential-unlock',{lease}).catch(()=>{});throw e;}
+  const mutation=(async()=>{
+   const {lease,credential}=await rpc('credential-lock');
+   const durable=data.operation!=='login'&&credential?.type==='oauth';
+   if(durable)credentialLease=lease;
+   try{const next=await fn(credential);return await rpc('credential-commit',{lease,credential:next},{durable});}
+   catch(e){await rpc('credential-unlock',{lease},{durable}).catch(()=>{});throw e;}
+   finally{if(credentialLease===lease)credentialLease=null;}
+  })();
+  mutations.add(mutation);mutation.finally(()=>mutations.delete(mutation)).catch(()=>{});
+  return mutation;
  },
  delete:async()=>{throw new Error('Logout is owned by the Tepora host');}
 };
@@ -69,8 +76,8 @@ try{
   if(refreshed.errors.size)throw [...refreshed.errors.values()][0];
   result=(await models.getAvailable(data.provider,{signal:controller.signal}));
  }else{
-  const selected=models.getModel(data.provider,data.profile.model);
-  if(!selected)throw new Error('Model is not in the selected Pi provider catalog');
+  const selected=data.model;
+  if(!selected||selected.provider!==data.provider||selected.id!==data.profile.model)throw new Error('Model is not in the selected Pi account catalog');
   const model={...selected,...(data.profile.authMode==='pi-oauth'?{}:{baseUrl:data.profile.baseUrl})};
   const seen={input:false,output:false};
   const stream=models.streamSimple(model,toPiContext(data.messages,data.options.tools||[],model,data.profile.identity),{
@@ -86,5 +93,6 @@ try{
   if(['error','aborted','pending','deferred'].includes(message.stopReason))throw new Error(message.errorMessage||'Pi did not complete a synchronous response');
   result=fromPiMessage(message,data.profile.identity,seen);
  }
+ await Promise.allSettled([...mutations]);
  send({type:'result',value:result});
-}catch(e){send({type:'failure',code:e.code||'',message:'Pi operation failed'});}
+}catch(e){await Promise.allSettled([...mutations]);send({type:'failure',code:e.code||'',message:'Pi operation failed'});}

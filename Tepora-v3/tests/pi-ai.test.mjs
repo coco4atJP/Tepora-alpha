@@ -148,3 +148,62 @@ for(const [provider,protocol,events] of [
  const a=await f.registry.invoke('main',[{role:'user',content:'fixture'}],{onDelta:d=>text+=d,signal:AbortSignal.timeout(15000)});
  assert.equal(a.content,'native protocol');assert.equal(text,a.content);assert.equal(a.usageStatus.status,'complete');assert.equal(a.usage.input,7);assert.equal(a.usage.output,2);
 });
+
+const piAccountA='pi-11111111-1111-4111-8111-111111111111',piAccountB='pi-22222222-2222-4222-8222-222222222222';
+function seedPiKey(pi,id,provider,key='synthetic-catalog-key'){pi.vault.accounts[id]={id,provider,type:'api_key',label:'Catalog fixture',credential:{type:'api_key',key}};pi.persist();}
+test('real Radius discovery persists exact new-model metadata for save, inference and restart',async t=>{
+ const remote={id:'tepora-new-radius-fixture',name:'Synthetic discovered model',reasoning:true,thinkingLevelMap:{low:'small',high:'large'},input:['text'],cost:{input:1,output:2,cacheRead:0.1,cacheWrite:0.2},contextWindow:64000,maxTokens:8192};let baseUrl,refreshes=0,inferences=0;
+ const f=await fixture(t,async({url},init)=>{
+  assert.equal(new Headers(init.headers).get('authorization'),'Bearer synthetic-catalog-key');
+  if(url.pathname==='/v1/config'){refreshes++;return json({baseUrl,models:[remote]});}
+  assert.equal(url.href,baseUrl.replace(/\/$/,'')+'/messages');inferences++;assert.equal(JSON.parse(bodyText(init)).model,remote.id);
+  return sse([{type:'start'},{type:'text_start',contentIndex:0},{type:'text_delta',contentIndex:0,delta:'discovered model'},{type:'text_end',contentIndex:0,content:'discovered model'},{type:'done',reason:'stop',usage:{input:7,output:2,cacheRead:0,cacheWrite:0,totalTokens:9,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}}}]);
+ });
+ baseUrl=f.pi.models('radius').models[0].baseUrl;seedPiKey(f.pi,piAccountA,'radius');seedPiKey(f.pi,piAccountB,'radius','synthetic-other-account');
+ assert.equal(f.pi.model('radius',remote.id,piAccountA),undefined);
+ const refreshed=await f.pi.refreshModels('radius',piAccountA,true,AbortSignal.timeout(15000)),m=refreshed.models.find(m=>m.id===remote.id);assert.ok(m);assert.equal(refreshes,1);assert.equal(inferences,0);
+ const expected={...remote,api:'pi-messages',provider:'radius',baseUrl};assert.deepEqual(f.pi.model('radius',remote.id,piAccountA),expected);assert.equal(f.pi.model('radius',remote.id),undefined);assert.equal(f.pi.model('radius',remote.id,piAccountB),undefined);assert.equal(f.pi.models('radius',piAccountB).models.some(m=>m.id===remote.id),false);
+ const raw={...profile(),id:'radius-discovered',piProvider:'radius',model:m.id,protocol:m.protocol,baseUrl:m.baseUrl,authMode:'pi-key',accountId:piAccountA};
+ assert.throws(()=>validateProfile(raw));assert.throws(()=>f.registry.save({profiles:[{...raw,accountId:piAccountB}],routes:{main:{primary:raw.id,fallbacks:[]}}},0));
+ const saved=f.registry.save({profiles:[raw],routes:{main:{primary:raw.id,fallbacks:[]}}},0),p=saved.profiles[0];assert.equal(f.registry.knownLimits(p).context,64000);assert.deepEqual(f.registry.price(p),{input:1,output:2,cache_read:0.1,cache_write:0.2});
+ let answer=await f.registry.invoke('main',[{role:'user',content:'synthetic'}],{signal:AbortSignal.timeout(15000)});assert.equal(answer.content,'discovered model');assert.equal(inferences,1);
+ await f.pi.close();const reopened=new PiAIService(f.store,f.network),registry=new ProviderRegistry(f.store,f.network,{pi:reopened});
+ try{assert.deepEqual(reopened.model('radius',remote.id,piAccountA),expected);assert.deepEqual(reopened.models('radius',piAccountA).models.map(m=>m.id),[remote.id]);answer=await registry.invoke('main',[{role:'user',content:'after restart'}],{signal:AbortSignal.timeout(15000)});assert.equal(answer.content,'discovered model');assert.equal(refreshes,1);assert.equal(inferences,2);}
+ finally{registry.close();await reopened.close();}
+});
+test('newer refresh wins and logout prevents late catalog publication',async t=>{
+ const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');const pending=[];f.pi.run=()=>new Promise(resolve=>pending.push(resolve));
+ const older=f.pi.refreshModels('groq',piAccountA,true),newer=f.pi.refreshModels('groq',piAccountA,true);const first={...selected,id:'new-first'},second={...selected,id:'new-second'};
+ pending[1]([second]);await newer;pending[0]([first]);await assert.rejects(older,e=>e.status===409);assert.deepEqual(f.pi.models('groq',piAccountA).models.map(m=>m.id),['new-second']);
+ const before=structuredClone(f.pi.vault.accounts[piAccountA].catalog),late=f.pi.refreshModels('groq',piAccountA,true);await f.pi.disconnect(piAccountA);pending[2]([first]);await assert.rejects(late,e=>e.status===409);assert.deepEqual(f.pi.vault.accounts[piAccountA].catalog,before);assert.equal(f.pi.status(piAccountA).connected,false);
+});
+test('failed, cancelled and invalid refreshes retain the last persisted account snapshot',async t=>{
+ const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');f.pi.run=async()=>[{...selected,id:'saved-new-model'}];await f.pi.refreshModels('groq',piAccountA,true);
+ const before=structuredClone(f.pi.vault.accounts[piAccountA].catalog);let calls=0;f.pi.run=async()=>{calls++;return [{...selected,id:'malicious-new-model',baseUrl:'https://evil.invalid/v1'}];};
+ await assert.rejects(f.pi.refreshModels('groq',piAccountA,false));assert.equal(calls,0);await assert.rejects(f.pi.refreshModels('groq',piAccountA,true));assert.deepEqual(f.pi.vault.accounts[piAccountA].catalog,before);
+ const controller=new AbortController();f.pi.run=async()=>{controller.abort();return [{...selected,id:'cancelled-new-model'}];};await assert.rejects(f.pi.refreshModels('groq',piAccountA,true,controller.signal));assert.deepEqual(f.pi.vault.accounts[piAccountA].catalog,before);
+ f.pi.run=async()=>[{...selected,id:'unwritten-new-model'}];const persist=f.pi.persist;f.pi.persist=()=>{throw Error('Synthetic disk failure');};await assert.rejects(f.pi.refreshModels('groq',piAccountA,true),/disk failure/);f.pi.persist=persist;assert.deepEqual(f.pi.vault.accounts[piAccountA].catalog,before);
+});
+test('empty account catalogs cannot silently fall back to shipped models',async t=>{
+ const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');f.pi.run=async()=>[];await f.pi.refreshModels('groq',piAccountA,true);
+ assert.deepEqual(f.pi.models('groq',piAccountA).models,[]);assert.equal(f.pi.model('groq',selected.id,piAccountA),undefined);assert.ok(f.pi.model('groq',selected.id));assert.throws(()=>f.pi.assertProfile({...profile(),authMode:'pi-key',accountId:piAccountA}));
+});
+test('disabled Radius models remain visible as unavailable and cannot be saved or dispatched',async t=>{
+ const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'radius');
+ const baseline=piModel('radius','balanced');f.pi.run=async()=>[{...baseline,enabled:false}];
+ const refreshed=await f.pi.refreshModels('radius',piAccountA,true);assert.equal(refreshed.models[0].available,false);assert.equal(f.pi.model('radius',baseline.id,piAccountA),undefined);
+ const raw={...profile(),piProvider:'radius',model:baseline.id,baseUrl:baseline.baseUrl,authMode:'pi-key',accountId:piAccountA};
+ assert.throws(()=>f.pi.assertProfile(raw));assert.throws(()=>f.registry.save({profiles:[raw],routes:{main:{primary:raw.id,fallbacks:[]}}},0));
+});
+test('refresh replaces stale same-model context and pricing without profile metadata spoofing',async t=>{
+ const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');let current={...selected,id:'same-id-refreshed',contextWindow:64000,cost:{input:1,output:2,cacheRead:0.1,cacheWrite:0.2}};f.pi.run=async()=>[current];await f.pi.refreshModels('groq',piAccountA,true);
+ const raw={...profile(),model:current.id,authMode:'pi-key',accountId:piAccountA},saved=f.registry.save({profiles:[raw],routes:{main:{primary:raw.id,fallbacks:[]}}},0),p=saved.profiles[0];assert.equal((await f.registry.limits(p)).context,64000);
+ current={...current,contextWindow:32000,cost:{input:3,output:4,cacheRead:0.3,cacheWrite:0.4}};await f.pi.refreshModels('groq',piAccountA,true);assert.equal(f.registry.knownLimits(p).context,32000);assert.equal((await f.registry.limits(p)).context,32000);assert.deepEqual(f.registry.price(p),{input:3,output:4,cache_read:0.3,cache_write:0.4});
+ assert.throws(()=>f.registry.save({profiles:[{...raw,sdkModel:current}],routes:{main:{primary:raw.id,fallbacks:[]}}},saved.revision),/Unknown provider field/);
+});
+test('SDK-version mismatches are inert, while malformed current snapshots preserve and disable the vault',async t=>{
+ const {readFile,writeFile}=await import('node:fs/promises');const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');f.pi.vault.accounts[piAccountA].catalog={schema:1,version:'9.9.9',at:'2026-10-17T00:00:00.000Z',models:[{...selected,id:'future-only-model'}]};f.pi.persist();await f.pi.close();
+ let reopened=new PiAIService(f.store,f.network);assert.equal(reopened.snapshot().supported,true);assert.equal(reopened.status(piAccountA).connected,true);assert.equal(reopened.model('groq','future-only-model',piAccountA),undefined);assert.ok(reopened.model('groq',selected.id,piAccountA));await reopened.close();
+ const malformed=JSON.parse(await readFile(f.pi.file,'utf8'));malformed.accounts[piAccountA].catalog.version='1.3.0';malformed.accounts[piAccountA].catalog.models[0].baseUrl='https://evil.invalid/v1';await writeFile(f.pi.file,JSON.stringify(malformed));const before=await readFile(f.pi.file,'utf8');reopened=new PiAIService(f.store,f.network);
+ try{assert.equal(reopened.snapshot().supported,false);assert.throws(()=>reopened.persist(),/保全/);assert.equal(await readFile(f.pi.file,'utf8'),before);}finally{await reopened.close();}
+});

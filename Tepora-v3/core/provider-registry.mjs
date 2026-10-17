@@ -27,7 +27,7 @@ const profileFields=['engine','piProvider','authMode','accountId','id','name','p
 /** Gateways that route by conversation (and keep its prompt cache warm on one backend) when told which one a request
  * belongs to. OpenCode Go requires it; anyone else can set `sessionHeader` on the profile. */
 function sessionHeaderFor(u){return /(^|\.)opencode\.ai$/.test(u.hostname)?'x-opencode-session':'';}
-export function validateProfile(raw){
+export function validateProfile(raw,options={}){
  invariant(raw&&Object.keys(raw).every(k=>profileFields.includes(k)),'Unknown provider field');
  invariant(idPattern.test(raw.id),'Use a short alphanumeric provider ID');
  const u=normalURL(raw.baseUrl),host=u.hostname.replace(/^\[|\]$/g,''),lex=host==='localhost'?'device':ipDomain(host);
@@ -69,13 +69,13 @@ export function validateProfile(raw){
   thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,sessionHeader:raw.sessionHeader||sessionHeaderFor(u),
   ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{})};
  if(authMode==='chatgpt'||authMode.startsWith('pi-')){p.authMode=authMode;p.accountId=raw.accountId;}
- if(raw.engine==='pi-ai'){p.engine='pi-ai';p.piProvider=raw.piProvider;validatePiProfile(p);}
+ if(raw.engine==='pi-ai'){p.engine='pi-ai';p.piProvider=raw.piProvider;validatePiProfile(p,options.resolvePiModel||piModel);}
  p.identity=digest(p);return p;
 }
-export function validateRegistry(raw){
+export function validateRegistry(raw,options={}){
  invariant(raw&&Object.keys(raw).every(k=>['profiles','routes'].includes(k)),'Invalid provider configuration');
  invariant(Array.isArray(raw.profiles)&&raw.profiles.length<=32,'At most 32 named providers');
- const profiles=raw.profiles.map(validateProfile),ids=new Set(profiles.map(p=>p.id));invariant(ids.size===profiles.length,'Duplicate provider IDs');
+ const profiles=raw.profiles.map(p=>validateProfile(p,options)),ids=new Set(profiles.map(p=>p.id));invariant(ids.size===profiles.length,'Duplicate provider IDs');
  const routes={};
  for(const [role,r] of Object.entries(raw.routes||{})){
   invariant(ROUTE_ROLES.includes(role)&&r&&Object.keys(r).every(k=>['primary','fallbacks'].includes(k)),'Invalid route');
@@ -128,7 +128,7 @@ export class ProviderRegistry{
  publicSnapshot(){const c=this.get();return {...c,profiles:c.profiles.map(p=>({...p,...(p.authMode?.startsWith('pi-')?{authStatus:this.pi?.status(p.accountId)||{connected:false}}:{}),keyPresent:p.authMode?.startsWith('pi-')?!!this.pi?.status(p.accountId).connected:p.authMode==='chatgpt'?!!this.auth?.status(p.accountId).connected:!!this.keyFor(p),...(p.authMode==='chatgpt'?{authStatus:this.auth?.status(p.accountId)||{connected:false,error:'通常起動でChatGPTへ接続してください。'}}:{}),health:this.health.get(p.id)||null,limits:this.knownLimits(p),probe:this.store.get('provider-probe',p.identity)||null})),resources:this.gate.snapshot()};}
  save(raw,expectedRevision){
   const old=this.get();invariant(old.revision===expectedRevision,'接続設定が更新されています。',409);
-  const c={schema:2,revision:old.revision+1,...validateRegistry(raw)};
+  const c={schema:2,revision:old.revision+1,...validateRegistry(raw,{resolvePiModel:(provider,id,accountId)=>this.pi?this.pi.model(provider,id,accountId):piModel(provider,id)})};
   for(const p of c.profiles)if(p.engine==='pi-ai'){invariant(this.pi,'このホストにはpi-ai接続がありません。');this.pi.assertProfile(p);}
   for(const [id] of this.keys){const a=old.profiles.find(p=>p.id===id),b=c.profiles.find(p=>p.id===id);if(!a||!b||a.baseUrl!==b.baseUrl||a.protocol!==b.protocol||a.engine!==b.engine||a.piProvider!==b.piProvider||credentialClass(a)!==credentialClass(b))this.keys.delete(id);}
   this.persistKeys();
@@ -146,7 +146,14 @@ export class ProviderRegistry{
  }
  hasRoute(role){return (FALLBACK[role]||[role]).some(r=>this.get().routes[r]);}
  permitted(p,purpose='model'){return this.get().profiles.some(x=>x.enabled&&x.identity===p.identity)&&this.network.permitted(p.domain,purpose);}
- knownLimits(p){return this.limitCache.get(p.identity)||this.store.value('provider-limits:'+p.identity)||null;}
+ knownLimits(p){
+  const known=this.limitCache.get(p.identity)||this.store.value('provider-limits:'+p.identity)||null;
+  if(p.engine!=='pi-ai')return known;
+  const model=this.pi?.model(p.piProvider,p.model,p.accountId||null);if(!model)return null;
+  const value={context:p.contextTokens||model.contextWindow,server:'other',slots:null,source:p.contextTokens?'configured':'pi-ai',at:known?.at||new Date(this.clock()).toISOString()};
+  if(known?.learned&&known.context<value.context)Object.assign(value,{context:known.context,learned:true,source:'overflow'});
+  return value;
+ }
  /** Context window, output ceiling and server kind. Detected once, cached, corrected by overflow errors. */
  async limits(p,signal){
   const known=this.knownLimits(p),fresh=known&&(known.source!=='guess'||this.clock()-Date.parse(known.at)<120000);
@@ -166,7 +173,7 @@ export class ProviderRegistry{
   this.limitCache.set(p.identity,value);this.store.value('provider-limits:'+p.identity,value);return value;
  }
  async detect(p,signal){
-  if(p.engine==='pi-ai')return {context:piModel(p.piProvider,p.model)?.contextWindow||p.contextTokens||128000,server:'other',source:'pi-ai'};
+  if(p.engine==='pi-ai')return {context:this.pi?.model(p.piProvider,p.model,p.accountId||null)?.contextWindow||p.contextTokens||128000,server:'other',source:'pi-ai'};
   if(!this.detectLimits||p.authMode==='chatgpt')return {};
   const origin=new URL(p.baseUrl).origin,scope=base=>this.network.fetch({profile:{...p,baseUrl:base},purpose:'model',timeoutMs:4000,maxBytes:2_000_000});
   const get=async(url,base=origin,init={})=>{const r=await scope(base)(url,{signal,...init});if(!r.ok){await r.body?.cancel();return null;}try{return await r.json();}catch{return null;}};
@@ -216,7 +223,7 @@ export class ProviderRegistry{
   return {slot,release:()=>st.busy.delete(slot)};
  }
  /** Conservative catalog estimate; absent or conflicting prices remain unknown. */
- price(route){if(route.authMode==='chatgpt'||route.authMode==='pi-oauth')return null;const cost=route.engine==='pi-ai'?piModel(route.piProvider,route.model)?.cost:null;return cost?{input:cost.input,output:cost.output,cache_read:cost.cacheRead,cache_write:cost.cacheWrite}:modelPrice(this.store,route);}
+ price(route){if(route.authMode==='chatgpt'||route.authMode==='pi-oauth')return null;if(route.engine==='pi-ai'){const cost=this.pi?.model(route.piProvider,route.model,route.accountId||null)?.cost;return cost?{input:cost.input,output:cost.output,cache_read:cost.cacheRead,cache_write:cost.cacheWrite}:null;}return modelPrice(this.store,route);}
  compat(p){return this.store.value('provider-compat:'+p.identity)||{drop:[]};}
  addCompat(p,param){const c=this.compat(p);if(!c.drop.includes(param)){c.drop.push(param);this.store.value('provider-compat:'+p.identity,c);}return c;}
  /** One model call with retries, parameter self-healing and failover. Overflow is returned to the caller,
