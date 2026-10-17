@@ -1,32 +1,51 @@
 version: 2
+# Version updates follow V3; security updates still use the repository's default branch.
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /Tepora-v3
+    target-branch: rust/v3-core-migration
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
-  - package-ecosystem: "npm"
-    directory: "/Tepora-app/frontend"
+      timezone: UTC
+    open-pull-requests-limit: 1
+    groups:
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+    labels: [dependencies, automated]
+  - package-ecosystem: cargo
+    directories:
+      - /Tepora-v3/desktop
+      - /Tepora-v3/native-core
+      - /Tepora-v3/native-service
+    target-branch: rust/v3-core-migration
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
-  - package-ecosystem: "cargo"
-    directory: "/Tepora-app/backend-rs"
+      timezone: UTC
+    open-pull-requests-limit: 1
+    groups:
+      cargo-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+    labels: [dependencies, automated]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: rust/v3-core-migration
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
+      timezone: UTC
+    open-pull-requests-limit: 1
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+    labels: [dependencies, automated]
