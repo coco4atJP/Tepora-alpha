@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Voice integration boundary repairs (beta.11)
+
+- Frame Node speech-worker JSON by UTF-8 byte Content-Length and test the shipped Python parser across ASR/wake/barge and cancellation
+- Start microphone watchdog clocks after permission/context startup and handle native queued pause events without stalling interruption
+- Reject busy Whisper finishes before capturing a waveform or waiting for the decoder; bound cancelled-session retention and verify real AudioSessions recovery
+- See [boundary regression evidence and hardware limits](../Tepora-v3/docs/QA.md#voice-integration-boundary-repairs-2026-10-17-utc)
+
 ## Confirmed voice interruption and lighter scheduling (beta.11)
 
 - Add explicit experimental reference-gated, two-stage voice interruption during local TTS: reference-wake/correlation veto, pause, acoustic tail, then a fresh wake before opening ASR; retain half-duplex default and hardware/AEC limitations

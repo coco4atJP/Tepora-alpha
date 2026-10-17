@@ -1,5 +1,66 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Voice integration boundary repairs (2026-10-17 UTC)
+
+Independent review of `017d378` found three defects beyond the earlier fixtures:
+the shipped Python HTTP parser rejected Node's unframed JSON (413 → 502), slow
+microphone startup inherited stale watchdog timestamps, and cancelled Whisper
+finishes retained waveforms while waiting for the model lock. Real browser
+testing also confirmed that a queued HTML `pause` event could stall interruption.
+The follow-up's exact-head CI results are recorded on
+[PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+The Node host now sends the UTF-8 byte Content-Length. Two tests launch the
+actual `speech_server.make_server` parser with a synthetic inference backend,
+covering ASR/wake/barge, Unicode session IDs, both authentication boundaries,
+idempotent chunks, finish/cancel and six pending-chunk cancel/Stop cases.
+They reproduce 413 → 502 before the fix and pass through the full Node routes
+afterward; the parser is not replaced with a permissive HTTP mock.
+
+Three tests pass through `HandsFreeMicrophone` with simulated 15-second
+permission/module/resume waits, then five healthy PCM frames. Before the fix,
+the first watchdog tick incorrectly suspended capture. Both watchdog clocks now
+begin after successful startup; existing sleep and missing-frame checks remain.
+
+The Whisper regression uses real `AudioSessions`: with one decode blocked,
+21 cancel/restart cycles previously retained 22 finish threads and 1,408,000
+waveform bytes, including the running fixture waveform. Nonblocking decode
+admission now retains at most that one running thread/64,000-byte fixture
+waveform, with no queued finishes and no live transport sessions. All fixture
+waveforms are released after drain. Busy finish is terminal HTTP 429; retrying
+that session returns 422, and a fresh capture decodes successfully after drain.
+Production PCM limits remain one bounded active capture plus one running
+waveform, each at most 1.92 MB; these checks do not measure model RSS.
+
+`tests/browser-barge-events.mjs` uses real HTMLAudioElement events, the production
+capability pause handle/controller and a silent in-memory WAV. The native
+`paused` flag changes synchronously while `pause` remains queued. The old source
+failed four of six checks; the repaired source passes **6/6**, including late
+pause delivery after replacement/mute and owned-player timeout resume. The
+controller establishes quiet ownership from the exact paused element before
+awaiting worker cancellation. No real microphone, model or external provider is
+used. This is browser event verification, not speakerphone/AEC acceptance.
+
+Local follow-up evidence under Node 24.19.0:
+
+- **261/261** focused voice checks passed, including the real Python boundary.
+- Python **53/53** passed; isolated stdlib CI runs **49 passes + 4 existing NumPy
+  math skips**. No model packages or checkpoints were downloaded.
+- Existing rendered UI **13/13** and real media-event browser **6/6** passed,
+  using isolated Chromium profiles, blocked external HTTP(S) and `--no-sandbox`;
+  the media-event fixture also uses muted audio and explicit autoplay permission.
+- Broad `npm test`: **1013/1017** passed, zero skips. The same four host failures
+  remain: three existing Computer Use Chromium SUID sandbox starts and one
+  read-only bwrap UID-map setup. These checks were executed and failed.
+- **298** JavaScript syntax modules, preview build, scenario traceability,
+  **13/13** repository entry checks and **5/5** synthetic capability checks passed.
+  Rust source is unchanged by these integration repairs.
+
+Real checkpoints, microphone/speaker echo, AEC, wake quality, model RAM/latency,
+device unplug, sleep/resume and native WebView audio still require hardware
+acceptance. Previous synthetic CPU measurements below are unchanged and do not
+establish those properties. [Setup and limits](HANDS-FREE-VOICE.md).
+
 ## Confirmed voice interruption and runtime cost (2026-10-17 UTC)
 
 The opt-in reference-aware path adds playback → candidate pause → acoustic-tail

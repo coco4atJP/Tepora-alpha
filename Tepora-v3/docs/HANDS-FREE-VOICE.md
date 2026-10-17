@@ -53,8 +53,11 @@ checkpoint licenses; openWakeWord code and pretrained checkpoints differ.
    This optional adapter uses CPU int8, one decoder and one decode at utterance
    finish; chunks do no inference. Threads are bounded to 1–8, PCM to 30 seconds
    (1.92 MB). The model stays resident, so model RAM still matters. Cancellation
-   suppresses late text; native decoding can drain before the next turn. There
-   is no cloud fallback or automatic model fetch.
+   suppresses late text; an already running native decode must drain. Finishes
+   never queue behind it: a busy finish discards that capture and returns HTTP
+   429. Wait for the running call to drain, then explicitly restart standby and
+   speak again; the rejected recording is not retried. There is no cloud
+   fallback or automatic model fetch.
 
 3. Set **リアルタイム音声ワーカーのURL** to `http://127.0.0.1:8768`, enable
    audio input, disable dictation editing and save. Text works without workers.
@@ -123,6 +126,9 @@ Wake sessions renew after 110 seconds within the shared 120-second server
 lease. Device/worker loss, malformed replies, audio heartbeat loss and a clock
 gap over ten seconds fail closed. Resume does not restart capture. Browser/OS
 background-capture restrictions are preserved.
+Heartbeat timestamps start after microphone permission, Worklet loading and
+AudioContext resume complete, so a slow permission dialog is not treated as
+sleep after healthy capture starts.
 
 `POST /api/voice/wake/start` reuses the existing speech owner in Node and
 `--dev-native --agent`. Ordered/bounded `chunk`, `cancel`, `finish` stay shared;
@@ -130,6 +136,9 @@ wake chunks add a strict boolean `detected`. The effect-free native mode returns
 503. No speech route itself submits a conversation or runs a tool. Node now
 aborts transport and rejects late results after cancellation, like native.
 Remote cancellation is best effort when a session ID never reached the host.
+The Node host frames worker JSON with its UTF-8 byte Content-Length, matching
+the shipped Python server's bounded body parser, including non-ASCII session
+IDs. Tests cover that parser directly rather than substituting its HTTP layer.
 
 ## Experimental voice interruption
 
@@ -156,6 +165,8 @@ produce a candidate. A learned microphone wake detection is required; reference
 energy or a residual-energy threshold never initiates interruption.
 
 A surviving candidate **pauses**, rather than cancels, its exact TTS element.
+Quiet ownership uses that exact element's synchronous `paused` flag before
+awaiting worker cancellation, independently of the browser's queued `pause` event.
 After the configured 800–3000 ms acoustic tail (default 1200), a newly reset mono
 wake session requires another wake phrase. No old PCM or detector state is reused.
 A second wake cancels only the paused readout and opens ASR for a new utterance.
@@ -173,6 +184,12 @@ Finished/replaced playback sources are disconnected and removed from strong
 cleanup sets; only the active or confirmation-paused source stays connected.
 The per-element cache is weak so same-element resume does not create a second
 MediaElementAudioSource. A synthetic 500-readout check covers these bounds.
+
+The endpoint Whisper worker admits at most one running decode and retains no
+queued finish waveforms. A new active capture can still buffer up to 30 seconds
+(1.92 MB) while an older cancelled native call drains; a busy finish drops that
+new capture immediately. Thus the PCM bound is one active capture plus one
+running waveform, not an accumulating queue of cancelled finish threads.
 
 These are conservative rejection/confirmation gates, **not an acoustic echo
 canceller or proof of robust speakerphone operation**. Nonlinear distortion,

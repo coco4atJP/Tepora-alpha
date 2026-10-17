@@ -116,6 +116,9 @@ export class HandsFreeVoice {
    await this.open(s,true);s.audio=this.audioFactory({bargeIn});
    await s.audio.start((pcm,reference)=>this.receive(s,pcm,reference),error=>this.fail(s,error));
    if(!this.current(s)){s.audio.close();return;}
+   // Permission, module loading and context resume can take arbitrarily long.
+   // Heartbeat/sleep checks begin when capture is actually ready.
+   s.lastFrame=s.lastTick=this.now();
    if(this.state==='starting')this.stateTo(this.output?'speaking':'idle');this.renew(s);this.watch(s);
   }catch(error){if(this.current(s))this.fail(s,error);}
  }
@@ -170,11 +173,17 @@ export class HandsFreeVoice {
  }
  clearBargeTimers(s){for(const key of ['barge-start','barge-tail','barge-confirm']){this.clearTimer(s.timers.get(key));s.timers.delete(key);}}
  async candidate(s){
+  const audio=s.outputAudio,revision=this.outputRevision;
   s.queue=[];s.confirming=true;this.stateTo('barge-quiet');this.stats.bargeCandidates++;
-  if(!this.current(s))return;
+  if(!this.current(s)||!s.confirming||s.outputAudio!==audio||this.outputRevision!==revision)return;
   const handle=this.pauseOutput();
   if(!handle){s.confirming=false;await this.closeRemote(s);if(this.current(s))this.prepareBarge(s,s.outputAudio);return;}
-  s.bargePause=handle;await this.closeRemote(s);if(!this.current(s)||!s.confirming||s.bargePause!==handle||this.output)return;
+  if(!this.current(s)||!s.confirming||s.outputAudio!==audio||this.outputRevision!==revision)return;
+  // HTMLMediaElement.pause() changes `paused` now and queues its event. A fast
+  // worker response must not depend on that later event establishing quiet.
+  if(audio?.paused!==true)throw Error('読み上げの一時停止を確認できません。');
+  s.bargePause=handle;this.output=false;
+  await this.closeRemote(s);if(!this.current(s)||!s.confirming||s.bargePause!==handle||this.output)return;
   s.audio.releaseOutput?.();
   const confirm=()=>{
    if(this.output||s.outputAudio?.paused!==true){void this.resumeBarge(s).catch(error=>this.fail(s,error));return;}

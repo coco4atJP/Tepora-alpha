@@ -240,6 +240,17 @@ function mediaFixture(t){
  env.released=index=>{const context=env.contexts[index];assert.equal(context.closes,1);for(const n of [...context.graph,...env.nodes.filter(n=>n.context===context)])assert.equal(n.disconnects,1);assert.equal(env.streams[index].track.stops,1);assert.equal(env.streams[index].track.listeners.size,0);};return env;
 }
 
+for(const phase of ['permission','module','resume'])test(`healthy PCM survives a fifteen-second microphone ${phase} startup`,async t=>{
+ const env=mediaFixture(t),pending=deferred(),f=fixture({audioFactory:()=>new HandsFreeMicrophone()});t.after(()=>f.voice.disable());
+ env[phase==='permission'?'permissions':phase==='module'?'modules':'resumes'].push(pending);
+ const started=f.voice.enable();await until(()=>phase==='permission'?f.voice.session?.audio:phase==='module'?env.contexts.length===1:env.nodes.length===1);
+ f.jump(15000);pending.resolve(phase==='permission'?env.stream():undefined);await started;
+ assert.equal(f.voice.state,'idle');assert.equal(f.voice.active,true);
+ for(let i=0;i<5;i++){f.jump(200);env.nodes[0].port.onmessage({data:{pcm:frame()}});await settle();}
+ await f.tick(0);assert.equal(f.voice.state,'idle','healthy capture must not inherit time spent awaiting startup');assert.equal(f.voice.active,true);assert.equal(env.streams[0].track.stops,0);assert.equal(f.for('chunk').length,5);assert.deepEqual(f.errors,[]);
+ await f.voice.disable();env.released(0);
+});
+
 test('microphone releases a permission result that arrives after cancellation',async t=>{
  const env=mediaFixture(t),pending=deferred(),mic=new HandsFreeMicrophone();env.permissions.push(pending);const start=assert.rejects(mic.start(()=>{},()=>{}),{name:'AbortError'});mic.close();const late=env.stream();pending.resolve(late);await start;assert.equal(late.track.stops,1);assert.equal(env.contexts.length,0);
 });

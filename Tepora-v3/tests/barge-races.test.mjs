@@ -54,15 +54,15 @@ test('repeated quiet notifications during confirmation never auto-resume manuall
  const f=await confirming(t);f.output.muted=true;f.handles[0].valid=false;for(let i=0;i<20;i++)f.voice.setSpeaking(false,f.output);await f.fire('barge-confirm');assert.equal(f.voice.state,'idle');assert.equal(f.voice.output,false);assert.equal(f.output.paused,true);assert.equal(f.handles[0].resumes,1);assert.equal(f.handles[0].cancels,0);assert.equal(f.for('start').length,0);
 });
 
-function capabilityPlayer(t,f){
+function capabilityPlayer(t,f,{queuedPause=false}={}){
  const oldDocument=Object.getOwnPropertyDescriptor(globalThis,'document'),oldSet=globalThis.setTimeout,oldClear=globalThis.clearTimeout,nodes=new Map(),audios=[],subscribers=[],capTimers=new Map();let capTimer=0,job=0;
- const p={audios,nextPlay:null,reply:'Synthetic audible reply'};
+ const p={audios,pauseEvents:[],nextPlay:null,reply:'Synthetic audible reply',async flushPause(){for(const event of this.pauseEvents.splice(0))event();await settle();}};
  function element(tag){
   const node={tagName:tag.toUpperCase(),isConnected:false,querySelector:selector=>selector==='audio'?node.audio:null,querySelectorAll:()=>[],prepend(child){child.isConnected=true;nodes.set('#'+child.id,child);},remove(){this.isConnected=false;if(this.audio)this.audio.isConnected=false;nodes.delete('#'+this.id);}};
   Object.defineProperty(node,'innerHTML',{get:()=>node.html||'',set(html){node.html=html;if(!html.includes('<audio'))return;const listeners=new Map();
    const audio={tagName:'AUDIO',dataset:{mediaId:html.match(/data-media-id="([^"]+)"/)?.[1]},isConnected:true,paused:true,ended:false,error:null,muted:false,volume:1,
     addEventListener(name,fn){const list=listeners.get(name)||[];list.push(fn);listeners.set(name,list);},emit(name){if(name==='play')this.paused=false;if(name==='pause')this.paused=true;this['on'+name]?.({target:this});for(const fn of listeners.get(name)||[])fn({target:this});},
-    play(){const gate=p.nextPlay;p.nextPlay=null;this.emit('play');return gate?.promise||Promise.resolve();},pause(){if(!this.paused)this.emit('pause');}};node.audio=audio;audios.push(audio);
+    play(){const gate=p.nextPlay;p.nextPlay=null;this.emit('play');return gate?.promise||Promise.resolve();},pause(){if(this.paused)return;this.paused=true;if(queuedPause)p.pauseEvents.push(()=>this.emit('pause'));else this.emit('pause');}};node.audio=audio;audios.push(audio);
   }});return node;
  }
  nodes.set('.input-region',element('section'));
@@ -79,6 +79,26 @@ function capabilityPlayer(t,f){
  f.voice.pauseOutput=()=>p.ui.pauseForBarge();f.voice.stopOutput=()=>p.ui.stopPlayback();
  t.after(()=>{p.ui.stop();globalThis.setTimeout=oldSet;globalThis.clearTimeout=oldClear;if(oldDocument)Object.defineProperty(globalThis,'document',oldDocument);else delete globalThis.document;});return p;
 }
+
+async function queuedPauseCandidate(t,{closing}={}){
+ const f=fixture(t),p=capabilityPlayer(t,f,{queuedPause:true});await f.voice.enable({bargeIn:true});await p.ui.readReply({automatic:true});await f.fire('barge-start');
+ if(closing)f.plan('cancel',closing);f.plan('chunk',{detected:true});await f.emit();assert.equal(p.audios[0].paused,true);assert.equal(p.pauseEvents.length,1,'pause event remains queued after the paused flag changes');return {f,p};
+}
+
+test('queued capability pause event cannot stall confirmation after immediate worker cancellation',async t=>{
+ const {f,p}=await queuedPauseCandidate(t);assert.equal(f.voice.output,false,'synchronous paused flag establishes quiet ownership before the event');assert.ok(f.voice.session.timers.has('barge-tail'));
+ await p.flushPause();await f.fire('barge-tail');assert.equal(f.voice.state,'barge-confirm');f.plan('chunk',{detected:true});await f.emit();assert.equal(f.voice.state,'listening');assert.equal(f.for('start').length,1);assert.deepEqual(f.errors,[]);
+});
+
+test('queued old pause and delayed cancellation cannot mute replacement output',async t=>{
+ const closing=deferred(),{f,p}=await queuedPauseCandidate(t,{closing}),old=p.audios[0];p.reply='Replacement during candidate';await p.ui.readReply({automatic:true});const replacement=p.audios[1];
+ closing.resolve({});await p.flushPause();assert.equal(old.paused,true);assert.equal(replacement.paused,false);assert.equal(f.voice.output,true);assert.equal(f.voice.session.outputAudio,replacement);await f.fire('barge-start');assert.equal(f.voice.state,'barge-listening');assert.equal(f.for('start').length,0);assert.deepEqual(f.errors,[]);
+});
+
+test('hands-free mute before queued pause delivery prevents any confirmation or resume',async t=>{
+ const {f,p}=await queuedPauseCandidate(t);await f.voice.interrupt();await p.flushPause();assert.equal(f.voice.state,'interrupted');assert.equal(f.voice.active,false);assert.equal(f.voice.output,false);assert.equal(f.timers.size,0);assert.equal(f.mics[0].closed,1);assert.equal(f.for('start').length,0);assert.deepEqual(f.errors,[]);
+});
+
 async function integratedConfirmation(t){
  const f=fixture(t),p=capabilityPlayer(t,f);await f.voice.enable({bargeIn:true});await p.ui.readReply({automatic:true});await f.fire('barge-start');assert.equal(f.voice.state,'barge-listening');f.plan('chunk',{detected:true});await f.emit();assert.equal(f.voice.state,'barge-quiet');assert.equal(p.audios[0].paused,true);await f.fire('barge-tail');assert.equal(f.voice.state,'barge-confirm');return {f,p};
 }

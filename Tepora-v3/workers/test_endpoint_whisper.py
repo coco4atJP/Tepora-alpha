@@ -27,6 +27,7 @@ class FakeModel:
         self.release = None
         self.active = 0
         self.closed = 0
+        self.wait_timeout = 3
 
     def transcribe(self, audio, **options):
         self.calls.append(list(audio))
@@ -37,7 +38,7 @@ class FakeModel:
             self.active += 1
             try:
                 self.entered.set()
-                if self.release is not None and not self.release.wait(3):
+                if self.release is not None and not self.release.wait(self.wait_timeout):
                     raise AssertionError("Decode was not released")
                 for text in self.texts:
                     yield types.SimpleNamespace(text=text)
@@ -188,6 +189,13 @@ class EndpointWhisperTests(unittest.TestCase):
         state = backend.start()
         backend.chunk([0.0] * 3200, state)
         second, final, final_errors = self.thread(lambda: backend.finish(state))
+        second.join(1)
+        self.assertFalse(second.is_alive())
+        self.assertEqual(final, [])
+        self.assertEqual(len(final_errors), 1)
+        self.assertIsInstance(final_errors[0], BlockingIOError)
+        self.assertEqual(len(state.audio), 0)
+        self.assertTrue(state.cancelled.is_set())
         self.assertEqual(len(model.calls), 1)
         model.release.set()
         first.join(3)
@@ -195,10 +203,136 @@ class EndpointWhisperTests(unittest.TestCase):
         self.assertEqual(results, [])
         self.assertEqual(len(errors), 1)
         self.assertIsInstance(errors[0], ValueError)
-        self.assertEqual(final_errors, [])
-        self.assertEqual(final, ["stale text"])
+        recovered = backend.start()
+        backend.chunk([0.0] * 3200, recovered)
+        self.assertEqual(backend.finish(recovered), "stale text")
         self.assertEqual(len(model.calls), 2)
         self.assertEqual(model.active, 0)
+
+    def test_real_sessions_cancel_restart_does_not_queue_finish_threads_or_waveforms(self):
+        model = FakeModel(["stale text"])
+        model.release = threading.Event()
+        model.wait_timeout = 10
+        backend = self.backend(model)
+        sessions = AudioSessions(backend)
+        packet = base64.b64encode(bytes(16000 * 4)).decode()
+        waveforms, waiters = [], []
+        def capture():
+            sid = sessions.start()["session_id"]
+            sessions.chunk(sid, 0, packet)
+            waveforms.append(weakref.ref(sessions.sessions[sid]["state"].audio))
+            return sid
+        sid = capture()
+        first, first_results, first_errors = self.thread(lambda: sessions.finish(sid))
+        try:
+            self.assertTrue(model.entered.wait(2))
+            sessions.cancel(sid)
+            peak_threads = 1
+            for _ in range(21):
+                replacement = capture()
+                thread, results, errors = self.thread(lambda sid=replacement: sessions.finish(sid))
+                thread.join(0.05)
+                waiters.append((thread, results, errors))
+                sessions.cancel(replacement)
+                peak_threads = max(peak_threads, int(first.is_alive()) +
+                                   sum(thread.is_alive() for thread, _, _ in waiters))
+            gc.collect()
+            live_waveforms = sum(reference() is not None for reference in waveforms)
+            retained_bytes = sum(len(reference()) * 4 for reference in waveforms if reference() is not None)
+            calls_while_blocked = len(model.calls)
+            remaining_sessions = len(sessions.sessions)
+        finally:
+            model.release.set()
+            first.join(3)
+            for thread, _, _ in waiters:
+                thread.join(3)
+        self.assertEqual(remaining_sessions, 0)
+        self.assertEqual(calls_while_blocked, 1)
+        self.assertLessEqual(peak_threads, 1,
+                             f"Cancelled finishes retained {peak_threads} threads and {retained_bytes} waveform bytes")
+        self.assertLessEqual(live_waveforms, 1)
+        self.assertLessEqual(retained_bytes, 16000 * 4)
+        self.assertFalse(first.is_alive())
+        self.assertEqual(first_results, [])
+        self.assertEqual(len(first_errors), 1)
+        self.assertIsInstance(first_errors[0], ValueError)
+        for thread, results, errors in waiters:
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(results, [])
+            self.assertEqual(len(errors), 1)
+            self.assertIsInstance(errors[0], BlockingIOError)
+        self.assertTrue(all(reference() is None for reference in waveforms))
+        recovered = capture()
+        self.assertEqual(sessions.finish(recovered), {"text": "stale text", "final": True})
+        self.assertEqual(len(model.calls), 2)
+        self.assertEqual(model.active, 0)
+        self.assertEqual(model.closed, 2)
+
+    def test_pcm_conversion_failure_releases_admission_without_model_dispatch(self):
+        backend = self.backend()
+        converter = unittest.mock.Mock(side_effect=[RuntimeError("Synthetic conversion failure"), [0.0]])
+        backend._pcm_converter = converter
+        state = backend.start()
+        backend.chunk([0.0], state)
+        with self.assertRaisesRegex(RuntimeError, "conversion failure"):
+            backend.finish(state)
+        self.assertTrue(state.cancelled.is_set())
+        self.assertEqual(len(state.audio), 0)
+        self.assertEqual(backend.model.calls, [])
+        recovered = backend.start()
+        backend.chunk([0.0], recovered)
+        self.assertEqual(backend.finish(recovered), "日本語 result")
+        self.assertEqual(len(backend.model.calls), 1)
+        self.assertEqual(converter.call_count, 2)
+
+    def test_http_busy_finish_is_terminal_429_and_recovers_after_cancelled_decode_drains(self):
+        model = FakeModel()
+        model.release = threading.Event()
+        backend = self.backend(model)
+        server = make_server(backend, 0, "busy-fixture-token")
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        def cleanup():
+            server.shutdown()
+            server.server_close()
+            server_thread.join(3)
+        self.addCleanup(cleanup)
+        def request(route, body):
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+            try:
+                connection.request("POST", route, json.dumps(body), {
+                    "Content-Type": "application/json", "Authorization": "Bearer busy-fixture-token"})
+                response = connection.getresponse()
+                return response.status, json.loads(response.read())
+            finally:
+                connection.close()
+        def capture():
+            status, session = request("/api/start", {})
+            self.assertEqual(status, 200)
+            sid = session["session_id"]
+            self.assertEqual(request("/api/chunk", {"session_id": sid, "sequence": 0,
+                                                    "pcm": base64.b64encode(bytes(3200 * 4)).decode()})[0], 200)
+            return sid
+        sid = capture()
+        thread, results, errors = self.thread(lambda: request("/api/finish", {"session_id": sid}))
+        try:
+            self.assertTrue(model.entered.wait(2))
+            self.assertEqual(request("/api/cancel", {"session_id": sid})[0], 200)
+            replacement = capture()
+            self.assertEqual(request("/api/finish", {"session_id": replacement}),
+                             (429, {"error": "Audio worker is busy"}))
+            self.assertEqual(request("/api/finish", {"session_id": replacement})[0], 422)
+            self.assertEqual(len(model.calls), 1)
+        finally:
+            model.release.set()
+            thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(results[0][0], 422, "Cancelled decode must not publish a transcript")
+        recovered = capture()
+        self.assertEqual(request("/api/finish", {"session_id": recovered}),
+                         (200, {"text": "日本語 result", "final": True}))
+        self.assertEqual(len(model.calls), 2)
 
     def test_invalid_or_oversized_transcript_closes_generator_and_cannot_retry(self):
         for texts in ([False], ["x" * 32001], ["x" * 16000, "y" * 16001]):

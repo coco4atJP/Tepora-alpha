@@ -6,6 +6,8 @@ The existing authenticated loopback API accepts 16 kHz Float32 PCM. Chunks retur
 empty text; /api/finish decodes once. At most 30 seconds (1.92 MB) of raw samples
 are buffered. Model memory depends on the installed model and remains resident.
 Cancellation suppresses stale text; an already running native decode must drain.
+Finish never queues behind that decode: a busy finish drops its capture and
+returns HTTP 429. A fresh session can decode once the previous call has drained.
 """
 import argparse
 import array
@@ -109,47 +111,58 @@ class EndpointWhisper:
             self._check_locked(state)
             if state.finishing:
                 raise BlockingIOError("Audio is still processing")
+            # Admit before detaching or converting the waveform. A cancelled
+            # native decode may still be running, but it must not accumulate
+            # finish threads with captured audio behind its model lock.
+            if not self._model_lock.acquire(blocking=False):
+                state.cancelled.set()
+                state.audio = array.array("f")
+                self._active = None
+                raise BlockingIOError("Audio decoder is still processing")
             state.finishing = True
             audio = state.audio
             state.audio = array.array("f")
         segments = None
         try:
-            with self._model_lock:
-                try:
+            try:
+                self._check(state)
+                if not audio:
+                    return ""
+                # The generator performs inference during iteration, so its
+                # whole lifetime belongs under the single admitted decode.
+                segments, _ = self.model.transcribe(
+                    self._pcm_converter(audio), language=self.language,
+                    beam_size=1, best_of=1, temperature=0,
+                    condition_on_previous_text=False, vad_filter=False,
+                    word_timestamps=False, without_timestamps=True)
+                self._check(state)
+                pieces, length = [], 0
+                for segment in segments:
                     self._check(state)
-                    if not audio:
-                        return ""
-                    # The generator performs inference during iteration, so its
-                    # whole lifetime belongs under the single model lock.
-                    segments, _ = self.model.transcribe(
-                        self._pcm_converter(audio), language=self.language,
-                        beam_size=1, best_of=1, temperature=0,
-                        condition_on_previous_text=False, vad_filter=False,
-                        word_timestamps=False, without_timestamps=True)
-                    self._check(state)
-                    pieces, length = [], 0
-                    for segment in segments:
-                        self._check(state)
-                        text = segment.text
-                        if not isinstance(text, str):
-                            raise ValueError("Invalid transcript")
-                        length += len(text)
-                        if length > self.MAX_TEXT:
-                            raise ValueError("Transcript exceeds budget")
-                        pieces.append(text)
-                    self._check(state)
-                    return "".join(pieces).strip()
-                finally:
-                    # Closing also drops a lazy iterator's waveform reference.
-                    if segments is not None and hasattr(segments, "close"):
-                        segments.close()
+                    text = segment.text
+                    if not isinstance(text, str):
+                        raise ValueError("Invalid transcript")
+                    length += len(text)
+                    if length > self.MAX_TEXT:
+                        raise ValueError("Transcript exceeds budget")
+                    pieces.append(text)
+                self._check(state)
+                return "".join(pieces).strip()
+            finally:
+                # Closing also drops a lazy iterator's waveform reference, and
+                # must finish before another decode is admitted.
+                if segments is not None and hasattr(segments, "close"):
+                    segments.close()
         finally:
             segments, audio = None, None
-            self.cancel(state)
+            try:
+                self.cancel(state)
+            finally:
+                self._model_lock.release()
 
     def cancel(self, state):
         # Avoid the model lock: cancellation invalidates a running native decode
-        # immediately, while the next decode waits for that bounded call to drain.
+        # immediately. New finishes report busy until that bounded call drains.
         with self._state_lock:
             state.cancelled.set()
             state.audio = array.array("f")

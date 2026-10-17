@@ -70,7 +70,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
  const ui=new AgentUIModel(store,agent);
  await agent.tools.loadPlugins().catch(()=>{});
- const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
+ const speechFetch=network.fetch({purpose:'worker'});
+ const speech=new SpeechStream(store,(url,init)=>{
+  // The bundled Python worker reads a bounded Content-Length body, not HTTP chunks.
+  const headers=new Headers(init.headers);headers.set('Content-Length',String(Buffer.byteLength(init.body,'utf8')));
+  return speechFetch(url,{...init,headers});
+ });
+ const display=new Display(store),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
  const setup=new SetupManager(store,{registry,busy:()=>agent.runs.size>0},{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions});
  const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
