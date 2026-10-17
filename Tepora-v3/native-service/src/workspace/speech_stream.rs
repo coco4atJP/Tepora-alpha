@@ -7,6 +7,7 @@ use base64::Engine;
 use std::{sync::Condvar, time::Duration};
 
 struct Session {
+    wake: bool,
     id: String,
     base: String,
     upstream: Option<String>,
@@ -122,16 +123,28 @@ impl SpeechStream {
         })
     }
     pub(super) fn start(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_mode(settings, false)
+    }
+    pub(super) fn start_wake(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_mode(settings, true)
+    }
+    fn start_mode(self: &Arc<Self>, settings: &Value, wake: bool) -> Result<Value, ApiError> {
         require(
             settings["voiceEnabled"] != false,
             403,
             "Microphone is disabled",
         )?;
-        let base = settings["asrStreamUrl"]
-            .as_str()
-            .unwrap_or("")
-            .trim_end_matches('/')
-            .to_owned();
+        let base = if wake {
+            env::var("TEPORA_WAKE_URL").unwrap_or_else(|_| "http://127.0.0.1:8769".into())
+        } else {
+            settings["asrStreamUrl"]
+                .as_str()
+                .unwrap_or("")
+                .trim_end_matches('/')
+                .to_owned()
+        }
+        .trim_end_matches('/')
+        .to_owned();
         // Same existing preference validator and network admission; no new policy.
         preferences::endpoint(&json!(base), false)?;
         let id = Uuid::new_v4().to_string();
@@ -149,6 +162,7 @@ impl SpeechStream {
                 "A microphone session is already active",
             )?;
             life.session = Some(Session {
+                wake,
                 id: id.clone(),
                 base: base.clone(),
                 upstream: None,
@@ -337,7 +351,18 @@ impl SpeechStream {
         } else {
             s.busy = false;
             let result = result?;
-            let reply = json!({"id":id,"sequence":sequence,"text":result["text"],"final":false});
+            if s.wake {
+                require(
+                    result["detected"].is_boolean(),
+                    502,
+                    "Invalid wake detection",
+                )?;
+            }
+            let mut reply =
+                json!({"id":id,"sequence":sequence,"text":result["text"],"final":false});
+            if s.wake {
+                reply["detected"] = result["detected"].clone();
+            }
             s.samples += samples;
             s.next += 1;
             s.last = Some((sequence, pcm, reply.clone()));

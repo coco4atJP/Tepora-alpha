@@ -138,6 +138,10 @@ The home stage's light and the idle screen are built from small modules that onl
 
 On ホーム the conversation column collapses to its message box, placed under the character with CSS grid overlap (a separate row on narrow screens); the column opens on demand elsewhere. The work page updates the job list, bench header and artifact toolbar in place around the artifact iframe, because a detached iframe reloads. Display settings, theme and idle behaviour are display preferences only; they never change permissions or work, and the emergency stop is shown whenever anything runs.
 
+## Local wake and voice lifecycle
+
+`web/hands-free-voice.mjs` owns explicit per-window wake standby, one bounded microphone graph, local energy endpointing, transcript handoff to the resident character, output gating and fail-closed mute/resume. `POST /api/voice/wake/start` shares the existing ordered speech owner in both hosts; only the local wake worker receives idle audio. Optional `workers/wake_server.py` (openWakeWord ONNX) and `workers/endpoint_whisper.py` (CPU int8, one decode at finish) require previously installed local models. No new model engine, automatic download, persistent microphone audio or pi-ai routing change is introduced. Device TTS generation/playback gates input with an acoustic tail; voice barge-in and real-device quality remain unverified. See [hands-free setup, state and resource limits](HANDS-FREE-VOICE.md).
+
 ## Desktop, speech and verification
 
 Tauri still bundles a Node runtime, the compiled Rust core addon and V3 sources. It opens only the sidecar loopback origin and retains tray/background behavior. The standalone native-service binary needs no Node executable after its frontend bundle is built, but it is not the packaged desktop sidecar. Optional Python speech/decision workers remain separate services.

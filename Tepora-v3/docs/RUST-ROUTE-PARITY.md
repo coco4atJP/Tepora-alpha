@@ -2,7 +2,7 @@
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **94 are substantially matched, 12 are partial and 20 are absent**. Thus 106 have handlers, and the 12 partial routes are included in those 106. A route count is not an end-to-end feature completion percentage.
+The inventory contains 127 application method/path variants and 22 separately grouped static rows. In this checkpoint, **95 are substantially matched, 12 are partial and 20 are absent**. Thus 107 have handlers, and the 12 partial routes are included in those 107. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -189,3 +189,5 @@ YES means a real handler is present in the supported scope, not that every model
 - Verify desktop packaging and lifecycle before switching normal launch or consolidating V3
 
 Ordinary streaming speech R074–R077 is available only with `--agent`; local-workspace-only mode remains effect-free. See [RUST-SPEECH-STREAM](RUST-SPEECH-STREAM.md) for lifecycle, transport bounds and synthetic-only evidence.
+
+| R149 | `POST /api/voice/wake/start` | YES | 200 | Local-only wake session shares the bounded speech owner and cancellation; strict detected boolean. Synthetic worker/browser evidence only; real wake/model/hardware acceptance remains separate. |

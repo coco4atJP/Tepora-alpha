@@ -1,13 +1,13 @@
 import {escape,icon,btn,field,toggle,isTrustedForm} from './ui.mjs';
 
 /** Optional abilities stay off the home dashboard. User content never enters remote players. */
-export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate,isOpen,attached=()=>[],latestReply=()=>'',onChanged=()=>{}}){
+export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate,isOpen,attached=()=>[],latestReply=()=>'',onPlayback=()=>{},onChanged=()=>{}}){
  const $=(s)=>document.querySelector(s),names={decision:'判断',embedding:'意味検索',tts:'読み上げ',image:'画像をつくる',image_edit:'画像を直す',video:'動画をつくる'};
  const protocols={'system-one':['decision','System One · Liquid d1 / Laya'],'openai-embeddings':['embedding','OpenAI互換 Embeddings'],'ollama-embed':['embedding','Ollama Embed'],'openai-speech':['tts','OpenAI互換 Speech'],'openai-images':['image','OpenAI互換 画像生成'],'openai-image-edit':['image_edit','OpenAI互換 画像編集'],'xai-video':['video','xAI 動画生成']};
  const presets={laya:{name:'Laya 多言語版',protocol:'system-one',baseUrl:'http://127.0.0.1:8767/v1',model:'multilingual',domain:'device'},liquid:{name:'Liquid d1',protocol:'system-one',baseUrl:'https://api.liquid.ai/decisions/v1',model:'d1:free',domain:'cloud',apiKeyEnv:'LIQUID_API_KEY',maxParallel:1},embedding:{name:'このPCの意味検索',protocol:'ollama-embed',baseUrl:'http://127.0.0.1:11434/api',model:'',domain:'device'},tts:{name:'ローカル音声',protocol:'openai-speech',baseUrl:'http://127.0.0.1:8880/v1',model:'',domain:'device'},image:{name:'画像生成 API',protocol:'openai-images',baseUrl:'https://api.openai.com/v1',model:'',domain:'cloud'},edit:{name:'画像編集 API',protocol:'openai-image-edit',baseUrl:'https://api.openai.com/v1',model:'',domain:'cloud'},video:{name:'xAI Video',protocol:'xai-video',baseUrl:'https://api.x.ai/v1',model:'grok-imagine-video-1.5',domain:'cloud',assetOrigins:['https://vidgen.x.ai']}};
  const opts=(entries,selected)=>entries.map(([v,l])=>`<option value="${escape(v)}" ${v===selected?'selected':''}>${escape(l)}</option>`).join('');
  const editable=p=>Object.fromEntries(['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','timeoutMs','maxParallel','resource','voice','dimensions','assetOrigins'].filter(k=>p[k]!==undefined&&p[k]!==null).map(k=>[k,p[k]]));
- let config={revision:0,profiles:[],routes:{}},selected=null,jobs=[],pending=null,loginTimer=null,querySerial=0,playing=null,pendingPlaybackId=null,speechEpoch=0,readoutRequest=null,readoutStarting=false;
+ let config={revision:0,profiles:[],routes:{}},selected=null,jobs=[],pending=null,loginTimer=null,querySerial=0,playing=null,pendingPlaybackId=null,speechEpoch=0,readoutRequest=null,readoutStarting=false,playbackTimer=null;
  const guard=()=>{if(!isPrivate())throw Error('個人表示に戻してから開いてください。');};
  async function refresh(){config=await bridge.request('/api/capabilities');onChanged({capabilities:config});}
  function reportError(e){if(isPrivate())notice(e.message||String(e));}
@@ -77,29 +77,42 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  }
  async function login(){guard();openSheet('ChatGPTの契約でCodexを使う',`<p>インストール済みのCodex App Serverがサインインを担当します。利用枠・費用・使用できるモデルは契約に従います。まずCodex連携を有効にしてください。</p><div class="sheet-actions">${btn('codex-login-device','デバイスコードで接続','','button')}${btn('codex-login-browser','ブラウザで接続','','button secondary')}${btn('codex-login-cancel','手続きを取り消す','','text-button')}</div><div id="managed-login" role="status"></div>`,'codex-login');loginView(await bridge.request('/api/codex/login'));}
  function listenAsset(id,title){
-  guard();playing?.pause();let dock=$('#ability-now-playing');if(!dock){dock=document.createElement('div');dock.id='ability-now-playing';dock.className='ability-now-playing';$('.input-region').prepend(dock);}
-  dock.innerHTML=`<div><small>読み上げ · ${escape(title.slice(0,55))}</small><audio controls data-media-id="${id}" src="/api/media/assets/${id}"></audio></div>${btn('creative-audio-stop','停止','stop','text-button')}`;playing=dock.querySelector('audio');playing.play().catch(()=>notice('音声の準備ができました。再生ボタンを押してください。'));
+  guard();stopPlayback();const epoch=speechEpoch;let dock=$('#ability-now-playing');if(!dock){dock=document.createElement('div');dock.id='ability-now-playing';dock.className='ability-now-playing';$('.input-region').prepend(dock);}
+  dock.innerHTML=`<div><small>読み上げ · ${escape(title.slice(0,55))}</small><audio controls data-media-id="${id}" src="/api/media/assets/${id}"></audio></div>${btn('creative-audio-stop','停止','stop','text-button')}`;playing=dock.querySelector('audio');const audio=playing,current=()=>playing===audio&&epoch===speechEpoch;
+  const audible=()=>{if(current())onPlayback(!audio.paused&&!audio.ended&&!audio.muted&&audio.volume>0);};
+  onPlayback(true);audio.onplay=audio.onvolumechange=audible;audio.onpause=audio.onended=audio.onerror=()=>{if(current()){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);}};
+  audio.play().catch(()=>{if(current()){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);notice('音声の準備ができました。再生ボタンを押してください。');}});
  }
- function stopPlayback(){speechEpoch++;pendingPlaybackId=null;playing?.pause();for(const el of document.querySelectorAll('audio[data-media-id],video[data-media-id]'))el.pause();$('#ability-now-playing')?.remove();playing=null;}
- async function readReply(){
+ function stopPlayback(){clearTimeout(playbackTimer);playbackTimer=null;speechEpoch++;readoutStarting=false;pendingPlaybackId=null;const previous=playing;playing=null;previous?.pause();for(const el of document.querySelectorAll('audio[data-media-id],video[data-media-id]'))el.pause();$('#ability-now-playing')?.remove();onPlayback(false);}
+ function settleReadout(job){
+  if(!job||job.id!==pendingPlaybackId)return false;
+  if(['failed','cancelled','paused'].includes(job.status)){stopPlayback();return true;}
+  if(job.status==='ready'&&job.asset&&isPrivate()){pendingPlaybackId=null;listenAsset(job.asset.id,job.title);return true;}
+  return false;
+ }
+ async function readReply({automatic=false}={}){
   guard();if(readoutStarting)return;const full=latestReply();if(!full.trim())throw Error('返答が届いてから読み上げできます。');
+  if(automatic&&full.length>4096)return;
   if(full.length>4096)return generate('tts',full.slice(0,4096)).then(()=>notice('長い返答の先頭4096文字です。読み上げる範囲を確認してください。'));
   stopPlayback();const epoch=speechEpoch;readoutStarting=true;
   try{
    await refresh();if(epoch!==speechEpoch||!isPrivate())return;
    const p=config.profiles.find(x=>x.id===config.routes.tts);
-   if(!p){draw();notice('読み上げの接続先を選んでください。');return;}
+   if(!p||!p.enabled){if(automatic)return;draw();notice('読み上げの接続先を選んでください。');return;}
    // One explicit speaker click is consent for this exact reply to the configured local voice.
    // A non-device recipient still gets the full prompt/recipient confirmation sheet.
-   if(p.domain!=='device')return generate('tts',full);
+   if(p.domain!=='device'){if(automatic)return;return generate('tts',full);}
    if(previewMode)throw Error('プレビューでは音声を生成しません。実サービスでローカル音声に接続してください。');
+   onPlayback(true);playbackTimer=setTimeout(()=>{if(epoch!==speechEpoch)return;stopPlayback();notice('読み上げの準備が時間内に終わりませんでした。');},60000);
    const identity=p.identity+'\n'+full;
    if(readoutRequest?.identity!==identity)readoutRequest={identity,id:globalThis.crypto?.randomUUID?.()||Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('')};
    const created=await bridge.request('/api/media/jobs','POST',{kind:'tts',prompt:full,requestId:readoutRequest.id,profileIdentity:p.identity,consent:true});
-   if(epoch!==speechEpoch||!isPrivate())return;pendingPlaybackId=created.id;
-   jobs=(await bridge.request('/api/media/jobs')).jobs;if(epoch!==speechEpoch||!isPrivate())return;
-   const ready=jobs.find(j=>j.id===created.id&&j.asset);if(ready){pendingPlaybackId=null;listenAsset(ready.asset.id,ready.title);}else notice('このPCで音声を準備しています。別の画面を見ながら聴けます。');
-  }finally{readoutStarting=false;}
+   if(epoch!==speechEpoch)return;if(!isPrivate()){stopPlayback();return;}pendingPlaybackId=created.id;
+   if(settleReadout(jobs.find(j=>j.id===created.id)))return;
+   jobs=(await bridge.request('/api/media/jobs')).jobs;if(epoch!==speechEpoch)return;if(!isPrivate()){stopPlayback();return;}
+   if(!settleReadout(jobs.find(j=>j.id===created.id)))notice('このPCで音声を準備しています。別の画面を見ながら聴けます。');
+  }catch(error){if(epoch===speechEpoch)stopPlayback();throw error;}
+  finally{if(epoch===speechEpoch){readoutStarting=false;if(!pendingPlaybackId&&!playing){clearTimeout(playbackTimer);playbackTimer=null;onPlayback(false);}}}
  }
  const actions={
   'abilities-open':open,'ability-new':el=>editor(el.dataset.role),'ability-edit':el=>editor(null,el.dataset.id),
@@ -110,7 +123,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
   'creative-cancel':async el=>{await bridge.request(`/api/media/jobs/${el.dataset.id}/cancel`,'POST',{});await gallery();},
   'creative-resume':async el=>{await bridge.request(`/api/media/jobs/${el.dataset.id}/resume`,'POST',{});await gallery();},
   'creative-delete':el=>{openSheet('この生成物を削除しますか？',`<p>このPCに保存したファイルと生成履歴を削除します。書き出したコピーやプロバイダー側の保存は別です。</p>${btn('creative-delete-confirm','削除する','trash','button',`data-id="${el.dataset.id}"`)}`,'creative-delete');},
-  'creative-delete-confirm':async el=>{const victim=jobs.find(j=>j.id===el.dataset.id);if(victim?.asset?.id===playing?.dataset.mediaId)stopPlayback();await bridge.request(`/api/media/jobs/${el.dataset.id}`,'DELETE');await gallery();},
+  'creative-delete-confirm':async el=>{const victim=jobs.find(j=>j.id===el.dataset.id);if(el.dataset.id===pendingPlaybackId||(victim?.asset?.id&&victim.asset.id===playing?.dataset.mediaId))stopPlayback();await bridge.request(`/api/media/jobs/${el.dataset.id}`,'DELETE');await gallery();},
   'semantic-open':semantic,'semantic-index':async()=>{const p=config.profiles.find(p=>p.id===config.routes.embedding);if(p?.domain!=='device'&&!$('#semantic-form [name=consent]')?.checked)throw Error('埋め込み先への送信を確認してください。');const result=await bridge.request('/api/semantic/index','POST',{consent:p?.domain!=='device',profileIdentity:p?.identity});if($('#semantic-index-note'))$('#semantic-index-note').textContent=`索引 ${result.indexed}件 / 残り ${result.remaining}件。${result.truncatedDocuments?'長い記憶は先頭区間を索引にしました。':''}`;},
   'tools-import':toolImport,'tools-import-apply':async el=>{const result=await bridge.request('/api/tools/import/apply','POST',{id:el.dataset.id,consent:true});const fresh=await bridge.request('/api/bootstrap');onChanged({mcp:fresh.mcp});closeSheet();notice(`${result.created}件を無効で追加しました。使う接続を有効にして「道具を調べる」を押してください。`);},
   'tools-discover':async el=>{guard();openSheet('この道具に接続しますか？',`<p>有効にした接続のコマンドを起動、またはHTTPサービスへ接続し、提供する道具の一覧を取得します。安全性の認証ではありません。</p>${btn('tools-discover-confirm','接続して一覧を調べる','','button',`data-id="${el.dataset.id}"`)}<div id="tool-discovery-note" role="status"></div>`,'tools-discover');},
@@ -147,9 +160,9 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
    else if(id==='catalog-form')paintCatalog(await bridge.request('/api/model-catalog?q='+encodeURIComponent(d.query)));
   })().catch(reportError);
  });
- bridge.on(e=>{if(e.type==='media.updated'){const i=jobs.findIndex(j=>j.id===e.data.id);if(i>=0)jobs[i]=e.data;else jobs.unshift(e.data);onChanged({mediaJobs:jobs});if(isOpen('creative'))paintJobs();if(e.data.id===pendingPlaybackId&&e.data.status==='ready'&&isPrivate()){pendingPlaybackId=null;listenAsset(e.data.asset.id,e.data.title);}}
-  if(e.type==='media.deleted'){const victim=jobs.find(j=>j.id===e.data.id);if(victim?.asset?.id===playing?.dataset.mediaId)stopPlayback();jobs=jobs.filter(j=>j.id!==e.data.id);onChanged({mediaJobs:jobs});if(isOpen('creative'))paintJobs();}
+ bridge.on(e=>{if(e.type==='media.updated'){const i=jobs.findIndex(j=>j.id===e.data.id);if(i>=0)jobs[i]=e.data;else jobs.unshift(e.data);onChanged({mediaJobs:jobs});if(isOpen('creative'))paintJobs();settleReadout(e.data);}
+  if(e.type==='media.deleted'){const victim=jobs.find(j=>j.id===e.data.id);if(e.data.id===pendingPlaybackId||(victim?.asset?.id&&victim.asset.id===playing?.dataset.mediaId))stopPlayback();jobs=jobs.filter(j=>j.id!==e.data.id);onChanged({mediaJobs:jobs});if(isOpen('creative'))paintJobs();}
   if(e.type==='capabilities.updated'){config=e.data;onChanged({capabilities:config});}});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
- return {open,gallery,semantic,stopPlayback,stop:()=>{stopPlayback();clearInterval(loginTimer);querySerial++;},onClose:()=>{for(const el of document.querySelectorAll('#creative-feed video'))el.pause();clearInterval(loginTimer);querySerial++;}};
+ return {open,gallery,semantic,readReply,stopPlayback,stop:()=>{stopPlayback();clearInterval(loginTimer);querySerial++;},onClose:()=>{for(const el of document.querySelectorAll('#creative-feed video'))el.pause();clearInterval(loginTimer);querySerial++;}};
 }

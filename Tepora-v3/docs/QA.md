@@ -1,5 +1,67 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Local hands-free voice (2026-10-17 UTC)
+
+Base: canonical V3 `31d4353` (remote branches and open PRs inspected first).
+The original manual voice path passed 31 Node tests and 13 Python contracts.
+No existing wake detector or automatic endpointing was present. The pi-ai
+provider bridge was already integrated and has been retained.
+
+The new wake/ASR worker routes, cancellation, state machine, output gating,
+endpointing, local-only automatic readout and microphone lifecycle are tested
+with synthetic PCM, fake models and loopback JSON workers. No credentials,
+paid model calls, model downloads or real microphone were used.
+
+Passed locally under Node 24.19.0 and the supplied Rust toolchain:
+
+- Native-service Rust: **560 library + 2 CLI tests**; native-core: **142 tests**.
+- Python worker contracts: **35/35**, using isolated stdlib-only fakes, including
+  openWakeWord and optional CPU endpoint Whisper adapters.
+- Production live-mode browser bundle with synthetic bridge/microphone:
+  **8/8** rendered checks, no runtime/console errors, at 1440/390/320 px.
+  It exercises wake → ASR → endpoint → actual UI send handler → synthetic
+  reply, readout opt-in, and mute preserving an independent worker. Chromium
+  uses an isolated profile and the existing fixture convention `--no-sandbox`;
+  external HTTP(S) is blocked. This does not verify a real microphone/WebView.
+- Root entry-point tests **13/13**, syntax, preview build, scenario traceability
+  and synthetic capability checks **5/5** passed.
+
+**Final focused voice gate: 150/150 passed**, including existing capture,
+production bundle, reply handoff, playback, Node speech and real native/Node
+loopback HTTP cancellation. The final broad `npm test` run passed **896/900**
+with no skips. Four environment failures remain in the broad gate:
+three existing `agent-computer.test.mjs` browser checks cannot start Chromium
+with its installed SUID sandbox configuration; `agent-tools.test.mjs` cannot
+create bwrap's UID map (`Read-only file system`). The command was executed and
+failed; these checks were not skipped or weakened, and no successful complete
+quality gate is claimed.
+
+The synthetic PCM benchmark compares the initial V3 worklet and the new fixed
+buffer resampler, feeding 60 seconds per sample rate in Node VM. It uses no
+microphone/inference and reports process CPU separately from elapsed time.
+The initial worklet lost 106 output samples at 44.1 kHz and emitted 3,204-sample
+chunks; the new worklet preserves all **960,000** samples and emits **300 ×
+3,200** at 16/44.1/48/96 kHz. Per-render-block PCM copies are removed. These are
+preprocessing measurements, not real-model latency, RSS or browser deadlines.
+
+| Input Hz | Baseline CPU ms | New CPU ms | CPU reduction |
+| --- | ---: | ---: | ---: |
+| 16,000 | 1,776.60 | 651.15 | 63.3% |
+| 44,100 | 3,977.07 | 1,221.43 | 69.3% |
+| 48,000 | 3,317.07 | 1,083.57 | 67.3% |
+| 96,000 | 5,605.75 | 1,784.89 | 68.2% |
+
+Reproduce with `node scripts/bench-voice.mjs --baseline /tmp/old-worklet.js`,
+where the supplied baseline is `31d4353:Tepora-v3/web/pcm-worklet.js`.
+
+Real-device acceptance remains: actual compatible models, wake quality and
+false activation rates, noisy rooms, feedback/headphones, CPU/model RAM,
+ASR/TTS latency, autoplay, unplug, sleep/resume and packaged native WebViews.
+Voice-only TTS barge-in is not implemented; the current path is half duplex
+with immediate explicit interruption and an 800 ms output tail. Endpointing is
+a local energy gate rather than learned speech VAD. [Setup and exact limits](HANDS-FREE-VOICE.md).
+
+
 ## pi-ai refresh durability and saved catalogs (2026-10-17 UTC)
 
 Focused local checks under Node **24.19.0** passed **19 tests**: seven inert

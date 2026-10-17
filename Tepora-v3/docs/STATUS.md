@@ -1,5 +1,7 @@
 # Tepora 3.0.0-beta.11 — current status
 
+Local wake standby (2026-10-17): explicit per-window opt-in, bounded PCM, local energy endpointing, optional device-only readout and CPU endpoint ASR adapter are implemented. See [setup/limits](HANDS-FREE-VOICE.md) and [synthetic validation](QA.md#local-hands-free-voice-2026-10-17-utc). Real microphones/models, noise/echo behavior and native WebViews remain acceptance work.
+
 ## pi-ai integration (2026-10-16)
 
 The ordinary host now calls the actual pinned pi-ai SDK for new model connections. SDK-derived provider/model catalogs, nine OAuth implementations, generic prompts, account rotation, streamed tool calls and production dependency packaging have deterministic regression coverage. The provider catalog is not an entitlement or live-quality certification; Bedrock/Vertex dedicated transports and the standalone Rust host are not implemented for pi-ai. See [PI-AI](PI-AI.md) for exact tests and restrictions. Historical validation totals below belong to their recorded revisions.

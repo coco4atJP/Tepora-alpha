@@ -1,5 +1,14 @@
 # Tepora V3 changelog
 
+## Local hands-free voice (beta.11)
+
+- Add explicitly started local wake standby, energy endpointing, bounded PCM transport, immediate mute and optional device-only reply readout; preserve foreground conversation and independent workers
+- Reuse speech sessions in both hosts; reject late Node cancellation results and keep pi-ai provider routing unchanged
+- Add optional explicit-local-model openWakeWord and CPU int8 endpoint-only faster-whisper workers; no automatic downloads or cloud audio
+- Fix 44.1 kHz resampling drift and remove per-render-block buffer allocations; add synthetic lifecycle, worker, playback and browser regressions
+- See [setup, limits and hardware acceptance](../Tepora-v3/docs/HANDS-FREE-VOICE.md) and [validation](../Tepora-v3/docs/QA.md)
+
+
 ## Configurable companion monitor (beta.11)
 
 - Add four scene/layout presets, clock fonts/sizes/seconds, an in-place customizer and up to four pinned cards, while keeping display changes separate from execution permissions

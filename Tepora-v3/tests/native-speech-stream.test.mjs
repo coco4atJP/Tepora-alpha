@@ -26,23 +26,25 @@ async function client(launchUrl,close,data){
 }
 async function fixture(t){
  const cleanup=serviceCleanup(t),dir=cleanup.directory(await mkdtemp(path.join(os.tmpdir(),'tepora-speech-http-'))),empty=path.join(dir,'empty-path'),bundle=path.join(dir,'app.bundle.js');await mkdir(empty);await writeFile(bundle,'// Synthetic speech fixture\n');
- const records=[],held=[],sockets=new Set();let hold;
- const mock=createServer(async(req,res)=>{
-  const chunks=[];for await(const b of req)chunks.push(b);const body=JSON.parse(Buffer.concat(chunks).toString()||'{}');records.push({url:req.url,body});
+ const records=[],held=[],sockets=new Set();let hold,chunkReply;
+ async function worker(kind){const mock=createServer(async(req,res)=>{
+  const chunks=[];for await(const b of req)chunks.push(b);const body=JSON.parse(Buffer.concat(chunks).toString()||'{}');records.push({url:req.url,body,kind});
   if(req.url===hold){const entry={res,closed:false};res.once('close',()=>{entry.closed=true;});held.push(entry);return;}
-  res.setHeader('Content-Type','application/json');res.end(JSON.stringify(req.url==='/api/start'?{session_id:'synthetic'}:req.url==='/api/chunk'?{text:'partial text'}:req.url==='/api/finish'?{text:'final text'}:{cancelled:true}));
+  res.setHeader('Content-Type','application/json');res.end(JSON.stringify(req.url==='/api/start'?{session_id:'synthetic'}:req.url==='/api/chunk'?(chunkReply||{text:'partial text',...(kind==='wake'?{detected:true}:{})}):req.url==='/api/finish'?{text:'final text'}:{cancelled:true}));
  });
  mock.on('connection',s=>{sockets.add(s);s.on('close',()=>sockets.delete(s));});await new Promise(resolve=>mock.listen(0,'127.0.0.1',resolve));const origin=`http://127.0.0.1:${mock.address().port}`;
  cleanup.service({close:async()=>{for(const socket of sockets)socket.destroy();await new Promise(resolve=>mock.close(resolve));}});
- async function start(native,agent=true){
+ return origin;}
+ const origin=await worker('asr'),wakeOrigin=await worker('wake');
+ async function start(native,agent=true,wakeUrl=wakeOrigin){
   const data=path.join(dir,native?'native-'+agent:'node');
   if(!native){const app=cleanup.service(await startServer({dir:data,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})}));return client(app.launchUrl,app.close,data);}
-  const child=spawn(binary,['--dev-native',...(agent?['--agent']:[]),'--sidecar','--port','0','--data-dir',data,'--web-dir',path.join(root,'web'),'--bundle',bundle],{stdio:['pipe','pipe','pipe'],windowsHide:true,env:{PATH:empty,HOME:dir,USERPROFILE:dir,TMPDIR:dir,TEMP:dir,TMP:dir,...(process.env.SystemRoot?{SystemRoot:process.env.SystemRoot}:{})}});
+  const child=spawn(binary,['--dev-native',...(agent?['--agent']:[]),'--sidecar','--port','0','--data-dir',data,'--web-dir',path.join(root,'web'),'--bundle',bundle],{stdio:['pipe','pipe','pipe'],windowsHide:true,env:{PATH:empty,HOME:dir,USERPROFILE:dir,TMPDIR:dir,TEMP:dir,TMP:dir,TEPORA_WAKE_URL:wakeUrl,...(process.env.SystemRoot?{SystemRoot:process.env.SystemRoot}:{})}});
   let stderr='',exit;child.stderr.on('data',v=>stderr=(stderr+v).slice(-20000));child.stdin.on('error',()=>{});const exited=new Promise(resolve=>child.once('exit',code=>{exit={code};resolve(exit);}));const lines=createInterface({input:child.stdout});
   const owned=cleanup.service({close:async()=>{if(!exit){child.stdin.write('shutdown\n');const timer=setTimeout(()=>child.kill('SIGKILL'),20000);try{assert.equal((await exited).code,0,stderr);}finally{clearTimeout(timer);}}lines.close();}});
   const ready=await Promise.race([new Promise((resolve,reject)=>lines.once('line',line=>{try{resolve(JSON.parse(line));}catch(e){reject(e);}})),exited.then(()=>{throw new Error('Native startup: '+stderr);})]);return {...await client(ready.url,owned.close,data),trayStop:()=>child.stdin.write('stop\n')};
  }
- return {start,records,held,origin,setHold:route=>{hold=route;}};
+ return {start,records,held,origin,wakeOrigin,setHold:route=>{hold=route;},setChunkReply:reply=>{chunkReply=reply;}};
 }
 const pcm=n=>Buffer.alloc(n*4).toString('base64');
 test('native speech: ordinary source parity and effect-free mode availability',{timeout:60000},async t=>{
@@ -61,14 +63,52 @@ test('native speech: ordinary source parity and effect-free mode availability',{
   const next=await c.json('/api/voice/start','POST');await c.json('/api/voice/cancel','POST',{id:next.id});await c.json('/api/voice/finish','POST',{id:next.id},409);
   await c.json('/api/settings','PATCH',{voiceEnabled:false});await c.json('/api/voice/start','POST',undefined,403);await c.close();
  }
- const offline=await f.start(true,false);for(const route of ['start','chunk','finish','cancel'])await offline.json('/api/voice/'+route,'POST',route==='start'?undefined:{},503);await offline.close();
+ const offline=await f.start(true,false);for(const route of ['start','wake/start','chunk','finish','cancel'])await offline.json('/api/voice/'+route,'POST',route.endsWith('start')?undefined:{},503);await offline.close();
 });
-test('native speech: Stop All, tray Stop and shutdown drain pending worker calls',{timeout:90000},async t=>{
- const f=await fixture(t);
- for(const stop of ['http','tray','close'])for(const route of ['start','chunk','finish']){
-  const c=await f.start(true);await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
-  const s=route==='start'?null:await c.json('/api/voice/start','POST');f.setHold('/api/'+route);const count=f.held.length;
-  const pending=c.request('/api/voice/'+route,'POST',route==='start'?undefined:{id:s.id,sequence:0,pcm:pcm(1)}).then(async r=>({status:r.status,body:await r.json()})).catch(error=>({error}));
+test('wake speech: HTTP parity, ASR isolation, strict detection and cancellation',{timeout:60000},async t=>{
+ const f=await fixture(t),previous=process.env.TEPORA_WAKE_URL;process.env.TEPORA_WAKE_URL=f.wakeOrigin;
+ t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
+ for(const native of [false,true]){
+  const c=await f.start(native);await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
+  const initial=await c.json('/api/agent'),before=f.records.length,s=await c.json('/api/voice/wake/start','POST');
+  await c.json('/api/voice/start','POST',undefined,409);
+  const body={id:s.id,sequence:0,pcm:pcm(3200)};
+  for(const detected of [undefined,null,0,1,'true',[],{}]){
+   f.setChunkReply({text:'',...(detected===undefined?{}:{detected})});await c.json('/api/voice/chunk','POST',body,502);
+  }
+  f.setChunkReply({text:'synthetic wake phrase',detected:false});
+  const part=await c.json('/api/voice/chunk','POST',body);assert.equal(part.detected,false);assert.equal(part.final,false);
+  const count=f.records.length;assert.deepEqual(await c.json('/api/voice/chunk','POST',body),part);assert.equal(f.records.length,count);
+  f.setChunkReply({text:'synthetic wake phrase',detected:true});assert.equal((await c.json('/api/voice/chunk','POST',{...body,sequence:1})).detected,true);
+  assert.equal((await c.json('/api/voice/finish','POST',{id:s.id})).submitted,false);
+  assert.ok(f.records.slice(before).every(r=>r.kind==='wake'));
+  f.setChunkReply({text:'ordinary ASR',detected:'ignored'});const asr=await c.json('/api/voice/start','POST');
+  await c.json('/api/voice/wake/start','POST',undefined,409);
+  assert.equal((await c.json('/api/voice/chunk','POST',{...body,id:asr.id})).detected,undefined);
+  await c.json('/api/voice/cancel','POST',{id:asr.id});assert.equal(f.records.at(-1).kind,'asr');
+  f.setChunkReply(undefined);const wake=await c.json('/api/voice/wake/start','POST');await c.json('/api/voice/cancel','POST',{id:wake.id});
+  assert.equal(f.records.at(-1).kind,'wake');await c.json('/api/voice/chunk','POST',{...body,id:wake.id},409);
+  const final=await c.json('/api/agent');assert.deepEqual(final.dialogue,initial.dialogue);assert.deepEqual(final.jobs,initial.jobs);
+  await c.json('/api/settings','PATCH',{voiceEnabled:false});await c.json('/api/voice/wake/start','POST',undefined,403);await c.close();
+ }
+});
+test('wake speech: external and malformed endpoints are refused before transport',{timeout:60000},async t=>{
+ const f=await fixture(t),previous=process.env.TEPORA_WAKE_URL;
+ t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
+ for(const url of ['https://example.invalid','http://192.168.1.2:8769','http://127.0.0.1:8769?secret=synthetic','http://user:synthetic@127.0.0.1:8769','file:///tmp/wake'])for(const native of [false,true]){
+  process.env.TEPORA_WAKE_URL=url;const c=await f.start(native,true,url),before=f.records.length;
+  const response=await c.request('/api/voice/wake/start','POST');assert.ok([400,403].includes(response.status),await response.text());
+  assert.equal(f.records.length,before);await c.close();
+ }
+});
+test('speech: Stop All, native tray Stop and shutdown drain pending ASR and wake calls',{timeout:90000},async t=>{
+ const f=await fixture(t),previous=process.env.TEPORA_WAKE_URL;process.env.TEPORA_WAKE_URL=f.wakeOrigin;
+ t.after(()=>{if(previous===undefined)delete process.env.TEPORA_WAKE_URL;else process.env.TEPORA_WAKE_URL=previous;});
+ for(const native of [false,true])for(const wake of [false,true])for(const stop of (native?['http','tray','close']:['http','close']))for(const route of ['start','chunk','finish']){
+  const c=await f.start(native);await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
+  const startRoute='/api/voice/'+(wake?'wake/start':'start');
+  const s=route==='start'?null:await c.json(startRoute,'POST');f.setHold('/api/'+route);const count=f.held.length;
+  const pending=c.request(route==='start'?startRoute:'/api/voice/'+route,'POST',route==='start'?undefined:{id:s.id,sequence:0,pcm:pcm(1)}).then(async r=>({status:r.status,body:await r.json()})).catch(error=>({error}));
   await wait(()=>f.held.length===count+1,'held worker '+route);const held=f.held[count];
   if(stop==='http')await c.json('/api/stop','POST',{});else if(stop==='tray')c.trayStop();else await c.close();
   await wait(()=>held.closed,'closed worker transport');const result=await pending;if(stop!=='close')assert.equal(result.status,499,JSON.stringify(result));

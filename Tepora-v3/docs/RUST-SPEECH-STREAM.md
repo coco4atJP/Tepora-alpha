@@ -2,6 +2,8 @@
 
 The explicit `--dev-native --agent` host owns R074–R077 (`/api/voice/start`, `chunk`, `finish`, `cancel`) in `native-service/src/workspace/speech_stream.rs`. The local-workspace-only `--dev-native` host returns 503 for all four effects. The default Node service and Tauri launcher do not change.
 
+The explicit opt-in wake route `POST /api/voice/wake/start` shares this owner in Node and native. `TEPORA_WAKE_URL` defaults to loopback port 8769, with strict loopback admission and boolean `detected` in wake chunk replies. Idle and ASR sessions cannot overlap. Effect-free mode returns 503. The Node host now also aborts transport and invalidates late results after Stop/cancel. [Hands-free setup and limits](HANDS-FREE-VOICE.md).
+
 ## Contract
 
 - One ephemeral session, including a pending start. No audio or transcript is stored in SQLite or written to disk.

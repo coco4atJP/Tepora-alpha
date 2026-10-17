@@ -10,6 +10,7 @@ import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
 import {VoiceCapture} from './voice.mjs';
 import {RealtimeVoiceCapture} from './realtime-voice.mjs';
+import {HandsFreeVoice} from './hands-free-voice.mjs';
 import {jobStatus,needsPerson} from './status.mjs';
 import {describeApproval} from './approval-format.mjs';
 import {renderMarkdown} from './markdown.mjs';
@@ -59,7 +60,48 @@ const lightsHost=document.createElement('div');lightsHost.className='stage-light
 const draftContext=new DialogueDraftContext();
 const draft=new VoiceDraft();
 let capabilityUI=null;
-function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
+function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onPlayback:active=>handsFreeVoice.setSpeaking(active),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
+let handsFreeAnchor=null,handsFreeReadout=false;
+const handsFreeVoice=new HandsFreeVoice({bridge,onState:paintHandsFree,onError:error=>notice(error.message,'error'),stopOutput:()=>capabilityUI?.stopPlayback(),
+ onWake:()=>{
+  if(sharedView||!online||activeDialog||composerLocked()||draft.content||attachedFiles.length||state.dialogue.status==='running')return false;
+  cancelVoice({keepHandsFree:true});pinDraft();
+  handsFreeAnchor={epoch:voiceEpoch,anchor:draftContext.anchor(draft,{start:0,end:0,id:crypto.randomUUID(),attachmentEpoch,sessionId:state.dialogue.session.id})};return true;
+ },onPartial:text=>{if($('#voice-caption'))$('#voice-caption').textContent=text;},
+ onUtterance:async(text,signal)=>{
+  const target=handsFreeAnchor;if(!target||signal.aborted)return;
+  const prior=state.dialogue.messages.filter(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind)).at(-1)?.id;
+  const sent=await finishSpeech(text,target.anchor,target.epoch,true);if(!sent||signal.aborted)return;
+  const replied=await waitHandsFreeReply(prior,signal);
+  if(replied&&handsFreeReadout&&!signal.aborted&&handsFreeVoice.active)await abilities().readReply({automatic:true});
+ }});
+function paintHandsFree(status){
+ const el=$('#hands-free-status');if(!el)return;
+ const labels={starting:'マイク準備中',idle:'呼びかけ待ち',waking:'音声入力を準備',listening:'聴いています',endpointing:'音声を認識中',processing:'返事を待っています',speaking:'読み上げ中',cooldown:'呼びかけ待ちへ復帰中',off:'マイク停止',interrupted:'音声会話を中断',error:'マイク停止・再開始が必要',suspended:'マイク休止・再開始が必要'};
+ el.hidden=status==='off';el.textContent=labels[status]||status;el.dataset.state=status;
+ el.setAttribute('aria-label',`${el.textContent}。押すと直ちにミュートして音声会話を中断`);
+ el.setAttribute('aria-pressed',String(handsFreeVoice.active));
+ if(['idle','listening','waking'].includes(status))musicUI?.pause();
+}
+async function startHandsFree(){
+ requireComposerUnlocked();
+ if(previewMode)throw Error('プレビューではマイクを使用しません。');
+ if(!online||sharedView||!settings().voiceEnabled||!settings().asrStreamUrl||settings().dictationEditing)throw Error('個人表示で音声入力とローカルASRを設定し、言い直し編集をオフにしてください。');
+ if(draft.content||attachedFiles.length||state.dialogue.status==='running')throw Error('入力と添付を送信または整理し、現在の返事が完了してから開始してください。');
+ if(!state.providers?.profiles?.some(p=>p.enabled!==false&&p.model))throw Error('先に会話モデルを接続してください。');
+ handsFreeReadout=!!$('#hands-free-readout')?.checked;cancelVoice();capabilityUI?.stopPlayback();closeSheet();
+ await handsFreeVoice.enable();
+}
+function waitHandsFreeReply(prior,signal){
+ return new Promise((resolve,reject)=>{
+  let unsubscribe=()=>{};
+  const done=(error,replied=false)=>{clearTimeout(timer);unsubscribe();signal.removeEventListener('abort',aborted);error?reject(error):resolve(replied);};
+  const aborted=()=>done(Object.assign(Error('音声会話を中断しました。'),{name:'AbortError'}));
+  const check=()=>{if(signal.aborted)return aborted();const latest=state.dialogue.messages.filter(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind)).at(-1);if(latest&&latest.id!==prior)done(null,true);else if(state.dialogue.status!=='running'&&!sending)done();};
+  const timer=setTimeout(()=>done(Error('返事の待ち時間を超えたためミュートしました。文字で続けられます。')),120000);
+  signal.addEventListener('abort',aborted,{once:true});unsubscribe=bridge.on(()=>queueMicrotask(check));check();
+ });
+}
 let providerUI=null;
 function providerSettings(){return providerUI||=createProviderSettings({bridge,openSheet,closeSheet,notice,previewMode,legacySettings:settings,onChanged:value=>{state={...state,...value};paintChrome();if(view==='settings'&&!activeDialog)scheduleRender();}});}
 let setupUI=null,attachedFiles=[],pendingRequest=null,sending=false,lastRequestJobId=null,lastSubmitError='';
@@ -122,6 +164,7 @@ function shell(){
    <button type="button" data-action="view" data-view="settings">${icon('settings')}<span>設定</span></button>
   </nav>
   <div class="topbar-tools">
+   <button type="button" class="hands-free-status" id="hands-free-status" data-action="hands-free-mute" hidden></button>
    <button type="button" class="readiness" id="readiness" data-action="readiness" hidden></button>
    <button type="button" class="inbox-button" id="inbox-button" data-action="inbox" hidden><i class="lamp-dot" aria-hidden="true"></i><span class="inbox-label">あなたの番</span><span class="inbox-count" id="inbox-count"></span></button>
    <button type="button" class="stop-button" id="stop-all" data-action="stop" aria-label="すべて停止" hidden>${icon('stop','icon-fill')}<span>すべて停止</span></button>
@@ -707,7 +750,7 @@ function settingsView(){
    ${settingRow('音楽',musicState?.track?escape(`${musicState.count}曲を選択中`):'',musicState?.track?'ok':null,'このPCの音楽ファイルをホームで流します。送信はしません。',`${btn('music-choose','曲を選ぶ','music','button secondary')}${btn('media','YouTube','','text-button','aria-label="YouTubeを流す"')}`)}
    <div class="setting-foot">${btn('display-undo','前の表示に戻す','undo','text-button')}${btn('display-reset','既定に戻す','','text-button')}</div>`],
   ['abilities','声・画像・意味検索',`${settingRow('能力の接続',connected.length?connected.join('・'):'',connected.length?'ok':null,connected.length?'':'読み上げ・画像・意味検索などを、役割ごとに接続できます。',`${btn('abilities-open','管理','','button secondary','aria-label="能力の接続を管理"')}${btn('creative-new','つくってみる','','text-button')}`)}
-   ${settingRow('音声入力',s.asrStreamUrl||s.asrUrl?'設定済み':'',s.asrStreamUrl||s.asrUrl?'ok':null,'マイクはボタンを押したときだけ使います。',btn('voice-settings','設定','','button secondary','aria-label="音声入力の設定"'))}`],
+   ${settingRow('音声入力',s.asrStreamUrl||s.asrUrl?'設定済み':'',s.asrStreamUrl||s.asrUrl?'ok':null,'手動入力、または明示的に開始するローカル呼びかけ待機。',btn('voice-settings','設定','','button secondary','aria-label="音声入力の設定"'))}`],
   ['work','仕事の実行',`${settingRow('サンドボックス',({off:'オフ（このPCで直接実行）',workspace:'作業フォルダだけ書き込める',readonly:'読み取りだけ',container:'コンテナ'})[agentSettings().sandbox.mode],agentSettings().sandbox.mode==='off'?null:'ok','保護は既定でオフです。必要なときだけ、作業エージェントのコマンドとファイル書き込みを閉じ込めます。',segmented('sandbox-set',[['off','オフ'],['workspace','作業フォルダ'],['readonly','読み取り'],['container','コンテナ']],agentSettings().sandbox.mode,'サンドボックス'))}
    ${settingRow('Web検索',({auto:'自動',brave:'Brave Search',searxng:'SearXNG',duckduckgo:'DuckDuckGo'})[agentSettings().webSearch.provider]||'自動',null,'調べものに使う検索。キーなしで使えるDuckDuckGoが既定です。',btn('search-setup','設定','','button secondary','aria-label="Web検索の設定"'))}
    ${settingRow('常駐と見回り',agentSettings().heartbeat.enabled?`${agentSettings().heartbeat.minutes}分ごと`:'オフ',agentSettings().heartbeat.enabled?'ok':null,'決まった間隔でキャラクターが仕事の様子を見回り、伝えることがあれば話しかけます。',btn('heartbeat-setup','設定','','button secondary','aria-label="見回りの設定"'))}
@@ -945,7 +988,12 @@ function voiceSheet(){
  <details><summary>録音後に認識する互換経路</summary>${field('音声認識URL','asrUrl',s.asrUrl||'')}${field('音声モデル','asrModel',s.asrModel||'')}</details>
  ${toggle('ローカルモデルで言い直しを整理する','dictationEditing',s.dictationEditing,'途中の音声を実行命令にせず、版付きの下書き編集だけを行います。ローカルの会話モデルが必要です。')}
  ${toggle('音声入力を使用する','voiceEnabled',s.voiceEnabled,'マイクはボタンを押すまで起動しません。')}
- <button class="button" type="submit">保存する</button></form>`,'voice');
+ <button class="button" type="submit">保存する</button></form>
+ <section class="panel-section"><h3>呼びかけで会話する</h3><p>ローカルのウェイクワーカーと上記のASRが必要です。インストール済みの英語モデルの呼びかけ（例: Hey Jarvis）の後、少し待って話してください。話し終えると現在の会話へ自動送信します。音声はこのPC内だけで処理し、待機中はASRへ送りません。会話の文章は設定済みの会話モデルへ送られます。</p>
+ <label class="widget-option"><span><input id="hands-free-readout" type="checkbox"> この開始中はローカル音声で返事を読む</span></label>
+ <p class="small-text">生成音声は既存の「つくったもの」に保存されます。読み上げ中と終了後0.8秒は音声入力を抑止します。上部のマイク状態を押すと直ちにミュートします。画面非表示・休止・エラー後は手動で再開始してください。設定は先に保存してください。</p>
+ ${btn('hands-free-start','待機開始・発話を自動送信','mic','button')}
+ ${btn('hands-free-mute','ミュートして中断','stop','button secondary')}</section>`,'voice');
 }
 function approvalBox(j){return approvalCards(j);}
 function taskSheet(id){
@@ -1033,12 +1081,13 @@ function revealComposer(){
  else if(view!=='home'&&!talkOpen)setTalkOpen(true);
  setTimeout(()=>$('#composer-input')?.focus(),0);
 }
-function cancelVoice(){
+function cancelVoice({keepHandsFree=false}={}){
+ if(!keepHandsFree)void handsFreeVoice.disable();
  const capture=voice;voice=null;voiceBusy=false;voiceAnchor=null;voiceEpoch++;pendingSpeech='';
  if($('#voice-caption'))$('#voice-caption').textContent='';paintMicrophone(false);
  capture?.cancel().catch(()=>{});
 }
-async function recordToggle(){capabilityUI?.stopPlayback();
+async function recordToggle(){void handsFreeVoice.disable();capabilityUI?.stopPlayback();
  requireComposerUnlocked();
  if(previewMode)throw new Error('プレビューではマイクを使用しません。');
  if(!settings().voiceEnabled)throw new Error('音声入力が無効です。文字での依頼は使えます。');
@@ -1069,7 +1118,7 @@ function paintMicrophone(on){
  if(!on&&!pendingSpeech&&/^録音中/.test($('#voice-caption').textContent))$('#voice-caption').textContent='';
  paintChrome();paintMood();
 }
-async function finishSpeech(text,anchor,epoch){
+async function finishSpeech(text,anchor,epoch,handsFree=false){
  if(!text||!anchor||epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
  try{
   let patch={baseRevision:anchor.revision,utteranceId:anchor.id,edits:[{start:anchor.start,end:anchor.end,text}]};
@@ -1079,16 +1128,18 @@ async function finishSpeech(text,anchor,epoch){
   }
   if(epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
   if(!draftContext.accepts(anchor,draft))throw new Error('入力が変わったため、自動では反映しませんでした。');
-  const autoSubmit=voiceSendEnabled&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&!composerLocked();
+  const autoSubmit=(voiceSendEnabled||handsFree&&handsFreeVoice.active)&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&!composerLocked();
   draft.apply(patch);$('#composer-input').value=draft.content;showTarget();
   $('#voice-caption').textContent=(patch.summary||'下書きに反映しました。')+' まだ送信していません。';
-  if(autoSubmit)await safe(submitDialogue)(false,false,{revision:draft.revision,epoch});
+  if(autoSubmit){await submitDialogue(false,false,{revision:draft.revision,epoch,handsFree});return true;}
  }catch(e){
   if(epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
   pendingSpeech={text,anchor,epoch};$('#voice-caption').innerHTML=`下書きを保持しました。${escape(e.message)} ${btn('append-speech','認識結果を末尾に追加','','text-button')}`;
  }
 }
 const actions={
+ 'hands-free-start':startHandsFree,
+ 'hands-free-mute':async()=>{const status=handsFreeVoice.state;void handsFreeVoice.interrupt();cancelVoice();if(status==='processing'&&state.dialogue.session?.id)await bridge.request(`/api/agent/sessions/${state.dialogue.session.id}/stop`,'POST',{});},
  'providers-launch':()=>providerSettings().open(),'computer-launch':()=>providerSettings().computer(),
  attach:attachFiles,'detach-file':detachFile,
  'retry-request':()=>submitDialogue(false,true),
@@ -1320,7 +1371,7 @@ bridge.on(e=>{
  if(e.type==='approval.updated'&&!previewMode)return;
  if(e.type==='companion.updated'){acceptCompanion(e.data);return;}
  if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
- if(e.type==='transport.status'){online=e.data.online;showRequestStatus();paintChrome();if(!online)notice('接続を復旧しています。仕事の状態はサービスに保存されています。');return;}
+ if(e.type==='transport.status'){online=e.data.online;showRequestStatus();paintChrome();if(!online){cancelVoice();notice('接続を復旧しています。仕事の状態はサービスに保存されています。');}return;}
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
  if(e.type==='plan.updated'){upsert('plans',e.data);scheduleRender();return;}
@@ -1421,8 +1472,8 @@ function requestId(){return globalThis.crypto?.randomUUID?.()||`request-${Date.n
 /** One entry point to the resident character. Retrying an uncertain send reuses its request id, so it is never doubled. */
 async function submitDialogue(consent=false,retry=false,automatic=null){
  if(sending)return;
- if(automatic&&(!voiceSendEnabled||automatic.epoch!==voiceEpoch||automatic.revision!==draft.revision||attachedFiles.length||settings().dictationEditing))return;
- cancelVoice();
+ if(automatic&&(!(voiceSendEnabled||automatic.handsFree&&handsFreeVoice.active)||automatic.epoch!==voiceEpoch||automatic.revision!==draft.revision||attachedFiles.length||settings().dictationEditing))return;
+ cancelVoice({keepHandsFree:!!automatic?.handsFree});
  if(sharedView)throw new Error('個人表示に戻してから送信してください。');
  sending=true;lastSubmitError='';showRequestStatus();showTarget();showInputFiles();
  let request=pendingRequest?.uncertain?pendingRequest:null,dispatching=false;

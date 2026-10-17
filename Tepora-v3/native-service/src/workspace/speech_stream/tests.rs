@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[derive(Default)]
 struct Worker {
     calls: Mutex<Vec<(String, Value)>>,
+    endpoints: Mutex<Vec<String>>,
     delay: Mutex<Option<String>>,
     entered: AtomicUsize,
     bad: Mutex<Option<Value>>,
@@ -24,6 +25,7 @@ impl Transport for Worker {
         Box::pin(async move {
             assert!(a.address.is_loopback());
             let route = a.url.path().to_owned();
+            self.endpoints.lock().unwrap().push(a.url.to_string());
             let body: Value = serde_json::from_slice(&r.body).unwrap();
             self.calls.lock().unwrap().push((route.clone(), body));
             let delay = self.delay.lock().unwrap().as_ref() == Some(&route);
@@ -77,6 +79,11 @@ impl Fixture {
     fn start(&self) -> Value {
         self.speech
             .start(&json!({"voiceEnabled":true,"asrStreamUrl":"http://127.0.0.1:8756"}))
+            .unwrap()
+    }
+    fn start_wake(&self) -> Value {
+        self.speech
+            .start_wake(&json!({"voiceEnabled":true,"asrStreamUrl":"https://unused-asr.invalid"}))
             .unwrap()
     }
 }
@@ -178,46 +185,128 @@ fn validation_budget_and_worker_failure() {
 }
 #[test]
 fn stop_and_close_drain_start_chunk_finish_without_resurrection() {
-    for route in ["/api/start", "/api/chunk", "/api/finish"] {
-        for close in [false, true] {
-            let f = Fixture::new();
-            let s = if route != "/api/start" {
-                f.start()
-            } else {
-                Value::Null
-            };
-            *f.worker.delay.lock().unwrap() = Some(route.into());
-            let speech = f.speech.clone();
-            let route = route.to_owned();
-            let task = std::thread::spawn(move || match route.as_str() {
-                "/api/start" => speech.start(&json!({"asrStreamUrl":"http://127.0.0.1:8756"})),
-                "/api/chunk" => speech.chunk(&json!({"id":s["id"],"sequence":0,"pcm":pcm(1)})),
-                _ => speech.finish(&json!({"id":s["id"]})),
-            });
-            let deadline = std::time::Instant::now() + Duration::from_secs(5);
-            while f.worker.entered.load(Ordering::SeqCst) == 0 {
-                assert!(std::time::Instant::now() < deadline);
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            f.speech.cancel(None, close).unwrap();
-            assert_eq!(task.join().unwrap().unwrap_err().status, 499);
-            {
-                let life = f.speech.life.lock().unwrap();
-                assert!(life.session.is_none());
-                assert_eq!(life.active, 0);
-            }
-            *f.worker.delay.lock().unwrap() = None;
-            let next = f
-                .speech
-                .start(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}));
-            if close {
-                assert_eq!(next.unwrap_err().status, 503)
-            } else {
-                assert!(next.is_ok());
-                f.speech.cancel(None, true).unwrap();
+    for wake in [false, true] {
+        for route in ["/api/start", "/api/chunk", "/api/finish"] {
+            for close in [false, true] {
+                let f = Fixture::new();
+                let s = if route != "/api/start" {
+                    if wake {
+                        f.start_wake()
+                    } else {
+                        f.start()
+                    }
+                } else {
+                    Value::Null
+                };
+                *f.worker.delay.lock().unwrap() = Some(route.into());
+                let speech = f.speech.clone();
+                let route = route.to_owned();
+                let task = std::thread::spawn(move || match route.as_str() {
+                    "/api/start" => {
+                        speech.start_mode(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}), wake)
+                    }
+                    "/api/chunk" => speech.chunk(&json!({"id":s["id"],"sequence":0,"pcm":pcm(1)})),
+                    _ => speech.finish(&json!({"id":s["id"]})),
+                });
+                let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                while f.worker.entered.load(Ordering::SeqCst) == 0 {
+                    assert!(std::time::Instant::now() < deadline);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                f.speech.cancel(None, close).unwrap();
+                assert_eq!(task.join().unwrap().unwrap_err().status, 499);
+                {
+                    let life = f.speech.life.lock().unwrap();
+                    assert!(life.session.is_none());
+                    assert_eq!(life.active, 0);
+                }
+                *f.worker.delay.lock().unwrap() = None;
+                let next = f
+                    .speech
+                    .start(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}));
+                if close {
+                    assert_eq!(next.unwrap_err().status, 503)
+                } else {
+                    assert!(next.is_ok());
+                    f.speech.cancel(None, true).unwrap();
+                }
             }
         }
     }
+}
+
+#[test]
+fn wake_shares_microphone_slot_and_validates_boolean_without_advancing() {
+    let f = Fixture::new();
+    assert_eq!(
+        f.speech
+            .start_wake(&json!({"voiceEnabled":false}))
+            .unwrap_err()
+            .status,
+        403
+    );
+    assert!(f.worker.calls.lock().unwrap().is_empty());
+    let s = f.start_wake();
+    assert_eq!(
+        f.speech
+            .start(&json!({"asrStreamUrl":"http://127.0.0.1:8756"}))
+            .unwrap_err()
+            .status,
+        409
+    );
+    let packet = json!({"id":s["id"],"sequence":0,"pcm":pcm(3200)});
+    for detected in [
+        Value::Null,
+        json!(0),
+        json!(1),
+        json!("true"),
+        json!([]),
+        json!({}),
+    ] {
+        *f.worker.bad.lock().unwrap() = Some(json!({"text":"","detected":detected}));
+        assert_eq!(f.speech.chunk(&packet).unwrap_err().status, 502);
+    }
+    *f.worker.bad.lock().unwrap() = Some(json!({"text":""}));
+    assert_eq!(f.speech.chunk(&packet).unwrap_err().status, 502);
+    *f.worker.bad.lock().unwrap() = Some(json!({"text":"synthetic wake phrase","detected":false}));
+    let first = f.speech.chunk(&packet).unwrap();
+    assert_eq!(first["detected"], false);
+    assert_eq!(first["final"], false);
+    assert!(first.get("submitted").is_none());
+    let count = f.worker.calls.lock().unwrap().len();
+    assert_eq!(f.speech.chunk(&packet).unwrap(), first);
+    assert_eq!(f.worker.calls.lock().unwrap().len(), count);
+    *f.worker.bad.lock().unwrap() = Some(json!({"text":"","detected":true}));
+    assert_eq!(
+        f.speech
+            .chunk(&json!({"id":s["id"],"sequence":1,"pcm":pcm(1)}))
+            .unwrap()["detected"],
+        true
+    );
+    let final_reply = f.speech.finish(&json!({"id":s["id"]})).unwrap();
+    assert_eq!(final_reply["submitted"], false);
+    assert!(f.speech.life.lock().unwrap().session.is_none());
+    let asr = f.start();
+    assert_eq!(f.speech.start_wake(&json!({})).unwrap_err().status, 409);
+    *f.worker.bad.lock().unwrap() = Some(json!({"text":"ordinary ASR","detected":"not boolean"}));
+    assert!(f
+        .speech
+        .chunk(&json!({"id":asr["id"],"sequence":0,"pcm":pcm(1)}))
+        .unwrap()
+        .get("detected")
+        .is_none());
+    f.speech.cancel(asr["id"].as_str(), false).unwrap();
+    assert_eq!(
+        f.worker.calls.lock().unwrap().last().unwrap().0,
+        "/api/cancel"
+    );
+    assert!(f
+        .worker
+        .endpoints
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|endpoint| !endpoint.contains("unused-asr.invalid")));
 }
 #[test]
 fn concurrent_chunk_finish_are_rejected() {

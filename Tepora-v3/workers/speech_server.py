@@ -72,6 +72,8 @@ class AudioSessions:
             if not isinstance(text, str) or len(text) > 32000:
                 raise ValueError("Invalid transcript")
             result = {"text": text, "final": False}
+            if hasattr(self.backend, "detection"):
+                result["detected"] = bool(self.backend.detection(session["state"]))
             session["next"] += 1
             session["samples"] += len(values)
             session["at"] = time.monotonic()
@@ -94,7 +96,9 @@ class AudioSessions:
             session["lock"].release()
 
     def cancel(self, session_id):
-        self.sessions.pop(session_id, None)
+        session = self.sessions.pop(session_id, None)
+        if session is not None and hasattr(self.backend, "cancel"):
+            self.backend.cancel(session["state"])
         return {"cancelled": True}
 
 
