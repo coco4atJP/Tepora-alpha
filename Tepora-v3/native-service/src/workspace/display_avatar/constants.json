@@ -26,7 +26,17 @@
       "frameMotion": true,
       "frameClock": "small",
       "frameCreated": true
-    }
+    },
+    "scene": "standard",
+    "layout": "companion-split",
+    "clockStyle": "editorial",
+    "clockSize": "medium",
+    "clockSeconds": false,
+    "pinnedWidgets": [],
+    "weatherMode": "notable",
+    "workCard": false,
+    "focusMinutes": 25,
+    "pinnedNote": ""
   },
   "ambientDefault": {
     "idleMinutes": 5,
@@ -48,7 +58,12 @@
     "news",
     "media",
     "work",
-    "artifact"
+    "artifact",
+    "focus",
+    "schedule",
+    "memo",
+    "system",
+    "almanac"
   ],
   "bodies": [
     {

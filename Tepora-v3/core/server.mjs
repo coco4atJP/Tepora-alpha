@@ -126,7 +126,9 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     // Raw agent internals (transcript entries, inboxes, deltas) stay in the service; the screen gets projections.
     const internal=/^(session\.(entry|inbox)|agent\.(delta|event|reply|compaction|finished))$/;
     const events=store.events(since);const send=e=>{if(internal.test(e.type))return;if(!res.write(`${e.seq===null?'':`id: ${e.seq}\n`}data: ${JSON.stringify(e)}\n\n`))res.destroy();};
-    if(req.headers['last-event-id']||events.length&&events[0].seq>since+1)send({seq:store.seq,type:'snapshot',data:snapshot()});else for(const e of events)send(e);
+    // Schedule views are live projections, so bootstrap-to-subscribe replay
+    // must read the current list when a schedule changed in that interval.
+    if(req.headers['last-event-id']||events.length&&events[0].seq>since+1||events.some(e=>e.type==='schedule.updated'))send({seq:store.seq,type:'snapshot',data:snapshot()});else for(const e of events)send(e);
     store.listeners.add(send);streams.add(res);const beat=setInterval(()=>{if(!res.write(': heartbeat\n\n'))res.destroy();},15000);
     res.on('close',()=>{clearInterval(beat);store.listeners.delete(send);streams.delete(res);});return;
    }

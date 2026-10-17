@@ -786,7 +786,12 @@ impl State {
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
-        let payload = json!({"event":value,"sessions":self.list("session")?,"approvals":self.list("approval")?});
+        let mut payload = json!({"event":value,"sessions":self.list("session")?,"approvals":self.list("approval")?});
+        if value["type"] == "schedule.updated" {
+            let id = value["data"]["id"].as_str()
+                .ok_or_else(|| ApiError::bad_request("Schedule event id must be a string"))?;
+            payload["schedule"] = self.get("schedule", id)?;
+        }
         let derived = json_codec::parse(
             &projection::project_json(
                 "ui.event",
@@ -1045,7 +1050,11 @@ impl Backend for Workspace {
             .first()
             .and_then(|e| e["seq"].as_u64())
             .is_some_and(|n| n > request.since.saturating_add(1));
-        let initial = if request.reconnect || gap {
+        // schedule.view is live-only, and source events can carry an old fired
+        // occurrence. A bootstrap/subscription race needs current persisted
+        // schedules rather than replaying those incomplete source facts.
+        let schedule_changed = events.iter().any(|event| event["type"] == "schedule.updated");
+        let initial = if request.reconnect || gap || schedule_changed {
             let mut snapshot = s.snapshot()?;
             if let Some(native) = self.native.get() {
                 // Runtime-only decoration must not reenter State. Keep this
@@ -1169,6 +1178,138 @@ mod tests {
     use super::*;
     use crate::network::{Admitted, ByteStream, NetworkFuture, NetworkRequest, RequestCancellation, Resolver, Transport, TransportResponse};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn schedule_bootstrap(workspace: &Workspace) -> Value {
+        match workspace.execute(Operation::Bootstrap).unwrap() {
+            Reply::Json(value) => value,
+            _ => panic!("bootstrap must return JSON"),
+        }
+    }
+
+    fn schedule_change(workspace: &Workspace, persisted: Option<Value>, source: Value) -> Value {
+        let mutation = match persisted {
+            Some(doc) => ("document.put".into(), json!({"kind":"schedule","doc":doc})),
+            None => ("document.remove".into(), json!({"kind":"schedule","id":source["id"]})),
+        };
+        let values = workspace.access().agent_batch(&[
+            mutation,
+            ("event.emit".into(), json!({"type":"schedule.updated","data":source})),
+        ]).unwrap();
+        values[1].clone()
+    }
+
+    fn assert_schedule_events(subscription: &mut EventSubscription, item: Value, source: &Value) {
+        let view = subscription.receiver.try_recv().unwrap();
+        assert_eq!(view.event_type, "schedule.view");
+        assert_eq!(view.seq, None);
+        assert_eq!(view.data, json!({"id":source["data"]["id"],"item":item}));
+        let event = subscription.receiver.try_recv().unwrap();
+        assert_eq!(event.value(), *source);
+        assert!(subscription.receiver.try_recv().is_err());
+        assert!(!view.data.to_string().contains("UNRELATED_PRIVATE_KEY"));
+    }
+
+    #[test]
+    fn schedules_bootstrap_and_live_views_follow_committed_documents_before_source_events() {
+        let dir = env::temp_dir().join(format!("tepora-schedule-view-{}", Uuid::new_v4()));
+        let workspace = Workspace::open(&dir).unwrap();
+        workspace.lock().unwrap().set_value("provider-keys", json!({"fixture":"UNRELATED_PRIVATE_KEY"})).unwrap();
+        let bootstrap = schedule_bootstrap(&workspace);
+        assert_eq!(bootstrap["schedules"], json!([]));
+        assert!(!bootstrap.to_string().contains("UNRELATED_PRIVATE_KEY"));
+        let sessions = workspace.lock().unwrap().list("session").unwrap();
+        let mut subscription = workspace.subscribe(EventRequest {since:bootstrap["seq"].as_u64().unwrap(),reconnect:false}).unwrap();
+        assert!(subscription.initial.is_empty());
+
+        let mut repeating = json!({"id":"repeat","text":"private reminder 日本語","mode":"remind","at":"2026-10-17T04:00:00.000Z","every":5,"fired":0});
+        let source = schedule_change(&workspace, Some(repeating.clone()), repeating.clone());
+        assert_schedule_events(&mut subscription, repeating.clone(), &source);
+        repeating["text"] = json!("updated private reminder");
+        repeating["retryAt"] = json!("2026-10-17T04:01:00.000Z");
+        let source = schedule_change(&workspace, Some(repeating.clone()), repeating.clone());
+        assert_schedule_events(&mut subscription, repeating.clone(), &source);
+
+        // A recurring fire emits the old occurrence, after storing its next at.
+        let mut fired = repeating.clone();
+        fired["fired"] = json!(1);
+        repeating["at"] = json!("2026-10-17T04:05:00.000Z");
+        repeating["fired"] = json!(1);
+        repeating["retryAt"] = Value::Null;
+        let source = schedule_change(&workspace, Some(repeating.clone()), fired);
+        assert_ne!(source["data"]["at"], repeating["at"]);
+        assert_schedule_events(&mut subscription, repeating.clone(), &source);
+
+        let once = json!({"id":"once","text":"one-shot","mode":"remind","at":"2026-10-17T04:02:00.000Z","every":null,"fired":0});
+        let source = schedule_change(&workspace, Some(once.clone()), once.clone());
+        assert_schedule_events(&mut subscription, once.clone(), &source);
+        let mut cancelled = repeating.clone();
+        cancelled["removed"] = json!(true);
+        let source = schedule_change(&workspace, None, cancelled);
+        assert_schedule_events(&mut subscription, Value::Null, &source);
+
+        // A successful one-shot removal has no removed flag in its source.
+        let mut fired = once.clone();
+        fired["fired"] = json!(1);
+        let source = schedule_change(&workspace, None, fired);
+        assert!(source["data"].get("removed").is_none());
+        assert_schedule_events(&mut subscription, Value::Null, &source);
+        assert_eq!(schedule_bootstrap(&workspace)["schedules"], json!([]));
+        assert_eq!(workspace.lock().unwrap().list("session").unwrap(), sessions);
+        let replay = workspace.lock().unwrap().call("event.replay", json!({"since":bootstrap["seq"]})).unwrap();
+        assert_eq!(replay.as_array().unwrap().len(), 6);
+        assert!(replay.as_array().unwrap().iter().all(|event| event["type"] == "schedule.updated"));
+        workspace.unsubscribe(subscription.id);
+        workspace.shutdown().unwrap();
+        drop(workspace);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn schedule_replay_races_reconnects_and_restart_use_current_authoritative_snapshots() {
+        let dir = env::temp_dir().join(format!("tepora-schedule-reconnect-{}", Uuid::new_v4()));
+        let workspace = Workspace::open(&dir).unwrap();
+        let bootstrap = schedule_bootstrap(&workspace);
+        let mut repeating = json!({"id":"repeat","text":"repeat","mode":"remind","at":"2026-10-17T04:00:00.000Z","every":5,"fired":0});
+        schedule_change(&workspace, Some(repeating.clone()), repeating.clone());
+        let mut fired = repeating.clone();
+        fired["fired"] = json!(1);
+        repeating["at"] = json!("2026-10-17T04:05:00.000Z");
+        repeating["fired"] = json!(1);
+        schedule_change(&workspace, Some(repeating.clone()), fired);
+        let once = json!({"id":"once","text":"already fired","at":"2026-10-17T04:00:00.000Z","fired":0});
+        schedule_change(&workspace, Some(once.clone()), once.clone());
+        let mut fired = once;
+        fired["fired"] = json!(1);
+        schedule_change(&workspace, None, fired);
+
+        // Changes after HTTP bootstrap but before SSE registration must replace
+        // the initial state, not replay stale schedule.updated source payloads.
+        for reconnect in [false, true] {
+            let mut subscription = workspace.subscribe(EventRequest {since:bootstrap["seq"].as_u64().unwrap(),reconnect}).unwrap();
+            assert_eq!(subscription.initial.len(), 1);
+            let snapshot = &subscription.initial[0];
+            assert_eq!(snapshot.event_type, "snapshot");
+            assert_eq!(snapshot.data["schedules"], json!([repeating]));
+            let seq = snapshot.seq.unwrap();
+            let source = schedule_change(&workspace, Some(repeating.clone()), repeating.clone());
+            assert!(source["seq"].as_u64().unwrap() > seq);
+            assert_schedule_events(&mut subscription, repeating.clone(), &source);
+            workspace.unsubscribe(subscription.id);
+        }
+        // Retention-gap recovery and opening the same persisted workspace are
+        // reads of the same remaining recurring item; neither replays execution.
+        workspace.lock().unwrap().call("exec", json!({"sql":"DELETE FROM events WHERE seq < (SELECT MAX(seq) FROM events)"})).unwrap();
+        let subscription = workspace.subscribe(EventRequest {since:0,reconnect:false}).unwrap();
+        assert_eq!(subscription.initial[0].data["schedules"], json!([repeating]));
+        workspace.unsubscribe(subscription.id);
+        workspace.shutdown().unwrap();
+        drop(workspace);
+        let reopened = Workspace::open(&dir).unwrap();
+        assert_eq!(schedule_bootstrap(&reopened)["schedules"], json!([repeating]));
+        reopened.shutdown().unwrap();
+        drop(reopened);
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn live_fanout_shares_payload_and_disconnects_full_queues_without_retaining_events() {

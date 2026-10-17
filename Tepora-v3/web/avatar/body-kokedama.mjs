@@ -8,6 +8,9 @@ export const AVATAR_BODY_KOKEDAMA=(()=>{
  function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
  const LEAF_L='M101 86C86 90 70 82 62 64C80 58 98 68 101 86Z',LEAF_R=avatarMirror('M101 86C86 90 70 82 62 64C80 58 98 68 101 86Z').replace(/^M99/,'M99');
  const LEAF_SM_L='M102 68C96 67 91 62 90 55C97 55 101 60 102 68Z';
+ const MOSS_PATH='M100 113.5C114 113 128 118.5 136.5 128C144.5 137 147 148 146.5 160C147 172.5 141.5 184.5 132.5 193C123.5 201 112 206.5 100 206.5C88 206.5 76.5 201 67.5 193C58.5 184.5 53 172.5 53.5 160C53 148 55.5 137 63.5 128C72 118.5 86 113 100 113.5Z';
+ const rimTufts=(seed)=>{const R=rng(seed),o=[];for(let i=0;i<28;i++){const a=(i/28)*Math.PI*2+(R()-.5)*.08,d=45.2+R()*1.4,x=100+Math.cos(a)*d,y=160+Math.sin(a)*d,rx=3.2+R()*2.2,ry=2+R()*1.4,rot=Math.round((a*180)/Math.PI+90);
+  o.push(`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" transform="rotate(${rot} ${x.toFixed(1)} ${y.toFixed(1)})" fill="var(--c-body)" opacity=".88"/>`);}return o.join('');};
  const fuzz=(seed)=>{const R=rng(seed),o=[];for(let i=0;i<110;i++){const a=R()*Math.PI*2,d=Math.sqrt(R())*44,x=100+Math.cos(a)*d,y=160+Math.sin(a)*d,rx=2.2+R()*2.6,ry=1.5+R()*1.6,rot=Math.floor(R()*180),dark=R()<.45;
   o.push(`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" transform="rotate(${rot} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${dark?'var(--c-shade)':'var(--c-light)'}" opacity="${dark?.55:.5}"/>`);}return o.join('');};
  return {
@@ -19,7 +22,7 @@ export const AVATAR_BODY_KOKEDAMA=(()=>{
    return `<svg viewBox="0 0 200 224" class="face-${fv}" aria-hidden="true" focusable="false" style="--leaf:${LC[0]};--leaf-d:${LC[1]}">
   <defs>
    <radialGradient id="${u}-b" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".45" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></radialGradient>
-   <clipPath id="${u}-c"><circle cx="100" cy="160" r="46"/></clipPath>${avatarLampDefs(u)}
+   <clipPath id="${u}-c"><path d="${MOSS_PATH}"/></clipPath>${avatarLampDefs(u)}
   </defs>
   <ellipse class="floor" cx="100" cy="212" rx="62" ry="7"/>
   <g class="pose"><g class="breath">
@@ -32,10 +35,11 @@ export const AVATAR_BODY_KOKEDAMA=(()=>{
     <g class="leaf leaf-sr" style="--ox:98px;--oy:68px"><path class="leaf-b" d="${avatarMirror(LEAF_SM_L)}"/></g>
     <g class="bud">${avatarLamp(u,lampShape,102,50,1.15)}</g>
    </g></g>
-   <circle class="moss" cx="100" cy="160" r="46" fill="url(#${u}-b)"/>
+   <g class="moss-rim">${rimTufts(19)}</g>
+   <path class="moss" d="${MOSS_PATH}" fill="url(#${u}-b)"/>
    <g clip-path="url(#${u}-c)">${fuzz(7)}
     <path class="twine" d="M56 142Q100 176 144 142M54 170Q100 200 146 170M70 124Q82 168 118 196"/>
-    <ellipse cx="78" cy="132" rx="22" ry="12" transform="rotate(-28 78 132)" fill="#fff" opacity=".22"/></g>
+    <ellipse cx="78" cy="132" rx="22" ry="12" transform="rotate(-28 78 132)" fill="#fff" opacity=".24"/></g>
    <g class="kface" transform="translate(0 34)">${avatarFace(r,{g,c:25,my:2})}</g>
    ${avatarProps(r,A,u)}
   </g></g>

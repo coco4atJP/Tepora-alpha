@@ -22,6 +22,39 @@ Rust, full host suites and Windows/macOS/Linux CI remain required. These checks
 use synthetic credentials and no external account or paid inference; Worker and
 controller probes do not establish live OAuth, browser or installer acceptance.
 
+## Configurable monitor and bounded redraws
+
+Follow-up review adds display-reset defaults/history/revision/undo regressions, exact customizer
+control-focus regressions, and actual Scheduler/bootstrap/event/replay coverage for the schedule
+card. Saved schedules load with bootstrap/reconnect; live views carry one committed row or its
+removal, so recurring receipts with the old occurrence and one-shot receipts without a tombstone
+cannot leave stale rows. The offline monitor test also covers repeated Space/Enter changes, and
+Linux regression CI now runs it plus the existing layout browser suite without sandbox bypasses.
+Local pure Node checks and preview generation pass. Rust/core-backed/HTTP and browser execution
+were unavailable in this Linux executor: Rust/Cargo is absent and Chromium's process-singleton IPC
+socket is denied. Their new exact-commit CI results are required before claiming those stages pass.
+
+The monitor changes retain the Node/Tauri default host and explicit native development boundary.
+Focused regressions cover wall-clock countdowns, pause/resume, delayed completion, display-only
+scene validation, UTF-16 note limits, carousel deadlines and the generated-image widget identity.
+`node tests/browser-monitor.mjs` adds six optional installed-Chrome checks for the actual offline
+bundle: render-independent timing, preserved pinned-card controls/focus, an unchanged customizer,
+clock-only approval access, image unpinning and all four layouts at 1440/390 px. The existing five
+`browser-ui-layout.mjs` checks also pass with an isolated profile and no external provider calls.
+
+An Apple M5/macOS arm64 headless-Chrome comparison used the reviewed feature checkpoint versus
+its fixes, synthetic jobs/memories and CDP 4× CPU slowdown. With the work scene, running timer and
+customizer open, 80 redraws gave a 95th percentile of **9.9 → 1.3 ms** for 20 jobs/200 memories,
+and **10.8 → 3.6 ms** for 1,000 jobs/10,000 memories. Ten unchanged redraws went from 20 customizer
+body replacements to zero. Six timer ticks no longer replace the pinned board. A deterministic
+8-second carousel observed **0 → 2** transitions over 20 seconds of per-second updates.
+
+In 2,000 additional redraws, GC-retained JS heap moved about 1.75 → 1.80 MiB; listener count stayed
+44 and DOM nodes stayed 960 apart from a transient three-node animation. These are synthetic local
+observations, not browser RSS, GPU/power measurements, a real low-end-device score, a long-running
+leak guarantee or native WebView acceptance. Generated harnesses/results remain under ignored
+`validation/performance-review/`; the committed browser and unit regressions are reproducible.
+
 ## Harness reliability repairs (2026-10-13 JST)
 
 The [reliability repair record](HARNESS-RELIABILITY.md) links the changed behavior

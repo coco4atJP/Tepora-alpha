@@ -1,7 +1,7 @@
 import {icon,escape} from './ui.mjs';
 import {needsPerson} from './status.mjs';
 import {voiceAddress,voiceLine} from './voice-lines.mjs';
-import {seasonOf} from './seasons.mjs';
+import {SEASONS,seasonOf} from './seasons.mjs';
 /** The home stage as a smart monitor: clock, a rotating deck of small modules (weather, news,
  * music, work, things you made) and an idle mode that dims, drifts and lets work continue.
  * Builders return HTML from already-loaded data; nothing here fetches or decides permissions.
@@ -66,9 +66,15 @@ export function weatherNotable(weather,now=Date.now()){
  return code>=51||temp>=30||temp<=5||Boolean(rainSoon(weather,now));
 }
 /** Cards for the deck. Work is shown as lights around the character and weather as one line under
- * the date, so the weather card comes back only when it changes what you would do. */
-export function deckWidgets(widgets,{weather=null,now=Date.now()}={}){
- return widgets.filter(w=>w==='work'?false:w==='weather'?weatherNotable(weather,now):true);
+ * the date by default; weatherMode='always', workCard=true, and pinned=[] customize what stays in the deck. */
+export function deckWidgets(widgets,{weather=null,now=Date.now(),weatherMode='notable',workCard=false,pinned=[]}={}){
+ const pinnedSet=new Set(Array.isArray(pinned)?pinned:[]);
+ return widgets.filter(w=>{
+  if(pinnedSet.has(w))return false;
+  if(w==='work')return Boolean(workCard);
+  if(w==='weather')return weatherMode==='always'?true:weatherNotable(weather,now);
+  return true;
+ });
 }
 export const countWord=n=>['','ひとつ','ふたつ','みっつ'][n]||`${n}件`;
 /** What to say when the person comes back, in the persona's voice. Empty unless something happened or they were away a while. */
@@ -120,10 +126,73 @@ function ambientWorkCard(jobs,{shared=false}={}){
 }
 function ambientPhotoCard(images,index=0){
  if(!images.length)return null;const img=images[((index%images.length)+images.length)%images.length];
- return {id:'photos',title:'つくったもの',html:`<figure class="photo-frame"><img src="${escape(img.src)}" alt="${escape(img.title)}" loading="lazy"><figcaption>${escape(img.title)}</figcaption></figure>`};
+ return {id:'photos',widget:'artifact',title:'つくったもの',html:`<figure class="photo-frame"><img src="${escape(img.src)}" alt="${escape(img.title)}" loading="lazy"><figcaption>${escape(img.title)}</figcaption></figure>`};
 }
-/** Ordered cards for the deck, following the display widget order. Shared view drops private ones. */
-export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],shared=false,newsIndex=0,photoIndex=0,sample={}}){
+function ambientFocusCard(focus){
+ if(!focus)return null;
+ const total=Math.max(60,(Number(focus.minutes)||25)*60),rem=Math.max(0,Number.isFinite(focus.remainingSeconds)?focus.remainingSeconds:total);
+ const m=String(Math.floor(rem/60)).padStart(2,'0'),s=String(Math.floor(rem%60)).padStart(2,'0');
+ const pct=Math.min(100,Math.max(0,Math.round(((total-rem)/total)*100)));
+ const mins=Number(focus.minutes)||25;
+ return {id:'focus',title:'集中タイマー',focus:{time:`${m}:${s}`,meta:`${focus.running?'集中中':'待機中'}${focus.completed?` · 今日 ${focus.completed}回`:''}`,progress:pct,minutes:mins,running:!!focus.running},html:`<div class="focus-widget${focus.running?' is-running':''}">
+  <div class="focus-readout"><strong class="focus-time">${m}:${s}</strong><span class="focus-meta">${focus.running?'集中中':'待機中'}${focus.completed?` · 今日 ${focus.completed}回`:''}</span></div>
+  <div class="music-progress focus-progress" aria-hidden="true"><span style="--p:${pct}%"></span></div>
+  <div class="focus-controls">
+   <button type="button" class="secondary-button is-compact" data-action="focus-toggle">${focus.running?'一時停止':'開始'}</button>
+   <button type="button" class="ghost-button is-compact" data-action="focus-reset">リセット</button>
+   <div class="focus-presets" role="group" aria-label="時間プリセット">${[15,25,45].map(n=>`<button type="button" class="chip-btn${mins===n?' is-on':''}" data-action="focus-preset" data-minutes="${n}">${n}分</button>`).join('')}</div>
+  </div></div>`};
+}
+function ambientScheduleCard(schedule,{shared=false}={}){
+ if(!schedule)return null;
+ const saved=(Array.isArray(schedule.items)?schedule.items:[]).filter(d=>d&&typeof d.text==='string'&&Number.isFinite(Date.parse(d.at))).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+ if(shared)return {id:'schedule',title:'予定・定期タスク',html:`<p class="work-shared">${saved.length?`${saved.length}件の予定があります`:'予定はありません'}</p>`};
+ const items=saved.slice(0,4).map(d=>({kind:d.every?'定期':d.mode==='task'?'仕事':'通知',title:d.text,sub:d.lastError?'再試行待ち':`${new Date(d.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${d.every?` · ${d.every}分ごと`:''}`}));
+ if(!items.length)return {id:'schedule',title:'予定・定期タスク',html:'<div class="schedule-widget is-empty"><p class="muted">予定されているタスクやリマインダーはありません。</p><p class="small-text">予定の追加や確認は、会話で頼めます。</p></div>'};
+ return {id:'schedule',title:'予定・定期タスク',html:`<ul class="schedule-list">${items.map(it=>`<li><span class="schedule-badge">${escape(it.kind)}</span><span class="schedule-title">${escape(it.title)}</span><small class="schedule-sub">${escape(it.sub)}</small></li>`).join('')}</ul>`};
+}
+/** Apply a committed read-only schedule delta; source fire receipts are not state. */
+export function applyScheduleView(items,change){
+ const current=Array.isArray(items)?items:[],id=change?.id,item=change?.item;
+ if(typeof id!=='string'||!id)return current;
+ if(item===null)return current.filter(d=>d.id!==id);
+ if(!item||typeof item!=='object'||Array.isArray(item)||item.id!==id)return current;
+ const next=[...current],index=next.findIndex(d=>d.id===id);
+ if(index<0)next.unshift(item);else next[index]=item;
+ return next;
+}
+function ambientMemoCard(memo,{shared=false}={}){
+ if(!memo||shared)return null;
+ const note=(memo.note||'').trim(),mem=memo.memory;
+ const body=note||(mem?.content||mem?.summary||mem?.text||'').trim();
+ return {id:'memo',title:note?'ピン留めメモ':'最近の記憶・メモ',html:`<div class="memo-widget">
+  <p class="memo-body">${body?escape(body):'<span class="muted">ステージに置いておきたい一言メモを書き留められます。</span>'}</p>
+  <div class="memo-footer"><span class="card-source">${note?'固定メモ':mem?'記憶より':'未入力'}</span><button type="button" class="ghost-button is-compact" data-action="memo-edit">編集</button></div></div>`};
+}
+function ambientSystemCard(system){
+ if(!system)return null;
+ const safetyLabel=system.safety==='host'?'ホスト許可':'保護モード';
+ return {id:'system',title:'システム・AI状態',html:`<div class="system-widget">
+  <div class="system-grid">
+   <div class="system-cell"><span class="system-k">AIモデル</span><strong class="system-v"><i class="dot dot-${system.ready?'active':'idle'}"></i>${escape(system.model||(system.ready?'接続済み':'未設定'))}</strong></div>
+   <div class="system-cell"><span class="system-k">実行保護</span><strong class="system-v">${escape(safetyLabel)}</strong></div>
+   <div class="system-cell"><span class="system-k">本日の応答</span><strong class="system-v">${Number(system.todayRequests)||0}回</strong></div>
+   <div class="system-cell"><span class="system-k">記憶・稼働</span><strong class="system-v">${Number(system.memoryCount)||0}件 · ${Number(system.activeJobs)||0}稼働</strong></div>
+  </div></div>`};
+}
+function ambientAlmanacCard(almanac){
+ if(!almanac)return null;
+ const now=almanac.now instanceof Date?almanac.now:new Date(almanac.now||Date.now());
+ const s=seasonOf(now),next=SEASONS[(s.index+1)%SEASONS.length];
+ const fmt=h=>{if(!Number.isFinite(h))return null;const hr=Math.floor(h),mn=Math.round((h%1)*60);return `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;};
+ const rise=almanac.sunrise||fmt(almanac.sun?.rise),set=almanac.sunset||fmt(almanac.sun?.set);
+ return {id:'almanac',title:`二十四節気 · ${s.sekki}`,html:`<div class="almanac-widget">
+  <p class="almanac-kou"><span class="almanac-sekki">${escape(s.sekki)}</span><strong>${escape(s.kou)}</strong></p>
+  ${next?`<p class="almanac-meaning">次の候（${next.month}月${next.day}日ごろ）: ${escape(next.sekki)} ・ ${escape(next.kou)}</p>`:''}
+  ${rise&&set?`<p class="card-source">日の出 ${escape(rise)} · 日の入り ${escape(set)}</p>`:`<p class="card-source">${now.getMonth()+1}月${now.getDate()}日の暦</p>`}</div>`};
+}
+/** Ordered cards for the deck or pinned slots, following the display widget order. Shared view drops private ones. */
+export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],focus=null,schedule=null,memo=null,system=null,almanac=null,shared=false,newsIndex=0,photoIndex=0,sample={}}){
  const cards=[];
  for(const w of widgets){
   if(w==='weather')cards.push(ambientWeatherCard(weather,{sample:sample.weather}));
@@ -131,32 +200,90 @@ export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],sh
   if(w==='media')cards.push(ambientMusicCard(music));
   if(w==='work')cards.push(ambientWorkCard(jobs,{shared}));
   if(w==='artifact'&&!shared)cards.push(ambientPhotoCard(images,photoIndex));
+  if(w==='focus')cards.push(ambientFocusCard(focus));
+  if(w==='schedule')cards.push(ambientScheduleCard(schedule,{shared}));
+  if(w==='memo'&&!shared)cards.push(ambientMemoCard(memo,{shared}));
+  if(w==='system')cards.push(ambientSystemCard(system));
+  if(w==='almanac')cards.push(ambientAlmanacCard(almanac));
  }
  return cards.filter(Boolean);
 }
 
-/** One card at a time; the next one rises into place. Hover or focus holds the current card. */
+/** Multi-slot pinned board renderer for the smart monitor stage. */
+export function renderPinnedCards(cards=[]){
+ return cards.filter(Boolean).map(c=>`<article class="deck-card pinned-card" data-card="${escape(c.id)}"><header class="deck-title"><span>${escape(c.title)}</span><button type="button" class="card-pin-btn" data-action="toggle-pin-widget" data-widget="${escape(c.widget||c.id)}" aria-label="固定を解除" title="固定を解除">固定中</button></header><div class="deck-body">${c.html}</div></article>`).join('');
+}
+
+// A running clock must not replace controls (or the keyboard focus inside them).
+function paintFocusCard(article,card){
+ const value=card.focus;if(!value||!article?.querySelector('.focus-widget'))return false;
+ const text=(selector,value)=>{const el=article.querySelector(selector);if(el.textContent!==value)el.textContent=value;};
+ text('.focus-time',value.time);text('.focus-meta',value.meta);
+ text('[data-action="focus-toggle"]',value.running?'一時停止':'開始');
+ article.querySelector('.focus-widget').classList.toggle('is-running',value.running);
+ article.querySelector('.focus-progress span').style.setProperty('--p',`${value.progress}%`);
+ article.querySelectorAll('[data-action="focus-preset"]').forEach(el=>el.classList.toggle('is-on',Number(el.dataset.minutes)===value.minutes));
+ return true;
+}
+/** Keyed pinned cards: update only the changed widget, keeping other cards and their focus. */
+export function createPinnedBoard(host){
+ const records=new Map();
+ const update=card=>{
+  const record=records.get(card.id);if(!record)return;
+  if(record.card.html===card.html&&record.card.title===card.title)return;
+  if(!paintFocusCard(record.el,card)){
+   record.el.querySelector('.deck-title span').textContent=card.title;
+   record.el.querySelector('.deck-body').innerHTML=card.html;
+  }
+  record.card=card;
+ };
+ return {
+  set(cards){
+   const ids=new Set(cards.map(c=>c.id));
+   for(const [id,record] of records)if(!ids.has(id)){record.el.remove();records.delete(id);}
+   cards.forEach((card,index)=>{
+    if(!records.has(card.id)){
+     const box=host.ownerDocument.createElement('div');box.innerHTML=renderPinnedCards([card]);
+     records.set(card.id,{el:box.firstElementChild,card});
+    }else update(card);
+    const el=records.get(card.id).el;if(host.children[index]!==el)host.insertBefore(el,host.children[index]||null);
+   });
+   host.classList.toggle('is-empty',!cards.length);
+  },
+  update
+ };
+}
+
+/** One card at a time; data refreshes do not postpone rotation. Hover or focus holds the card. */
 export function createDeck(host,{interval=12000,reducedMotion=false,onChange=()=>{}}={}){
- let cards=[],index=0,timer=0,paused=false,stopped=false,lastSig='';
+ let cards=[],index=0,timer=0,hovered=false,focused=false,stopped=false,lastSig='',lastCard='',lastPager='';
  const paint=(animate=false)=>{
-  if(!cards.length){if(lastSig!==''){host.innerHTML='';lastSig='';}onChange(null);return;}
+  if(!cards.length){if(lastSig!==''){host.innerHTML='';lastSig='';lastCard='';}onChange(null);return;}
   index=((index%cards.length)+cards.length)%cards.length;const c=cards[index];
-  const sig=`${index}|${cards.map(x=>`${x.id}:${x.title}:${x.html}`).join('||')}`;
+  // Only the displayed content and pager labels can affect the displayed DOM.
+  const pager=JSON.stringify(cards.map(x=>[x.id,x.title])),sig=JSON.stringify([index,c.id,c.title,c.html,pager]);
   if(!animate&&sig===lastSig){onChange(c.id);return;}
-  lastSig=sig;
-  host.innerHTML=`<article class="deck-card${animate&&!reducedMotion?' is-arriving':''}" data-card="${escape(c.id)}"><header class="deck-title">${escape(c.title)}</header><div class="deck-body">${c.html}</div></article>
+  const live=!animate&&lastCard===c.id&&lastPager===pager&&paintFocusCard(host.querySelector?.('.deck-card'),c);
+  lastSig=sig;lastCard=c.id;lastPager=pager;
+  if(!live)host.innerHTML=`<article class="deck-card${animate&&!reducedMotion?' is-arriving':''}" data-card="${escape(c.id)}"><header class="deck-title">${escape(c.title)}</header><div class="deck-body">${c.html}</div></article>
    ${cards.length>1?`<div class="deck-pager" role="group" aria-label="表示するカード">${cards.map((x,n)=>`<button type="button" data-deck="${n}" aria-label="${escape(x.title)}" aria-pressed="${n===index}"></button>`).join('')}</div>`:''}`;
   onChange(c.id);
  };
- const schedule=()=>{clearTimeout(timer);if(stopped||paused||reducedMotion||cards.length<2)return;timer=setTimeout(()=>{index++;paint(true);schedule();},interval);};
- host.addEventListener('click',e=>{const b=e.target.closest('[data-deck]');if(!b)return;index=Number(b.dataset.deck);paint(true);schedule();});
- host.addEventListener('pointerenter',()=>{paused=true;clearTimeout(timer);});host.addEventListener('pointerleave',()=>{paused=false;schedule();});
- host.addEventListener('focusin',()=>{paused=true;clearTimeout(timer);});host.addEventListener('focusout',()=>{paused=false;schedule();});
+ const clear=()=>{clearTimeout(timer);timer=0;};
+ const schedule=(restart=false)=>{
+  if(stopped||hovered||focused||reducedMotion||cards.length<2){clear();return;}
+  if(timer&&!restart)return;
+  clear();timer=setTimeout(()=>{timer=0;index++;paint(true);schedule();},interval);
+ };
+ host.addEventListener('click',e=>{const b=e.target.closest('[data-deck]');if(!b)return;index=Number(b.dataset.deck);paint(true);schedule(true);});
+ host.addEventListener('pointerenter',()=>{hovered=true;clear();});host.addEventListener('pointerleave',()=>{hovered=false;schedule();});
+ host.addEventListener('focusin',()=>{focused=true;clear();});host.addEventListener('focusout',e=>{if(e.relatedTarget&&host.contains?.(e.relatedTarget))return;focused=false;schedule();});
  return {
   set(next,{keep=true}={}){const current=cards[index]?.id;cards=next;if(keep&&current){const at=cards.findIndex(c=>c.id===current);if(at>=0)index=at;}paint();schedule();},
-  next(){index++;paint(true);schedule();},
+  update(card){const at=cards.findIndex(c=>c.id===card.id);if(at>=0){cards[at]=card;paint();}},
+  next(){index++;paint(true);schedule(true);},
   current(){return cards[index]?.id||null;},
-  stop(){stopped=true;clearTimeout(timer);}
+  stop(){stopped=true;clear();}
  };
 }
 

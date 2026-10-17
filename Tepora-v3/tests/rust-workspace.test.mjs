@@ -35,6 +35,9 @@ function normalize(store,value) {
 }
 function comparableMemory(doc){const {id,createdAt,...rest}=doc;return rest;}
 function readTerms(store,kind,id){return store.db.prepare('SELECT terms FROM content_search WHERE kind=? AND id=?').get(kind,id).terms;}
+// Extend only the frozen pre-monitor oracle's additive schedule projection.
+// Every legacy field and its wire ordering are still compared exactly.
+function withSchedules(snapshot,store){const {settings,...rest}=snapshot;return {...rest,schedules:store.list('schedule'),settings};}
 
 // The oracle below is the original JS domain, frozen before this migration. It
 // uses the same already-migrated Rust SQLite layer, isolating domain differences.
@@ -103,8 +106,8 @@ test('Rust workspace: snapshot defaults, settings spreads and complete export ma
   store.put('worker-question',{id:'question',future:'keep'});store.put('dialogue-archive',{id:'archive',messages:[]});
   store.put('mcp',{id:'mcp',enabled:true});
  }
- assert.deepEqual(native.snapshot(),oracle.snapshot());
- assert.equal(JSON.stringify(native.snapshot()),JSON.stringify(oracle.snapshot()));
+ assert.deepEqual(native.snapshot(),withSchedules(oracle.snapshot(),oracle));
+ assert.equal(JSON.stringify(native.snapshot()),JSON.stringify(withSchedules(oracle.snapshot(),oracle)));
  assert.deepEqual(stable(native.export()),stable(oracle.export()));
  assert.equal(JSON.stringify(stable(native.export())),JSON.stringify(stable(oracle.export())));
  assert.deepEqual(native.db.call('store.settings').value,native.settings);
@@ -135,7 +138,8 @@ test('Rust workspace: imports preserve unknown fields, remap each collection and
  for(const store of [native,oracle]){store.settings={allowCloud:false};store.value('display',{keep:true});const result=store.import(input);if(store===native)a=result;else b=result;}
  assert.deepEqual(normalize(native,a),normalize(oracle,b));
  assert.deepEqual(normalize(native,native.export()),normalize(oracle,oracle.export()));
- assert.deepEqual(normalize(native,native.events()),normalize(oracle,oracle.events()));
+ const expectedEvents=oracle.events().map(event=>event.type==='snapshot'?{...event,data:withSchedules(event.data,oracle)}:event);
+ assert.deepEqual(normalize(native,native.events()),normalize(oracle,expectedEvents));
  assert.equal(JSON.stringify(normalize(native,native.export())),JSON.stringify(normalize(oracle,oracle.export())));
  assert.equal(native.get('job','same'),null);assert.equal(native.value('dialogue-session'),null);
  assert.equal(native.value('display').keep,true);assert.equal(native.settings.allowCloud,false);

@@ -591,6 +591,13 @@ fn event(facts: &Value) -> CoreResult<Value> {
     } else if is(event, "type", "approval.updated") {
         accessible(data)?;
         Some(("approval.view", approval(data)))
+    } else if is(event, "type", "schedule.updated") {
+        // The source may describe the occurrence that just fired, including a
+        // removed one-shot without a tombstone. Only persisted state is current.
+        Some((
+            "schedule.view",
+            json!({"id":required(data, "id")?,"item":required(facts, "schedule")?}),
+        ))
     } else {
         None
     };
@@ -741,5 +748,38 @@ mod tests {
         );
         assert_eq!(out[0]["data"]["pendingApprovals"], 1);
         assert!(out[0].get("seq").is_none());
+    }
+
+    #[test]
+    fn schedule_projection_uses_persisted_item_instead_of_stale_source_occurrences() {
+        let current = json!({"id":"repeat","text":"reminder 日本語","mode":"remind","at":"2026-10-17T04:05:00.000Z","every":5,"fired":1,"retryAt":null,"future":{"kept":true}});
+        let source = json!({"id":"repeat","text":"old reminder","at":"2026-10-17T04:00:00.000Z","fired":1,"debug":"NEVER PROJECT SOURCE"});
+        let facts = json!({"event":{"seq":7,"type":"schedule.updated","data":source},"schedule":current,"sessions":[{"id":"m","kind":"main","system":"NEVER PROJECT SYSTEM"}],"approvals":[{"args":{"credential":"NEVER PROJECT APPROVAL"}}]});
+        let before = facts.clone();
+        let out = run("ui.event", facts.clone());
+        assert_eq!(
+            out,
+            json!([{"type":"schedule.view","data":{"id":"repeat","item":current}}])
+        );
+        assert_eq!(facts, before);
+        assert!(!out.to_string().contains("NEVER PROJECT"));
+        assert!(out[0].get("seq").is_none());
+        // Successful one-shots have no removed flag in their source event.
+        assert_eq!(
+            run("ui.event", json!({"event":{"type":"schedule.updated","data":{"id":"once","fired":1}},"schedule":null})),
+            json!([{"type":"schedule.view","data":{"id":"once","item":null}}])
+        );
+        assert_eq!(
+            run("ui.event", json!({"event":{"type":"schedule.updated","data":{"id":"cancelled","removed":true}},"schedule":null})),
+            json!([{"type":"schedule.view","data":{"id":"cancelled","item":null}}])
+        );
+        assert!(call(
+            "ui.event",
+            json!({"event":{"type":"schedule.updated","data":{"id":"missing"}}})
+        ).is_err());
+        assert_eq!(
+            run("ui.event", json!({"event":{"type":"unrelated"},"schedule":current})),
+            json!([])
+        );
     }
 }
