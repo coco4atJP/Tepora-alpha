@@ -14,8 +14,11 @@ import {serviceCleanup} from './helpers/service-cleanup.mjs';
 
 const workers=fileURLToPath(new URL('../workers',import.meta.url));
 const workerScript=String.raw`
-import json, sys, threading, types
+import faulthandler, json, sys, threading, time, types
 sys.stdout.reconfigure(encoding="utf-8")
+faulthandler.dump_traceback_later(5)
+started = time.monotonic()
+print(json.dumps({"event": "phase", "phase": "import", "executable": sys.executable}), flush=True)
 sys.path.insert(0, sys.argv[1])
 import speech_server
 output_lock = threading.Lock()
@@ -50,7 +53,9 @@ class Backend:
     def cancel(self, state):
         state["cancelled"].set()
         emit(event="cancelled")
+emit(event="phase", phase="bind", elapsed_ms=round((time.monotonic() - started) * 1000))
 server = speech_server.make_server(Backend(), token="synthetic-worker-token")
+faulthandler.cancel_dump_traceback_later()
 class ObservedHandler(server.RequestHandlerClass):
     def do_POST(self):
         emit(event="request", route=self.path,
@@ -103,7 +108,10 @@ async function fixture(t){
    }
   }
  }});
- const ready=await wait(()=>{if(spawnError)throw spawnError;if(exit)throw new Error('Python worker exited: '+stderr);return events.find(e=>e.event==='ready');},'bundled Python worker readiness');
+ const ready=await wait(()=>{if(spawnError)throw spawnError;if(exit)throw new Error('Python worker exited');return events.find(e=>e.event==='ready');},'bundled Python worker readiness').catch(error=>{
+  const diagnostic={phases:events.filter(e=>e.event==='phase'),exit,stderr:stderr.slice(-4000)};
+  throw new Error(error.message+'\nWorker startup diagnostics: '+JSON.stringify(diagnostic),{cause:error});
+ });
  const workerOrigin=`http://127.0.0.1:${ready.port}`;
  process.env.TEPORA_WAKE_URL=workerOrigin;process.env.TEPORA_SPEECH_TOKEN='synthetic-worker-token';
  app=await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})});

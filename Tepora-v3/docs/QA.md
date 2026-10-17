@@ -17,6 +17,15 @@ idempotent chunks, finish/cancel and six pending-chunk cancel/Stop cases.
 They reproduce 413 → 502 before the fix and pass through the full Node routes
 afterward; the parser is not replaced with a permissive HTTP mock.
 
+The first `253d329` macOS regression run passed 1015/1017 Node tests but timed out
+waiting for this new worker fixture's readiness. Its captured output did not
+identify the blocked startup phase, so that original cause is not proven. The
+stdlib server bind did perform an unnecessary reverse DNS lookup before ready;
+the numeric-loopback speech/wake server now binds without it. A regression
+denies both reverse lookup functions and verifies real authenticated HTTP,
+Host rejection and the bound server address. The fixture retains its 10-second
+readiness budget and adds phase/stack diagnostics for any further timeout.
+
 Three tests pass through `HandsFreeMicrophone` with simulated 15-second
 permission/module/resume waits, then five healthy PCM frames. Before the fix,
 the first watchdog tick incorrectly suspended capture. Both watchdog clocks now
@@ -44,7 +53,7 @@ used. This is browser event verification, not speakerphone/AEC acceptance.
 Local follow-up evidence under Node 24.19.0:
 
 - **261/261** focused voice checks passed, including the real Python boundary.
-- Python **53/53** passed; isolated stdlib CI runs **49 passes + 4 existing NumPy
+- Python **54/54** passed; isolated stdlib CI runs **50 passes + 4 existing NumPy
   math skips**. No model packages or checkpoints were downloaded.
 - Existing rendered UI **13/13** and real media-event browser **6/6** passed,
   using isolated Chromium profiles, blocked external HTTP(S) and `--no-sandbox`;

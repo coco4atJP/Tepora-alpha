@@ -5,6 +5,7 @@
 - Frame Node speech-worker JSON by UTF-8 byte Content-Length and test the shipped Python parser across ASR/wake/barge and cancellation
 - Start microphone watchdog clocks after permission/context startup and handle native queued pause events without stalling interruption
 - Reject busy Whisper finishes before capturing a waveform or waiting for the decoder; bound cancelled-session retention and verify real AudioSessions recovery
+- Start the numeric-loopback speech/wake server without reverse DNS; test real HTTP with DNS unavailable and retain bounded startup diagnostics
 - See [boundary regression evidence and hardware limits](../Tepora-v3/docs/QA.md#voice-integration-boundary-repairs-2026-10-17-utc)
 
 ## Confirmed voice interruption and lighter scheduling (beta.11)

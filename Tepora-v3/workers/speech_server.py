@@ -14,6 +14,16 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
+
+
+class _LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # This worker only binds a numeric loopback address. HTTPServer's
+        # reverse lookup adds a resolver dependency before readiness, although
+        # no request or authentication check needs a resolved host name.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 class AudioSessions:
@@ -200,7 +210,7 @@ def make_server(backend, port=0, token=""):
             except Exception:
                 self.reply(503, {"error": "Local speech failed; no cloud fallback was used"})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return _LoopbackHTTPServer(("127.0.0.1", port), Handler)
 
 
 def main():

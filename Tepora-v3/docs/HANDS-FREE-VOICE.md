@@ -139,6 +139,8 @@ Remote cancellation is best effort when a session ID never reached the host.
 The Node host frames worker JSON with its UTF-8 byte Content-Length, matching
 the shipped Python server's bounded body parser, including non-ASCII session
 IDs. Tests cover that parser directly rather than substituting its HTTP layer.
+The numeric loopback worker also starts without reverse DNS; an unavailable
+resolver cannot delay its readiness or change its Host/authentication checks.
 
 ## Experimental voice interruption
 
