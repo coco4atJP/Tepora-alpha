@@ -160,6 +160,8 @@ pub enum Operation {
     VoiceEdit { body: Value },
     VoiceTranscribe { audio: Vec<u8> },
     SpeechStart,
+    SpeechWakeStart,
+    SpeechBargeStart,
     SpeechChunk { body: Value },
     SpeechFinish { body: Value },
     SpeechCancel { body: Value },

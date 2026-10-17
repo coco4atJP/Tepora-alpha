@@ -50,3 +50,25 @@ npm run quality
 4. **比較可能な実モデル評価**：モデル・設定・予算・課題・採点器を固定し、Pi、DeepSeek Harnessなどと開発タスクを比較する。PC操作は別のWindows/macOS課題群で成功率・介入回数・時間・費用を測る。
 
 今回の変更だけでは、一般的なPCタスクをすべて実行できることや、他のハーネスに対する成績上位を示せない。
+
+
+## Scheduling snapshot projection
+
+`core/agent/runtime-host.mjs` passes only the transcript tail fields consumed by
+Rust scheduling (`type`, `passive`, `toolCalls`, `truncated`), the exact last
+activity time, full session metadata and inbox count. Transcript bodies and
+queued user text remain unchanged in Rust-owned SQLite and model context.
+There is no new cache or invalidation policy, scheduling priority change,
+provider call, retry loop or telemetry write.
+
+`tests/agent-runtime-facts.test.mjs` compares projected and previous full facts
+against two real Rust controllers, including 800 seeded history and 480
+admission/status/inbox cases, lifecycle traces and real storage preservation.
+`node tests/bench-runtime-facts.mjs 40 --with-store` measures alternating
+full/projected dispatches with synthetic eight-worker plus foreground traffic.
+On this Linux/Node 24.19.0 host, full facts were 3,177,731 bytes versus 80,331
+bytes; median dispatch including unchanged SQLite reads was 273.530 ms versus
+207.877 ms, CPU per dispatch 276.185 versus 209.310 ms. This is about 97.5% less
+serialized data and 24% less CPU in that fixture, not a real-model latency or
+idle battery guarantee. SQLite reads now dominate and are not optimized by this
+change. The reproducible benchmark also reports a bridge-only case separately.

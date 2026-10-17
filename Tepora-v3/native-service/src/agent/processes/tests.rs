@@ -491,6 +491,12 @@ async fn every_container_fallback_has_a_name_and_engine_cleanup_drains() {
     f.close().await;
 }
 #[cfg(unix)]
+// The restricted fixture PATH selects the system Python when it is available.
+// Keep cold interpreter/PTY setup separate from the five-second
+// input and final-output drain assertions after the terminal reports READY.
+const PTY_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
+
+#[cfg(unix)]
 #[tokio::test]
 async fn source_tty_adapter_allocates_a_terminal_when_dependency_is_available() {
     let f = Fixture::new();
@@ -509,7 +515,7 @@ async fn source_tty_adapter_allocates_a_terminal_when_dependency_is_available() 
         .manager
         .get(processes[0]["id"].as_str().unwrap(), Some("s"))
         .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), f.manager.drain_process(&handle))
+    tokio::time::timeout(PTY_STARTUP_TIMEOUT, f.manager.drain_process(&handle))
         .await
         .unwrap_or_else(|_| {
             panic!(
@@ -593,15 +599,17 @@ async fn tty_interactive_input_and_final_output_are_drained_before_exit() {
     })).await;
     let id = result["data"]["processId"].as_str().unwrap();
     let handle = f.manager.get(id, Some("s")).unwrap();
-    let ready = tokio::time::timeout(Duration::from_secs(5), async {
+    let ready = tokio::time::timeout(PTY_STARTUP_TIMEOUT, async {
         while !handle.output(0).contains("READY") {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await;
     if ready.is_err() {
+        let snapshot = handle.snapshot();
+        let output = handle.output(0);
         f.close().await;
-        panic!("PTY never became interactive: {}", handle.output(0));
+        panic!("PTY never became interactive: {result:?}; {snapshot:?}; {output}");
     }
     assert_eq!(handle.snapshot().status, "running");
     f.process(json!({"action":"write","id":id,"input":"hello\n"}))

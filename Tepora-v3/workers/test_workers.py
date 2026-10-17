@@ -6,6 +6,7 @@ import json
 import sys
 import threading
 import unittest
+from unittest.mock import patch
 from laya_server import make_server as laya_server, validate_request
 from speech_server import AudioSessions, make_server as speech_server
 
@@ -128,6 +129,16 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             AudioSessions(FakeSpeech()).start(48000)
 
+    def test_mono_workers_reject_duplex_and_invalid_channel_counts_without_starting(self):
+        sessions = AudioSessions(FakeSpeech())
+        for channels in (2, 0, 3, True, 1.0, "2", None):
+            with self.subTest(channels=channels), self.assertRaises(ValueError):
+                sessions.start(channels=channels)
+            self.assertEqual(sessions.sessions, {})
+        sid = sessions.start(channels=1)["session_id"]
+        self.assertEqual(sessions.chunk(sid, 0, pcm())["text"], "日本語")
+        self.assertEqual(sessions.sessions[sid]["samples"], 3200)
+
     def test_speech_http_flow(self):
         server = self.running(speech_server, FakeSpeech())
         status, result = self.request(server, "POST", "/api/start", {"sample_rate": 16000})
@@ -140,6 +151,21 @@ class WorkerTests(unittest.TestCase):
         status, result = self.request(server, "POST", "/api/finish", {"session_id": sid})
         self.assertEqual(status, 200)
         self.assertEqual(result["text"], "日本語。")
+
+    def test_speech_loopback_startup_and_http_do_not_require_reverse_dns(self):
+        with patch("socket.getfqdn", side_effect=AssertionError("Reverse DNS is unavailable")) as fqdn, \
+             patch("socket.gethostbyaddr", side_effect=AssertionError("Reverse DNS is unavailable")) as reverse:
+            server = self.running(speech_server, FakeSpeech(), "token")
+            self.assertEqual(server.server_name, "127.0.0.1")
+            self.assertEqual(server.server_port, server.server_address[1])
+            self.assertEqual(self.request(server, "GET", "/health",
+                             headers={"Authorization": "Bearer token"}),
+                             (200, {"ready": True, "streaming": True, "local": True}))
+            self.assertEqual(self.request(server, "GET", "/health")[0], 401)
+            self.assertEqual(self.request(server, "GET", "/health",
+                             headers={"Authorization": "Bearer token", "Host": "invalid.example"})[0], 403)
+            fqdn.assert_not_called()
+            reverse.assert_not_called()
 
     def test_speech_origin_and_auth(self):
         server = self.running(speech_server, FakeSpeech(), "token")

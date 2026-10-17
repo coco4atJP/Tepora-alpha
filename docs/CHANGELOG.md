@@ -1,5 +1,31 @@
 # Tepora V3 changelog
 
+## Voice integration boundary repairs (beta.11)
+
+- Preserve owned pause/resume when a candidate aborts initial playback before data arrives; cover delayed loopback WAV and already-playing native elements
+- Pin same-day budget retry fixtures to UTC noon and separately verify daily budget rollover, avoiding a wall-clock-dependent failure near midnight
+- Frame Node speech-worker JSON by UTF-8 byte Content-Length and test the shipped Python parser across ASR/wake/barge and cancellation
+- Start microphone watchdog clocks after permission/context startup and handle native queued pause events without stalling interruption
+- Reject busy Whisper finishes before capturing a waveform or waiting for the decoder; bound cancelled-session retention and verify real AudioSessions recovery
+- Start the numeric-loopback speech/wake server without reverse DNS; test real HTTP with DNS unavailable and retain bounded startup diagnostics
+- See [boundary regression evidence and hardware limits](../Tepora-v3/docs/QA.md#voice-integration-boundary-repairs-2026-10-17-utc)
+
+## Confirmed voice interruption and lighter scheduling (beta.11)
+
+- Add explicit experimental reference-gated, two-stage voice interruption during local TTS: reference-wake/correlation veto, pause, acoustic tail, then a fresh wake before opening ASR; retain half-duplex default and hardware/AEC limitations
+- Bind pause/resume/cancel to the exact readout, fence stale timers and media changes, bound dual-channel capture and require reported microphone echo cancellation
+- Project only Rust-consumed transcript scheduling flags and inbox counts across the synchronous runtime bridge; preserve stored content and pi-ai behavior, with differential tests and a real-SQLite synthetic benchmark
+- See [voice setup and safety limits](../Tepora-v3/docs/HANDS-FREE-VOICE.md) and [runtime measurements](../Tepora-v3/docs/HARNESS-RELIABILITY.md#scheduling-snapshot-projection)
+
+## Local hands-free voice (beta.11)
+
+- Add explicitly started local wake standby, energy endpointing, bounded PCM transport, immediate mute and optional device-only reply readout; preserve foreground conversation and independent workers
+- Reuse speech sessions in both hosts; reject late Node cancellation results and keep pi-ai provider routing unchanged
+- Add optional explicit-local-model openWakeWord and CPU int8 endpoint-only faster-whisper workers; no automatic downloads or cloud audio
+- Fix 44.1 kHz resampling drift and remove per-render-block buffer allocations; add synthetic lifecycle, worker, playback and browser regressions
+- See [setup, limits and hardware acceptance](../Tepora-v3/docs/HANDS-FREE-VOICE.md) and [validation](../Tepora-v3/docs/QA.md)
+
+
 ## Configurable companion monitor (beta.11)
 
 - Add four scene/layout presets, clock fonts/sizes/seconds, an in-place customizer and up to four pinned cards, while keeping display changes separate from execution permissions

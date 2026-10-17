@@ -1,5 +1,239 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Pending initial playback ownership (2026-10-17 UTC)
+
+Review of `9113561` found that pausing an HTMLAudioElement before its initial
+`play()` settled rejected that request with AbortError. The generic failure
+handler invalidated the owned interruption handle, so confirmation timeout
+returned to idle while the fully loaded readout stayed paused.
+
+`tests/browser-pending-play.mjs` gates actual loopback WAV delivery until after
+the candidate pause. It returns the native play promise unchanged, observes its
+AbortError and then releases the WAV. Before the repair it reproduces
+`readyState=4`, `paused=true`, `state=idle`; the already-playing control passes.
+After the repair **2/2** native browser cases resume the same element and return
+to barge listening without ASR, another generation, notices or runtime errors.
+An exact initial-play marker records the owned pause and is removed when that
+promise settles; only its expected AbortError bypasses generic failure cleanup.
+Manual controls, cancellation/replacement and genuine autoplay refusal retain
+their existing ownership fences.
+
+Five additional Node checks cover pending and already-playing output, late
+expected abort after resume, unrelated AbortError and genuine autoplay denial.
+The capability suite passes **67/67**, with **266/266** focused voice checks,
+existing native-media regressions **6/6**, rendered UI **13/13**, **299** syntax
+modules and preview build passing. The new real-browser regression also runs
+in the Linux CI browser step; its screenshots/results are included in that
+run's validation artifact. Exact-head OS CI results are recorded on
+[PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+The first broad local run at UTC 23:52 exposed an existing budget-fixture clock
+dependency: its ten-minute retry crossed midnight and correctly reset the daily
+budget, violating the same-day test expectation. That fixture now uses fixed
+UTC noon, and a separate 23:55 → 00:05 case verifies new-day admission while
+preserving previous-day usage. Runtime budget logic and wait limits are unchanged.
+All **34/34** runtime fixtures pass. Broad local `npm test` then passes
+**1019/1023**, zero skips; the four remaining failures are the previously
+recorded three Chromium SUID sandbox starts and one read-only bwrap UID map.
+
+The local browser uses an isolated 1280×900 Chromium profile, muted silent WAV,
+explicit autoplay permission and `--no-sandbox`. HTTP(S) is restricted to the
+fixture's exact loopback origin. Both synthetic microphones close. This verifies
+browser playback/event ownership, not a real microphone, model, AEC or native
+WebView. No model download, credentials or paid inference are used.
+
+## Voice integration boundary repairs (2026-10-17 UTC)
+
+Independent review of `017d378` found three defects beyond the earlier fixtures:
+the shipped Python HTTP parser rejected Node's unframed JSON (413 → 502), slow
+microphone startup inherited stale watchdog timestamps, and cancelled Whisper
+finishes retained waveforms while waiting for the model lock. Real browser
+testing also confirmed that a queued HTML `pause` event could stall interruption.
+The follow-up's exact-head CI results are recorded on
+[PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+The Node host now sends the UTF-8 byte Content-Length. Two tests launch the
+actual `speech_server.make_server` parser with a synthetic inference backend,
+covering ASR/wake/barge, Unicode session IDs, both authentication boundaries,
+idempotent chunks, finish/cancel and six pending-chunk cancel/Stop cases.
+They reproduce 413 → 502 before the fix and pass through the full Node routes
+afterward; the parser is not replaced with a permissive HTTP mock.
+
+The first `253d329` macOS regression run passed 1015/1017 Node tests but timed out
+waiting for this new worker fixture's readiness. Its captured output did not
+identify the blocked startup phase, so that original cause is not proven. The
+stdlib server bind did perform an unnecessary reverse DNS lookup before ready;
+the numeric-loopback speech/wake server now binds without it. A regression
+denies both reverse lookup functions and verifies real authenticated HTTP,
+Host rejection and the bound server address. The fixture retains its 10-second
+readiness budget and adds phase/stack diagnostics for any further timeout.
+
+Three tests pass through `HandsFreeMicrophone` with simulated 15-second
+permission/module/resume waits, then five healthy PCM frames. Before the fix,
+the first watchdog tick incorrectly suspended capture. Both watchdog clocks now
+begin after successful startup; existing sleep and missing-frame checks remain.
+
+The Whisper regression uses real `AudioSessions`: with one decode blocked,
+21 cancel/restart cycles previously retained 22 finish threads and 1,408,000
+waveform bytes, including the running fixture waveform. Nonblocking decode
+admission now retains at most that one running thread/64,000-byte fixture
+waveform, with no queued finishes and no live transport sessions. All fixture
+waveforms are released after drain. Busy finish is terminal HTTP 429; retrying
+that session returns 422, and a fresh capture decodes successfully after drain.
+Production PCM limits remain one bounded active capture plus one running
+waveform, each at most 1.92 MB; these checks do not measure model RSS.
+
+`tests/browser-barge-events.mjs` uses real HTMLAudioElement events, the production
+capability pause handle/controller and a silent in-memory WAV. The native
+`paused` flag changes synchronously while `pause` remains queued. The old source
+failed four of six checks; the repaired source passes **6/6**, including late
+pause delivery after replacement/mute and owned-player timeout resume. The
+controller establishes quiet ownership from the exact paused element before
+awaiting worker cancellation. No real microphone, model or external provider is
+used. This is browser event verification, not speakerphone/AEC acceptance.
+
+Local follow-up evidence under Node 24.19.0:
+
+- **261/261** focused voice checks passed, including the real Python boundary.
+- Python **54/54** passed; isolated stdlib CI runs **50 passes + 4 existing NumPy
+  math skips**. No model packages or checkpoints were downloaded.
+- Existing rendered UI **13/13** and real media-event browser **6/6** passed,
+  using isolated Chromium profiles, blocked external HTTP(S) and `--no-sandbox`;
+  the media-event fixture also uses muted audio and explicit autoplay permission.
+- Broad `npm test`: **1013/1017** passed, zero skips. The same four host failures
+  remain: three existing Computer Use Chromium SUID sandbox starts and one
+  read-only bwrap UID-map setup. These checks were executed and failed.
+- **298** JavaScript syntax modules, preview build, scenario traceability,
+  **13/13** repository entry checks and **5/5** synthetic capability checks passed.
+  Rust source is unchanged by these integration repairs.
+
+Real checkpoints, microphone/speaker echo, AEC, wake quality, model RAM/latency,
+device unplug, sleep/resume and native WebView audio still require hardware
+acceptance. Previous synthetic CPU measurements below are unchanged and do not
+establish those properties. [Setup and limits](HANDS-FREE-VOICE.md).
+
+## Confirmed voice interruption and runtime cost (2026-10-17 UTC)
+
+The opt-in reference-aware path adds playback → candidate pause → acoustic-tail
+wait → fresh wake confirmation → ASR, with owned-playback resume on timeout.
+It retains the default half-duplex path. These are synthetic model/audio
+contracts, not proof of acoustic echo cancellation or real-room wake quality.
+No real microphone, model download, credentials or paid inference were used.
+
+Final local source checks under Node 24.19.0:
+
+- **253/253** focused audio/controller/playback/dialogue/bundle/Node/native HTTP
+  checks passed, including malformed stereo pairs, cancellation, delayed/stale
+  output and timer races, exact-player resume, mute and a 500-readout source
+  lifetime bound. Another **6/6** runtime projection and **5/5** route-inventory
+  checks passed. Projection checks include 800 seeded histories, 480 admission
+  cases, two real Rust controllers and preservation of real SQLite payloads.
+- Rust: **561 native library + 2 native CLI + 142 core = 705** tests passed.
+- Python: **50/50** passed with local NumPy. The isolated stdlib-only CI command
+  runs the same 50 cases with **46 passes and 4 explicit NumPy math skips**;
+  model/transport/cancellation fakes still run there.
+- **13/13** rendered production-bundle browser checks cover default opt-out,
+  the double-wake interruption/confirmation path, timeout resume, immediate mute
+  and the visible status at 320 px. Audio, reference and worker responses are
+  synthetic; Chromium uses an isolated profile with `--no-sandbox` and external
+  HTTP(S) blocked. This does not verify actual audio capture or AEC.
+- Broad `npm test`: **1005/1009** passed, zero skips. The same four host
+  environment failures remain: three existing Computer Use browser fixtures
+  cannot start the installed Chromium SUID sandbox; one bwrap fixture cannot
+  create its UID map on the read-only host. They were executed and failed,
+  rather than skipped or weakened. This is not a passing local quality gate.
+- **296** JavaScript syntax modules, preview build, scenario traceability,
+  **5/5** synthetic capability checks and **13/13** repository entry checks
+  passed. OS CI and packaged startup evidence are recorded on
+  [PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+With synthetic eight-worker plus foreground traffic, scheduling facts shrink
+from **3,177,731 to 80,331 bytes**. Forty alternating real Rust SQLite dispatches
+give median **273.530 → 207.877 ms**, CPU **276.185 → 209.310 ms** and p95
+**309.325 → 251.223 ms**. The full transcript stays in storage and model context;
+there is no new cache or telemetry write. SQLite reads still dominate. The
+bridge-only result is **69.792 → 4.228 ms** and must not be presented as the
+end-to-end dispatch time. See [the benchmark recipe](HARNESS-RELIABILITY.md#scheduling-snapshot-projection).
+
+The final worklet's mono path preserves 960,000 output samples for each 60-second
+fixture at 16/44.1/48/96 kHz. Compared with `31d4353` in the same Node VM run,
+process CPU was **611.72/1,223.10/1,045.13/1,626.17 ms**, versus
+**1,867.56/4,081.73/3,377.87/5,850.08 ms** (about **67–72% less**). This excludes
+models, browser deadlines, reference inference, power and RSS. The opt-in FFT
+veto alone measured median **1.317 ms** for a 500 ms history and **4.845 ms** for
+a 2000 ms history over 100 synthetic comparisons; these are not wake-model costs.
+
+Required hardware acceptance remains: compatible real wake/ASR/TTS checkpoints,
+voice quality and false activations, nonlinear/delayed echo and double-talk,
+headphones/speakers, real AEC, CPU/model RSS, autoplay, microphone unplug,
+sleep/resume and Windows/macOS native WebViews. The new option reports browser
+AEC configuration and uses conservative reference veto plus confirmation;
+it does not establish reliable speakerphone barge-in.
+[Setup, bounds and exact behavior](HANDS-FREE-VOICE.md).
+
+## Initial local hands-free voice (`64f56be`, 2026-10-17 UTC)
+
+Base: canonical V3 `31d4353` (remote branches and open PRs inspected first).
+The original manual voice path passed 31 Node tests and 13 Python contracts.
+No existing wake detector or automatic endpointing was present. The pi-ai
+provider bridge was already integrated and has been retained.
+
+The new wake/ASR worker routes, cancellation, state machine, output gating,
+endpointing, local-only automatic readout and microphone lifecycle are tested
+with synthetic PCM, fake models and loopback JSON workers. No credentials,
+paid model calls, model downloads or real microphone were used.
+
+Passed locally under Node 24.19.0 and the supplied Rust toolchain:
+
+- Native-service Rust: **560 library + 2 CLI tests**; native-core: **142 tests**.
+- Python worker contracts: **35/35**, using isolated stdlib-only fakes, including
+  openWakeWord and optional CPU endpoint Whisper adapters.
+- Production live-mode browser bundle with synthetic bridge/microphone:
+  **8/8** rendered checks, no runtime/console errors, at 1440/390/320 px.
+  It exercises wake → ASR → endpoint → actual UI send handler → synthetic
+  reply, readout opt-in, and mute preserving an independent worker. Chromium
+  uses an isolated profile and the existing fixture convention `--no-sandbox`;
+  external HTTP(S) is blocked. This does not verify a real microphone/WebView.
+- Root entry-point tests **13/13**, syntax, preview build, scenario traceability
+  and synthetic capability checks **5/5** passed.
+
+**Final focused voice gate: 150/150 passed**, including existing capture,
+production bundle, reply handoff, playback, Node speech and real native/Node
+loopback HTTP cancellation. The final broad `npm test` run passed **896/900**
+with no skips. Four environment failures remain in the broad gate:
+three existing `agent-computer.test.mjs` browser checks cannot start Chromium
+with its installed SUID sandbox configuration; `agent-tools.test.mjs` cannot
+create bwrap's UID map (`Read-only file system`). The command was executed and
+failed; these checks were not skipped or weakened, and no successful complete
+quality gate is claimed.
+
+The synthetic PCM benchmark compares the initial V3 worklet and the new fixed
+buffer resampler, feeding 60 seconds per sample rate in Node VM. It uses no
+microphone/inference and reports process CPU separately from elapsed time.
+The initial worklet lost 106 output samples at 44.1 kHz and emitted 3,204-sample
+chunks; the new worklet preserves all **960,000** samples and emits **300 ×
+3,200** at 16/44.1/48/96 kHz. Per-render-block PCM copies are removed. These are
+preprocessing measurements, not real-model latency, RSS or browser deadlines.
+
+| Input Hz | Baseline CPU ms | New CPU ms | CPU reduction |
+| --- | ---: | ---: | ---: |
+| 16,000 | 1,776.60 | 651.15 | 63.3% |
+| 44,100 | 3,977.07 | 1,221.43 | 69.3% |
+| 48,000 | 3,317.07 | 1,083.57 | 67.3% |
+| 96,000 | 5,605.75 | 1,784.89 | 68.2% |
+
+Reproduce with `node scripts/bench-voice.mjs --baseline /tmp/old-worklet.js`,
+where the supplied baseline is `31d4353:Tepora-v3/web/pcm-worklet.js`.
+
+Real-device acceptance remains: actual compatible models, wake quality and
+false activation rates, noisy rooms, feedback/headphones, CPU/model RAM,
+ASR/TTS latency, autoplay, unplug, sleep/resume and packaged native WebViews.
+The initial path above is half duplex with immediate explicit interruption
+and an 800 ms output tail. The subsequent experimental two-stage voice
+interruption retains that default and is recorded below. Endpointing is
+a local energy gate rather than learned speech VAD. [Setup and exact limits](HANDS-FREE-VOICE.md).
+
+
 ## pi-ai refresh durability and saved catalogs (2026-10-17 UTC)
 
 Focused local checks under Node **24.19.0** passed **19 tests**: seven inert
@@ -222,6 +456,13 @@ Focused process/clock fixtures cover shared starts, fragmented readiness, startu
 Windows also sets `RUST_TEST_THREADS=2` in both gates. An unchanged native integration fixture hit its existing 10-second completion wait while 511 other Rust tests passed in the first validation run; bounding simultaneous independent SQLite/runtime fixtures limits competing host work without extending behavioral deadlines or changing runtime code. Full platform CI remains the acceptance check.
 
 The first two-file Windows replay passed delegation, the first compaction fixture and all three browser fixtures, but deterministic fallback reached only step 17 of 18 within its unchanged 30-second deadline. The Node stage reached 592 tests before its former 360,000 ms aggregate limit. The serial Windows replay therefore has a bounded 480,000 ms Node budget, a 10-minute native Node step and a 20-minute regression job budget. All inner behavioral deadlines and assertions are unchanged; the longer outer bounds do not turn an individual failure into a pass.
+
+
+## Windows aggregate Node budget (2026-10-17)
+
+At `6c86be0`, the [Windows regression job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39056142303/job/117464658538) stopped the serial Node suite at **480,013 ms** under its 480,000 ms aggregate limit. The diagnostic log showed successful tests through test 921 and no TAP failure blocks before the cutoff. The [same commit's native Windows job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39056142275/job/117464627868) completed the full serial Node suite successfully from **18:07:24 to 18:15:58 UTC (514 seconds)** within its existing 600-second step budget.
+
+The aggregate Node budget now matches that 600,000 ms bound. The 120,000 ms individual file deadline, test selection and assertions, and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace. These fixture checks do not replace the complete regression and package CI matrices.
 
 
 ## Browser shutdown and Windows profile cleanup (2026-10-16)

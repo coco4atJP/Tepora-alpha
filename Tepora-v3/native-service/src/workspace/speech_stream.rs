@@ -7,6 +7,8 @@ use base64::Engine;
 use std::{sync::Condvar, time::Duration};
 
 struct Session {
+    wake: bool,
+    channels: usize,
     id: String,
     base: String,
     upstream: Option<String>,
@@ -122,16 +124,39 @@ impl SpeechStream {
         })
     }
     pub(super) fn start(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_mode(settings, false)
+    }
+    pub(super) fn start_wake(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_mode(settings, true)
+    }
+    pub(super) fn start_barge(self: &Arc<Self>, settings: &Value) -> Result<Value, ApiError> {
+        self.start_channels(settings, true, 2)
+    }
+    fn start_mode(self: &Arc<Self>, settings: &Value, wake: bool) -> Result<Value, ApiError> {
+        self.start_channels(settings, wake, 1)
+    }
+    fn start_channels(
+        self: &Arc<Self>,
+        settings: &Value,
+        wake: bool,
+        channels: usize,
+    ) -> Result<Value, ApiError> {
         require(
             settings["voiceEnabled"] != false,
             403,
             "Microphone is disabled",
         )?;
-        let base = settings["asrStreamUrl"]
-            .as_str()
-            .unwrap_or("")
-            .trim_end_matches('/')
-            .to_owned();
+        let base = if wake {
+            env::var("TEPORA_WAKE_URL").unwrap_or_else(|_| "http://127.0.0.1:8769".into())
+        } else {
+            settings["asrStreamUrl"]
+                .as_str()
+                .unwrap_or("")
+                .trim_end_matches('/')
+                .to_owned()
+        }
+        .trim_end_matches('/')
+        .to_owned();
         // Same existing preference validator and network admission; no new policy.
         preferences::endpoint(&json!(base), false)?;
         let id = Uuid::new_v4().to_string();
@@ -149,6 +174,8 @@ impl SpeechStream {
                 "A microphone session is already active",
             )?;
             life.session = Some(Session {
+                wake,
+                channels,
                 id: id.clone(),
                 base: base.clone(),
                 upstream: None,
@@ -162,12 +189,11 @@ impl SpeechStream {
             life.active += 1;
         }
         let _flight = Flight(self);
-        let result = self.upstream(
-            &base,
-            "/api/start",
-            json!({"sample_rate":16000}),
-            cancel.clone(),
-        );
+        let mut body = json!({"sample_rate":16000});
+        if channels == 2 {
+            body["channels"] = json!(2);
+        }
+        let result = self.upstream(&base, "/api/start", body, cancel.clone());
         let mut life = self.life.lock().map_err(error)?;
         require(!cancel.is_cancelled(), 499, "Speech session cancelled")?;
         let result = result.and_then(|v| {
@@ -280,6 +306,12 @@ impl SpeechStream {
                 }
                 samples = bytes.len() / 4;
                 require(
+                    samples % s.channels == 0,
+                    400,
+                    "Incomplete audio channel pair",
+                )?;
+                samples /= s.channels;
+                require(
                     s.samples + samples <= 16000 * 120,
                     413,
                     "Speech session reached its two-minute budget",
@@ -337,7 +369,18 @@ impl SpeechStream {
         } else {
             s.busy = false;
             let result = result?;
-            let reply = json!({"id":id,"sequence":sequence,"text":result["text"],"final":false});
+            if s.wake {
+                require(
+                    result["detected"].is_boolean(),
+                    502,
+                    "Invalid wake detection",
+                )?;
+            }
+            let mut reply =
+                json!({"id":id,"sequence":sequence,"text":result["text"],"final":false});
+            if s.wake {
+                reply["detected"] = result["detected"].clone();
+            }
             s.samples += samples;
             s.next += 1;
             s.last = Some((sequence, pcm, reply.clone()));

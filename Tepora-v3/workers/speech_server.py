@@ -14,6 +14,16 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
+
+
+class _LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # This worker only binds a numeric loopback address. HTTPServer's
+        # reverse lookup adds a resolver dependency before readiness, although
+        # no request or authentication check needs a resolved host name.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 class AudioSessions:
@@ -22,16 +32,21 @@ class AudioSessions:
         self.sessions = {}
         self.lock = threading.Lock()
 
-    def start(self, sample_rate=16000):
+    def start(self, sample_rate=16000, channels=1):
         if sample_rate != 16000:
             raise ValueError("Expected 16000 Hz")
+        if isinstance(channels, bool) or not isinstance(channels, int) or channels not in (1, 2):
+            raise ValueError("Expected one or two channels")
+        if channels == 2 and not callable(getattr(self.backend, "start_duplex", None)):
+            raise ValueError("This worker does not accept playback references")
         with self.lock:
             now = time.monotonic()
             self.sessions = {k: v for k, v in self.sessions.items() if now - v["at"] < 120}
             if self.sessions:
                 raise BlockingIOError("An audio session is active")
             sid = uuid.uuid4().hex
-            self.sessions[sid] = {"state": self.backend.start(), "next": 0, "last": None,
+            state = self.backend.start_duplex() if channels == 2 else self.backend.start()
+            self.sessions[sid] = {"state": state, "channels": channels, "next": 0, "last": None,
                                   "samples": 0, "at": now, "lock": threading.Lock()}
             return {"session_id": sid}
 
@@ -66,14 +81,19 @@ class AudioSessions:
                 values.byteswap()
             if any(not math.isfinite(v) or abs(v) > 1.01 for v in values):
                 raise ValueError("Invalid audio sample")
-            if session["samples"] + len(values) > 16000 * 120:
+            if session["channels"] == 2 and len(values) != 6400:
+                raise ValueError("Expected 200 ms of interleaved microphone/reference audio")
+            sample_count = len(values) // session["channels"]
+            if session["samples"] + sample_count > 16000 * 120:
                 raise ValueError("Audio budget exhausted")
             text = self.backend.chunk(values, session["state"])
             if not isinstance(text, str) or len(text) > 32000:
                 raise ValueError("Invalid transcript")
             result = {"text": text, "final": False}
+            if hasattr(self.backend, "detection"):
+                result["detected"] = bool(self.backend.detection(session["state"]))
             session["next"] += 1
-            session["samples"] += len(values)
+            session["samples"] += sample_count
             session["at"] = time.monotonic()
             session["last"] = (sequence, pcm, result)
             return result
@@ -94,7 +114,9 @@ class AudioSessions:
             session["lock"].release()
 
     def cancel(self, session_id):
-        self.sessions.pop(session_id, None)
+        session = self.sessions.pop(session_id, None)
+        if session is not None and hasattr(self.backend, "cancel"):
+            self.backend.cancel(session["state"])
         return {"cancelled": True}
 
 
@@ -171,7 +193,7 @@ def make_server(backend, port=0, token=""):
                 if not isinstance(body, dict):
                     raise ValueError("Expected JSON object")
                 if self.path == "/api/start":
-                    result = sessions.start(body.get("sample_rate", 16000))
+                    result = sessions.start(body.get("sample_rate", 16000), body.get("channels", 1))
                 elif self.path == "/api/chunk":
                     result = sessions.chunk(body.get("session_id"), body.get("sequence"), body.get("pcm"))
                 elif self.path == "/api/finish":
@@ -188,7 +210,7 @@ def make_server(backend, port=0, token=""):
             except Exception:
                 self.reply(503, {"error": "Local speech failed; no cloud fallback was used"})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return _LoopbackHTTPServer(("127.0.0.1", port), Handler)
 
 
 def main():

@@ -138,6 +138,20 @@ The home stage's light and the idle screen are built from small modules that onl
 
 On ホーム the conversation column collapses to its message box, placed under the character with CSS grid overlap (a separate row on narrow screens); the column opens on demand elsewhere. The work page updates the job list, bench header and artifact toolbar in place around the artifact iframe, because a detached iframe reloads. Display settings, theme and idle behaviour are display preferences only; they never change permissions or work, and the emergency stop is shown whenever anything runs.
 
+## Local wake and voice lifecycle
+
+`web/hands-free-voice.mjs` owns explicit per-window wake standby, one bounded microphone graph, local energy endpointing, transcript handoff to the resident character, output gating and fail-closed mute/resume. `POST /api/voice/wake/start` shares the existing ordered speech owner in both hosts; only the local wake worker receives idle audio. Optional `workers/wake_server.py` (openWakeWord ONNX) and `workers/endpoint_whisper.py` (CPU int8, one decode at finish) require previously installed local models. No new model engine, automatic download, persistent microphone audio or pi-ai routing change is introduced. Default TTS generation/playback gates input with an acoustic tail. Explicit experimental barge-in captures a same-clock playback reference, applies local reference-wake/correlation vetoes and requires a fresh wake after pausing TTS; it is not proven acoustic echo cancellation. Real-device quality remains unverified. See [hands-free setup, state and resource limits](HANDS-FREE-VOICE.md).
+
+Node frames worker JSON with its UTF-8 byte Content-Length for the bundled Python
+parser. The numeric loopback speech/wake server binds without reverse DNS.
+Endpoint Whisper admits one decode without queued finish waveforms;
+busy finish discards that capture with HTTP 429 while a cancelled native call
+drains. Browser watchdog clocks start after capture startup, and interruption
+establishes quiet ownership from the exact element's synchronous paused flag
+before its queued media event. An owned pause also marks its pending initial
+play request so an expected AbortError cannot revoke resume ownership.
+Provider routing and worker permissions are unchanged.
+
 ## Desktop, speech and verification
 
 Tauri still bundles a Node runtime, the compiled Rust core addon and V3 sources. It opens only the sidecar loopback origin and retains tray/background behavior. The standalone native-service binary needs no Node executable after its frontend bundle is built, but it is not the packaged desktop sidecar. Optional Python speech/decision workers remain separate services.
