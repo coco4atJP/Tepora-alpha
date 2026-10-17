@@ -1,7 +1,7 @@
 import {icon,escape} from './ui.mjs';
 import {needsPerson} from './status.mjs';
 import {voiceAddress,voiceLine} from './voice-lines.mjs';
-import {seasonOf} from './seasons.mjs';
+import {SEASONS,seasonOf} from './seasons.mjs';
 /** The home stage as a smart monitor: clock, a rotating deck of small modules (weather, news,
  * music, work, things you made) and an idle mode that dims, drifts and lets work continue.
  * Builders return HTML from already-loaded data; nothing here fetches or decides permissions.
@@ -66,9 +66,15 @@ export function weatherNotable(weather,now=Date.now()){
  return code>=51||temp>=30||temp<=5||Boolean(rainSoon(weather,now));
 }
 /** Cards for the deck. Work is shown as lights around the character and weather as one line under
- * the date, so the weather card comes back only when it changes what you would do. */
-export function deckWidgets(widgets,{weather=null,now=Date.now()}={}){
- return widgets.filter(w=>w==='work'?false:w==='weather'?weatherNotable(weather,now):true);
+ * the date by default; weatherMode='always', workCard=true, and pinned=[] customize what stays in the deck. */
+export function deckWidgets(widgets,{weather=null,now=Date.now(),weatherMode='notable',workCard=false,pinned=[]}={}){
+ const pinnedSet=new Set(Array.isArray(pinned)?pinned:[]);
+ return widgets.filter(w=>{
+  if(pinnedSet.has(w))return false;
+  if(w==='work')return Boolean(workCard);
+  if(w==='weather')return weatherMode==='always'?true:weatherNotable(weather,now);
+  return true;
+ });
 }
 export const countWord=n=>['','ひとつ','ふたつ','みっつ'][n]||`${n}件`;
 /** What to say when the person comes back, in the persona's voice. Empty unless something happened or they were away a while. */
@@ -122,8 +128,65 @@ function ambientPhotoCard(images,index=0){
  if(!images.length)return null;const img=images[((index%images.length)+images.length)%images.length];
  return {id:'photos',title:'つくったもの',html:`<figure class="photo-frame"><img src="${escape(img.src)}" alt="${escape(img.title)}" loading="lazy"><figcaption>${escape(img.title)}</figcaption></figure>`};
 }
-/** Ordered cards for the deck, following the display widget order. Shared view drops private ones. */
-export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],shared=false,newsIndex=0,photoIndex=0,sample={}}){
+function ambientFocusCard(focus){
+ if(!focus)return null;
+ const total=Math.max(60,(Number(focus.minutes)||25)*60),rem=Math.max(0,Number.isFinite(focus.remainingSeconds)?focus.remainingSeconds:total);
+ const m=String(Math.floor(rem/60)).padStart(2,'0'),s=String(Math.floor(rem%60)).padStart(2,'0');
+ const pct=Math.min(100,Math.max(0,Math.round(((total-rem)/total)*100)));
+ const mins=Number(focus.minutes)||25;
+ return {id:'focus',title:'集中タイマー',html:`<div class="focus-widget${focus.running?' is-running':''}">
+  <div class="focus-readout"><strong class="focus-time">${m}:${s}</strong><span class="focus-meta">${focus.running?'集中中':'待機中'}${focus.completed?` · 今日 ${focus.completed}回`:''}</span></div>
+  <div class="music-progress focus-progress" aria-hidden="true"><span style="--p:${pct}%"></span></div>
+  <div class="focus-controls">
+   <button type="button" class="secondary-button is-compact" data-action="focus-toggle">${focus.running?'一時停止':'開始'}</button>
+   <button type="button" class="ghost-button is-compact" data-action="focus-reset">リセット</button>
+   <div class="focus-presets" role="group" aria-label="時間プリセット">${[15,25,45].map(n=>`<button type="button" class="chip-btn${mins===n?' is-on':''}" data-action="focus-preset" data-minutes="${n}">${n}分</button>`).join('')}</div>
+  </div></div>`};
+}
+function ambientScheduleCard(schedule,{shared=false}={}){
+ if(!schedule)return null;
+ if(shared)return {id:'schedule',title:'予定・定期タスク',html:'<p class="work-shared">定期タスクと予定が設定されています</p>'};
+ const routines=(schedule.routines||[]).filter(r=>r&&r.enabled!==false&&r.status!=='disabled');
+ const plans=(schedule.plans||[]).filter(p=>p&&p.status!=='archived');
+ const items=[
+  ...routines.slice(0,3).map(r=>({kind:'定期',title:r.title||r.name||'定期タスク',sub:r.schedule||r.cron||'毎日'})),
+  ...plans.slice(0,2).map(p=>({kind:'計画',title:p.title||p.goal||'計画',sub:p.status==='active'?'進行中':'待機中'}))
+ ].slice(0,4);
+ if(!items.length)return {id:'schedule',title:'予定・定期タスク',html:`<div class="schedule-widget is-empty"><p class="muted">予定されている定期タスクはまだありません。</p><button type="button" class="ghost-button is-compact" data-action="open-routines">定期タスクを確認</button></div>`};
+ return {id:'schedule',title:'予定・定期タスク',html:`<ul class="schedule-list">${items.map(it=>`<li><span class="schedule-badge">${escape(it.kind)}</span><span class="schedule-title">${escape(it.title)}</span><small class="schedule-sub">${escape(it.sub)}</small></li>`).join('')}</ul>`};
+}
+function ambientMemoCard(memo,{shared=false}={}){
+ if(!memo||shared)return null;
+ const note=(memo.note||'').trim(),mem=memo.memory;
+ const body=note||(mem?.content||mem?.summary||mem?.text||'').trim();
+ return {id:'memo',title:note?'ピン留めメモ':'最近の記憶・メモ',html:`<div class="memo-widget">
+  <p class="memo-body">${body?escape(body):'<span class="muted">ステージに置いておきたい一言メモを書き留められます。</span>'}</p>
+  <div class="memo-footer"><span class="card-source">${note?'固定メモ':mem?'記憶より':'未入力'}</span><button type="button" class="ghost-button is-compact" data-action="memo-edit">編集</button></div></div>`};
+}
+function ambientSystemCard(system){
+ if(!system)return null;
+ const safetyLabel=system.safety==='host'?'ホスト許可':'保護モード';
+ return {id:'system',title:'システム・AI状態',html:`<div class="system-widget">
+  <div class="system-grid">
+   <div class="system-cell"><span class="system-k">AIモデル</span><strong class="system-v"><i class="dot dot-${system.ready?'active':'idle'}"></i>${escape(system.model||(system.ready?'接続済み':'未設定'))}</strong></div>
+   <div class="system-cell"><span class="system-k">実行保護</span><strong class="system-v">${escape(safetyLabel)}</strong></div>
+   <div class="system-cell"><span class="system-k">本日の応答</span><strong class="system-v">${Number(system.todayRequests)||0}回</strong></div>
+   <div class="system-cell"><span class="system-k">記憶・稼働</span><strong class="system-v">${Number(system.memoryCount)||0}件 · ${Number(system.activeJobs)||0}稼働</strong></div>
+  </div></div>`};
+}
+function ambientAlmanacCard(almanac){
+ if(!almanac)return null;
+ const now=almanac.now instanceof Date?almanac.now:new Date(almanac.now||Date.now());
+ const s=seasonOf(now),next=SEASONS[(s.index+1)%SEASONS.length];
+ const fmt=h=>{if(!Number.isFinite(h))return null;const hr=Math.floor(h),mn=Math.round((h%1)*60);return `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;};
+ const rise=almanac.sunrise||fmt(almanac.sun?.rise),set=almanac.sunset||fmt(almanac.sun?.set);
+ return {id:'almanac',title:`二十四節気 · ${s.sekki}`,html:`<div class="almanac-widget">
+  <p class="almanac-kou"><span class="almanac-sekki">${escape(s.sekki)}</span><strong>${escape(s.kou)}</strong></p>
+  ${next?`<p class="almanac-meaning">次の候（${next.month}月${next.day}日ごろ）: ${escape(next.sekki)} ・ ${escape(next.kou)}</p>`:''}
+  ${rise&&set?`<p class="card-source">日の出 ${escape(rise)} · 日の入り ${escape(set)}</p>`:`<p class="card-source">${now.getMonth()+1}月${now.getDate()}日の暦</p>`}</div>`};
+}
+/** Ordered cards for the deck or pinned slots, following the display widget order. Shared view drops private ones. */
+export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],focus=null,schedule=null,memo=null,system=null,almanac=null,shared=false,newsIndex=0,photoIndex=0,sample={}}){
  const cards=[];
  for(const w of widgets){
   if(w==='weather')cards.push(ambientWeatherCard(weather,{sample:sample.weather}));
@@ -131,8 +194,18 @@ export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],sh
   if(w==='media')cards.push(ambientMusicCard(music));
   if(w==='work')cards.push(ambientWorkCard(jobs,{shared}));
   if(w==='artifact'&&!shared)cards.push(ambientPhotoCard(images,photoIndex));
+  if(w==='focus')cards.push(ambientFocusCard(focus));
+  if(w==='schedule')cards.push(ambientScheduleCard(schedule,{shared}));
+  if(w==='memo'&&!shared)cards.push(ambientMemoCard(memo,{shared}));
+  if(w==='system')cards.push(ambientSystemCard(system));
+  if(w==='almanac')cards.push(ambientAlmanacCard(almanac));
  }
  return cards.filter(Boolean);
+}
+
+/** Multi-slot pinned board renderer for the smart monitor stage. */
+export function renderPinnedCards(cards=[]){
+ return cards.filter(Boolean).map(c=>`<article class="deck-card pinned-card" data-card="${escape(c.id)}"><header class="deck-title"><span>${escape(c.title)}</span><button type="button" class="card-pin-btn" data-action="toggle-pin-widget" data-widget="${escape(c.id)}" aria-label="固定を解除" title="固定を解除">固定中</button></header><div class="deck-body">${c.html}</div></article>`).join('');
 }
 
 /** One card at a time; the next one rises into place. Hover or focus holds the current card. */

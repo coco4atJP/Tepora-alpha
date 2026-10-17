@@ -3,7 +3,7 @@ import {createProviderSettings} from './provider-settings.mjs';
 import {createOnboarding} from './onboarding.mjs';
 import {bridge,previewMode,previewAvatar} from './bridge.mjs';
 import {escape,icon,btn,toolbtn,statuses,setArtifactFrame,field,toggle,modal,registerForms,isTrustedForm} from './ui.mjs';
-import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS} from './display-model.mjs';
+import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS,STAGE_LAYOUTS,CLOCK_STYLES,CLOCK_SIZES,MONITOR_SCENES,monitorConfig} from './display-model.mjs';
 import {VoiceDraft} from './draft.mjs';
 import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
@@ -18,11 +18,11 @@ import {createAvatar,avatarAssetUrl} from './avatar/stage.mjs';
 import {avatarGeometry} from './avatar/geometry.mjs';
 import {createAvatarStudio} from './avatar/settings.mjs';
 import {VOICE_PROACTIVE,VOICE_SCENES,VOICE_TONES,voiceAddress,voiceLine,voiceSpeaks} from './voice-lines.mjs';
-import {ambientCards,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
+import {ambientCards,renderPinnedCards,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
 import {inboxItems,inboxHTML,ago,approvalSlip} from './inbox.mjs';
 import {createMusic} from './music.mjs';
 import {seasonLine} from './seasons.mjs';
-import {daylightState,daylightVars} from './daylight.mjs';
+import {daylightState,daylightVars,sunTimes} from './daylight.mjs';
 import {backdropFor,lampPalette,paintStars,wallpaperHTML,WALLPAPER_LABELS,WALLPAPER_NOTES} from './wallpaper.mjs';
 import {createPhotoFrame,framePhotos,framePreview} from './frame.mjs';
 import {createLights,lightJobs} from './lights.mjs';
@@ -43,6 +43,7 @@ let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendin
 // Home monitor and companion presentation. None of this changes permissions or work.
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
+let focusTimer={minutes:25,remainingSeconds:1500,running:false,completed:0,syncedMinutes:25};
 // Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
 let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
 // The conversation column is opened on demand; on the home stage the message box sits under the character.
@@ -68,8 +69,12 @@ function onboarding(){
 let musicUI=null;
 function musicPlayer(){return musicUI||=createMusic({onChange:value=>{musicState=value;if(view==='home')paintDeck();paintChrome();}});}
 
-const widgetNames={clock:'時計',companion:'キャラクター',weather:'天気（日付の下に一行。雨などの日はカードも）',news:'ニュース',media:'音楽',work:'仕事のようす（キャラクターのまわりの灯り）',artifact:'つくった画像'};
-const widgetRoles={clock:'ステージ',companion:'ステージ',work:'灯り',weather:'一行＋カード',news:'カード',media:'カード',artifact:'カード'};
+const widgetNames={clock:'時計',companion:'キャラクター',weather:'天気（日付の下に一行。雨などの日はカードも）',news:'ニュース',media:'音楽',work:'仕事のようす（キャラクターのまわりの灯り）',artifact:'つくった画像',focus:'集中タイマー（ポモドーロ）',schedule:'予定・定期タスク',memo:'ピン留めメモ・最近の記憶',system:'システム・AI状態',almanac:'二十四節気・日の出入り'};
+const widgetShortNames={clock:'時計',companion:'キャラクター',weather:'天気',news:'ニュース',media:'音楽',work:'仕事のようす',artifact:'つくった画像',focus:'集中タイマー',schedule:'予定・定期タスク',memo:'メモ・記憶',system:'システム状態',almanac:'二十四節気・暦'};
+const widgetRoles={clock:'ステージ',companion:'ステージ',work:'灯り・カード',weather:'一行＋カード',news:'カード',media:'カード',artifact:'カード',focus:'カード',schedule:'カード',memo:'カード',system:'カード',almanac:'カード'};
+const layoutLabels={'companion-split':'相棒と情報（左右）','dashboard-bento':'スマートボード（グリッド）','center-stage':'センターステージ（相棒中央）','standby-clock':'ナイトクロック（時計主役）'};
+const clockStyleLabels={editorial:'明朝・暦調',modern:'モダン・サンセリフ',mono:'デジタル・等幅'};
+const clockSizeLabels={compact:'コンパクト',medium:'標準',hero:'特大'};
 const workJobs=()=>state.jobs.filter(j=>!(j.kind==='chat'&&j.characterSessionId));
 const activeJobs=()=>workJobs().filter(j=>['queued','running','waiting_approval'].includes(j.status));
 const settings=()=>state.settings;
@@ -121,6 +126,7 @@ function shell(){
    <div class="display-menu" id="display-menu">
     <button type="button" class="icon-button" id="display-menu-button" data-action="display-menu" aria-expanded="false" aria-controls="display-menu-list" aria-label="画面の表示" title="画面の表示">${icon('monitor')}</button>
     <div class="menu" id="display-menu-list" hidden>
+     <button type="button" data-action="stage-customize">${icon('settings')}<span>ステージをカスタマイズ</span></button>
      <button type="button" data-action="ambient-now" id="ambient-button">${icon('moon')}<span>待機画面にする</span></button>
      <button type="button" data-action="frame-now">${icon('image')}<span>写真立てにする</span></button>
      <button type="button" data-action="share" id="share-button" aria-pressed="false">${icon('eyeOff')}<span>共有表示（個人の内容を隠す）</span></button>
@@ -149,6 +155,7 @@ function shell(){
      <textarea id="composer-input" rows="1" maxlength="32000" aria-label="Teporaへのメッセージ" aria-describedby="agent-selector" placeholder="Teporaに話しかける"></textarea>
      <button type="button" data-action="undo-draft" class="composer-tool" id="undo-draft" aria-label="入力を戻す" title="入力を戻す" hidden>${icon('undo')}</button>
      <button type="button" data-action="mic" class="composer-tool" id="mic-button" aria-label="音声入力を開始" title="音声入力">${icon('mic')}</button>
+     <button type="button" data-action="talk-open" class="composer-tool composer-history-btn" id="composer-history-btn" aria-label="会話履歴を開く" title="会話履歴を開く">${icon('chat')}</button>
      <button type="submit" class="send-button" aria-label="送信" title="送信（Enter）">${icon('arrow')}</button>
     </form>
     <span id="agent-selector" class="visually-hidden">Teporaと会話中。Enterで送信、Shift+Enterで改行。</span>
@@ -270,8 +277,12 @@ function homeHTML(){
   <div class="stage-figure" id="stage-figure"><div class="stage-character" id="stage-character-slot"></div><div class="speech" id="speech" hidden></div></div>
   <div class="stage-side">
    <div class="clock" id="clock"><time id="clock-display"></time><p class="clock-line"><span id="clock-date"></span><span id="clock-season"></span></p><p class="clock-weather" id="clock-sub"></p></div>
+   <div id="pinned-slot" class="pinned-grid" aria-label="固定ウィジェット"></div>
    <div id="deck-slot" class="deck-slot"></div>
-   <button type="button" class="link-button deck-setup" data-action="display">ホームのカードを設定</button>
+   <div class="stage-toolbar">
+    <button type="button" class="link-button deck-setup" data-action="stage-customize">ステージをカスタマイズ</button>
+    <button type="button" class="link-button deck-setup" data-action="display">表示の設定</button>
+   </div>
   </div>
   <div class="stage-notes" id="stage-notes"></div>
  </section>`;
@@ -286,12 +297,29 @@ function attachStage(){
   lastDeckCard=id;}});
 }
 function imageAssets(){return (state.mediaJobs||[]).filter(j=>j.asset?.mime?.startsWith('image/')&&j.status==='ready').slice(0,24).map(j=>({src:`/api/media/assets/${encodeURIComponent(j.asset.id)}`,title:j.title||'つくった画像'}));}
+function monitorCardPayloads(now=new Date()){
+ const s=settings(),mcfg=monitorConfig(display()),providers=state.providers?.profiles||[];
+ const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model));
+ const modelName=s.model||providers.find(p=>p.enabled!==false)?.model||'';
+ const usage=state.usage?.today||state.agent?.usage?.today||{};
+ const memories=(state.memories||[]).filter(m=>m.confirmed!==false);
+ return {
+  focus:{...focusTimer},
+  schedule:{routines:state.routines||[],plans:state.plans||[]},
+  memo:{note:mcfg.pinnedNote,memory:memories[0]||null},
+  system:{model:modelName,ready,safety:(state.agent?.settings?.sandbox?.mode||'off')==='off'?'host':'protected',todayRequests:usage.requests||0,activeJobs:activeJobs().length,memoryCount:memories.length},
+  almanac:{now,sun:sunTimes(now,weatherData)}
+ };
+}
 function paintHome(){
- if(!$('#stage'))return;
- const visible=widgetsVisible(),prefs=display();
+ const stage=$('#stage');if(!stage)return;
+ const visible=widgetsVisible(),prefs=display(),mcfg=monitorConfig(prefs);
+ stage.dataset.layout=mcfg.layout;stage.dataset.clockStyle=mcfg.clockStyle;stage.dataset.clockSize=mcfg.clockSize;stage.dataset.scene=mcfg.scene;
+ document.body.dataset.stageLayout=mcfg.layout;
  $('#clock').hidden=!visible.includes('clock');
- $('#stage-figure').classList.toggle('is-empty',!visible.includes('companion'));
+ $('#stage-figure').classList.toggle('is-empty',!visible.includes('companion')||mcfg.layout==='standby-clock');
  paintSpeech();paintStageNotes();paintDeck();paintLights();tick();
+ if(activePanel?.kind==='stage-studio')paintStageStudio();
 }
 function paintSpeech(){
  const el=$('#speech');if(!el)return;
@@ -321,9 +349,19 @@ function paintStageNotes(){
 }
 function paintDeck(){
  if(!deck)return;
- const visible=deckWidgets(widgetsVisible().filter(w=>!['clock','companion'].includes(w)),{weather:weatherData});
- const sample={weather:!!weatherData?.sample,news:!!newsData?.sample};
- deck.set(ambientCards({widgets:visible,weather:weatherData,news:newsData,music:musicState,jobs:workJobs(),images:sharedView?[]:imageAssets(),shared:sharedView,newsIndex,photoIndex,sample}));
+ const vis=widgetsVisible().filter(w=>!['clock','companion'].includes(w)),mcfg=monitorConfig(display());
+ const pinned=mcfg.pinnedWidgets.filter(w=>vis.includes(w));
+ const sample={weather:!!weatherData?.sample,news:!!newsData?.sample},payloads=monitorCardPayloads();
+ const common={weather:weatherData,news:newsData,music:musicState,jobs:workJobs(),images:sharedView?[]:imageAssets(),...payloads,shared:sharedView,newsIndex,photoIndex,sample};
+ const pinSlot=$('#pinned-slot');
+ if(pinSlot){
+  const pinnedCards=ambientCards({widgets:pinned,...common});
+  const sig=pinnedCards.map(c=>`${c.id}:${c.title}:${c.html}`).join('||');
+  if(pinSlot.dataset.sig!==sig){pinSlot.dataset.sig=sig;pinSlot.innerHTML=renderPinnedCards(pinnedCards);}
+  pinSlot.classList.toggle('is-empty',!pinnedCards.length);
+ }
+ const deckList=deckWidgets(vis,{weather:weatherData,weatherMode:mcfg.weatherMode,workCard:mcfg.workCard,pinned});
+ deck.set(ambientCards({widgets:deckList,...common}));
  const slot=$('#deck-slot');if(slot)slot.classList.toggle('is-empty',!deckHost.querySelector('.deck-card'));
 }
 async function loadFeeds(force=false){
@@ -570,8 +608,63 @@ function heartbeatSheet(){
  <label class="field"><span>見回りで確かめること（任意）</span><textarea name="text" rows="3" maxlength="2000">${escape(h.text||'')}</textarea></label><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'heartbeat');
 }
 function computerSummary(){const c=state.computer;if(!c?.config?.enabled)return '無効';return [c.browser?.executable?`ブラウザ${c.config.headless?'（見えない）':''}`:'ブラウザなし',c.desktop?.supported&&c.config.desktop?'Macのアプリ':'',({both:'判断モデル優先・直接も可',decision:'判断モデルのみ',direct:'直接操作のみ'})[c.config.control]].filter(Boolean).join(' · ');}
+function stageStudioHTML(){
+ const prefs=display(),mcfg=monitorConfig(prefs),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
+ const cardWidgets=order.filter(w=>w!=='clock'&&w!=='companion');
+ return `<div class="stage-studio">
+  <section class="studio-block">
+   <h3>シーンプリセット</h3>
+   <p class="small-text">用途に合わせた配置・時計・ウィジェットの組み合わせをワンタップで切り替えます。</p>
+   <div class="scene-grid" role="group" aria-label="シーンプリセット">${Object.entries(MONITOR_SCENES).map(([key,sc])=>`<button type="button" class="scene-card${mcfg.scene===key?' is-on':''}" data-action="scene-apply" data-scene="${key}" aria-pressed="${mcfg.scene===key}"><strong>${escape(sc.label)}</strong><small>${escape(sc.desc)}</small></button>`).join('')}</div>
+  </section>
+  <section class="studio-block">
+   <h3>ステージの配置</h3>
+   <div class="studio-choices" role="group" aria-label="ステージの配置">${STAGE_LAYOUTS.map(k=>`<button type="button" class="studio-chip${mcfg.layout===k?' is-on':''}" data-action="layout-set" data-value="${k}" aria-pressed="${mcfg.layout===k}">${escape(layoutLabels[k]||k)}</button>`).join('')}</div>
+   <div class="studio-toggles">
+    <label class="switch-label"><span>時計を表示</span><input class="switch" type="checkbox" role="switch" data-action="widget-toggle" value="clock" ${prefs.widgets.includes('clock')?'checked':''}></label>
+    <label class="switch-label"><span>キャラクターを表示</span><input class="switch" type="checkbox" role="switch" data-action="widget-toggle" value="companion" ${prefs.widgets.includes('companion')?'checked':''}></label>
+   </div>
+  </section>
+  <section class="studio-block">
+   <h3>時計のデザイン</h3>
+   <div class="studio-row"><span>書体</span>${segmented('clock-style-set',CLOCK_STYLES.map(k=>[k,clockStyleLabels[k]]),mcfg.clockStyle,'時計の書体')}</div>
+   <div class="studio-row"><span>大きさ</span>${segmented('clock-size-set',CLOCK_SIZES.map(k=>[k,clockSizeLabels[k]]),mcfg.clockSize,'時計の大きさ')}</div>
+   <label class="switch-label"><span>秒まで表示する</span><input class="switch" type="checkbox" role="switch" data-action="clock-seconds-set" ${mcfg.clockSeconds?'checked':''}></label>
+  </section>
+  <section class="studio-block">
+   <h3>ウィジェット（固定ボード・デッキ）</h3>
+   <p class="small-text">「固定」にしたウィジェットは最大4つまで常時表示し、それ以外は順番にめくります（現在 ${mcfg.pinnedWidgets.length}/4 固定中）。</p>
+   <ul class="studio-widget-list">${cardWidgets.map(w=>{
+    const on=prefs.widgets.includes(w),pinned=mcfg.pinnedWidgets.includes(w);
+    return `<li class="${on?'is-enabled':''}"><label class="studio-w-check"><input type="checkbox" data-action="widget-toggle" value="${w}" ${on?'checked':''}><span>${escape(widgetShortNames[w]||widgetNames[w])}</span></label><div class="studio-w-actions"><button type="button" class="chip-btn${pinned?' is-on':''}" data-action="toggle-pin-widget" data-widget="${w}" aria-pressed="${pinned}" title="ホーム画面に常時固定">${pinned?'固定中':'固定する'}</button></div></li>`;
+   }).join('')}</ul>
+   <div class="studio-toggles">
+    <label class="switch-label"><span>天気を穏やかな日もカードで出す</span><input class="switch" type="checkbox" role="switch" data-action="weather-mode-toggle" ${mcfg.weatherMode==='always'?'checked':''}></label>
+    <label class="switch-label"><span>進行中の仕事をカードでも表示</span><input class="switch" type="checkbox" role="switch" data-action="work-card-set" ${mcfg.workCard?'checked':''}></label>
+   </div>
+  </section>
+  <section class="studio-block">
+   <h3>背景と待機画面</h3>
+   ${wallpaperPicker(prefs.ambient.wallpaper)}
+   <div class="studio-foot">${btn('memo-edit','ピン留めメモを編集','','button secondary')}${btn('display','すべての表示設定へ','','text-button')}</div>
+  </section>
+ </div>`;
+}
+function openStageStudio(){
+ if(sharedView)return;
+ if(view!=='home'){view='home';render();}
+ openPanel('ステージをカスタマイズ',stageStudioHTML(),'stage-studio');
+}
+function paintStageStudio(){
+ const body=$('#panel .panel-body');if(!body||activePanel?.kind!=='stage-studio')return;
+ const top=body.scrollTop;body.innerHTML=stageStudioHTML();body.scrollTop=top;
+}
+function memoSheet(){
+ const mcfg=monitorConfig(display());
+ openSheet('ピン留めメモを編集',`<form id="memo-form"><label class="field"><span>ステージに置くメモ（240文字まで）</span><textarea name="note" rows="4" maxlength="240" placeholder="今日やること、忘れたくない一言など">${escape(mcfg.pinnedNote||'')}</textarea></label><p class="small-text">空にすると、確認済みの最新の記憶をカードに表示します。</p><div class="sheet-actions"><button class="button" type="submit">保存する</button>${btn('close','閉じる','','button secondary')}</div></form>`,'memo');
+}
 function settingsView(){
- const s=settings(),prefs=display(),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
+ const s=settings(),prefs=display(),mcfg=monitorConfig(prefs),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
  const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
  const connected=Object.entries(roleNames).filter(([role])=>caps.routes?.[role]).map(([,n])=>n);
  const order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
@@ -581,14 +674,19 @@ function settingsView(){
    ${settingRow('インターネットを使う道具','',null,'天気・ニュース・Web取得・専用ブラウザ',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="allow-network" ${s.allowNetwork?'checked':''} aria-label="インターネットを使う道具を許可"></label>`)}`],
   ['character','キャラクター',`${settingRow('姿',escape(avatarSummary()),null,'体・色・灯り・顔・小物・動きを選べます。今までのキャラクター（3Dモデル・画像・メッシュアバター）も持ち込めます。',btn('avatar-open','姿を作る','pencil','button'))}
    ${settingRow('人格と口調',escape(characterName(state.dialogue)),null,'名前・振る舞い・口調・呼び名・話しかけ方。姿とは別に設定します。',btn('personas','編集','pencil','button secondary','aria-label="人格と口調を編集"'))}`],
-  ['home','ホームと待機画面',`${settingRow('テーマ','',null,'',segmented('theme-set',[['system','端末に合わせる'],['light','明るい'],['dark','暗い']],prefs.theme,'テーマ'))}
+  ['home','ホームと待機画面',`${settingRow('シーンとステージ配置',escape(MONITOR_SCENES[mcfg.scene]?.label||'カスタム'),null,'スマートモニターとしての画面構成・時計・固定ウィジェットを、実際のステージを見ながら調整できます。',`${btn('stage-customize','ステージを見ながら調整','monitor','button')}`)}
+   ${settingRow('シーンプリセット','',null,'用途に合わせた配置・時計・ウィジェットの組み合わせです。',segmented('scene-apply',Object.entries(MONITOR_SCENES).map(([k,v])=>[k,v.label]),mcfg.scene,'シーンプリセット'))}
+   ${settingRow('ステージの配置','',null,'キャラクター・時計・ウィジェットの並び方を選びます。',segmented('layout-set',STAGE_LAYOUTS.map(k=>[k,layoutLabels[k]]),mcfg.layout,'ステージの配置'))}
+   ${settingRow('時計のデザイン','',null,'書体・大きさ・秒表示を選べます。',`${segmented('clock-style-set',CLOCK_STYLES.map(k=>[k,clockStyleLabels[k]]),mcfg.clockStyle,'時計の書体')}${segmented('clock-size-set',CLOCK_SIZES.map(k=>[k,clockSizeLabels[k]]),mcfg.clockSize,'時計の大きさ')}<label class="switch-label"><span>秒を表示</span><input class="switch" type="checkbox" role="switch" data-action="clock-seconds-set" ${mcfg.clockSeconds?'checked':''}></label>`)}
+   ${settingRow('テーマ','',null,'',segmented('theme-set',[['system','端末に合わせる'],['light','明るい'],['dark','暗い']],prefs.theme,'テーマ'))}
    ${settingRow('文字の大きさ','',null,'',segmented('scale-set',[['0.9','小さめ'],['1','標準'],['1.15','大きめ'],['1.3','特大'],['1.6','最大']],[0.9,1,1.15,1.3,1.6].reduce((a,b)=>Math.abs(b-prefs.textScale)<Math.abs(a-prefs.textScale)?b:a),'文字の大きさ'))}
    ${settingRow('待機画面','',null,'操作がないと、画面いっぱいの待機画面になります。スクリーンセーバーのように、触れる・キーを押す・マウスを大きく動かすと、元の画面に戻ります。',`<label class="select-label"><span class="visually-hidden">待機画面に切り替えるまで</span><select data-action="idle-set">${IDLE_CHOICES.map(m=>`<option value="${m}" ${prefs.ambient.idleMinutes===m?'selected':''}>${m?`${m}分後`:'切り替えない'}</option>`).join('')}</select></label><label class="switch-label"><span>夜は暗く</span><input class="switch" type="checkbox" role="switch" data-action="night-set" ${prefs.ambient.nightDim?'checked':''}></label>${btn('ambient-try','いま試す','moon','text-button')}`)}
    ${settingRow('壁紙','',null,escape(WALLPAPER_NOTES[prefs.ambient.wallpaper]||''),wallpaperPicker(prefs.ambient.wallpaper))}
    ${settingRow('写真立て',frameSummary(),frameStored().length?'ok':null,'選んだ写真を、待機画面でゆっくり切り替えます。写真はこのPCに保存し、外へは送りません。',`${btn('frame-open','写真を管理','image','button secondary')}${btn('frame-now','写真立てを始める','','text-button')}`)}
    ${settingRow('画面をつけたままにする','',null,'待機画面のあいだ、画面が消えないようにします（対応している環境のみ）。',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="awake-set" aria-label="待機画面のあいだ画面をつけたままにする" ${prefs.ambient.keepAwake?'checked':''}></label>`)}
-   ${settingRow('ホームのカード','',null,'ニュース・音楽・つくった画像は、この順番でカードをめくります。仕事は灯り、天気は日付の下の一行で表します。',`<label class="select-label"><span class="visually-hidden">めくる間隔</span><select data-action="rotate-set">${[8,12,20,30,60].map(n=>`<option value="${n}" ${prefs.ambient.rotateSeconds===n?'selected':''}>${n}秒ごと</option>`).join('')}</select></label>`)}
-   <ol class="widget-order">${order.map((w,i)=>`<li data-role="${['news','media','artifact'].includes(w)?'card':'stage'}"><label><input type="checkbox" data-action="widget-toggle" value="${w}" ${prefs.widgets.includes(w)?'checked':''}><span>${widgetNames[w]}</span><small class="widget-role">${widgetRoles[w]||''}</small></label><span class="widget-move">${toolbtn('widget-up',`${widgetNames[w]}を上へ`,'arrow',`data-widget="${w}" data-dir="up" ${i===0?'disabled':''}`)}${toolbtn('widget-down',`${widgetNames[w]}を下へ`,'arrow',`data-widget="${w}" data-dir="down" ${i===order.length-1?'disabled':''}`)}</span></li>`).join('')}</ol>
+   ${settingRow('ホームのウィジェット','',null,'最大4つまで「固定」して同時表示できます。固定しないカードは順番にめくります。',`<label class="select-label"><span class="visually-hidden">めくる間隔</span><select data-action="rotate-set">${[8,12,20,30,60].map(n=>`<option value="${n}" ${prefs.ambient.rotateSeconds===n?'selected':''}>${n}秒ごと</option>`).join('')}</select></label><label class="switch-label"><span>天気を常時カード表示</span><input class="switch" type="checkbox" role="switch" data-action="weather-mode-toggle" ${mcfg.weatherMode==='always'?'checked':''}></label><label class="switch-label"><span>仕事をカードでも表示</span><input class="switch" type="checkbox" role="switch" data-action="work-card-set" ${mcfg.workCard?'checked':''}></label>`)}
+   <ol class="widget-order">${order.map((w,i)=>{const isCard=!['clock','companion'].includes(w),pinned=mcfg.pinnedWidgets.includes(w);return `<li data-role="${isCard?'card':'stage'}"><label><input type="checkbox" data-action="widget-toggle" value="${w}" ${prefs.widgets.includes(w)?'checked':''}><span>${widgetNames[w]}</span><small class="widget-role">${pinned?'固定ボード':widgetRoles[w]||''}</small></label><span class="widget-move">${isCard?`<button type="button" class="chip-btn${pinned?' is-on':''}" data-action="toggle-pin-widget" data-widget="${w}" aria-pressed="${pinned}">${pinned?'固定中':'固定'}</button>`:''}${toolbtn('widget-up',`${widgetNames[w]}を上へ`,'arrow',`data-widget="${w}" data-dir="up" ${i===0?'disabled':''}`)}${toolbtn('widget-down',`${widgetNames[w]}を下へ`,'arrow',`data-widget="${w}" data-dir="down" ${i===order.length-1?'disabled':''}`)}</span></li>`;}).join('')}</ol>
+   ${settingRow('ピン留めメモ',mcfg.pinnedNote?escape(mcfg.pinnedNote.slice(0,36)):'未入力',mcfg.pinnedNote?'ok':null,'ホームの「メモ」ウィジェットに表示する一言メモです。',btn('memo-edit','メモを編集','pencil','button secondary'))}
    ${settingRow('天気とニュース',[s.weatherCity&&`天気: ${escape(s.weatherCity)}`,s.newsUrl&&'ニュース: 設定済み'].filter(Boolean).join(' · '),s.weatherCity||s.newsUrl?'ok':null,'',btn('feeds-setup',s.weatherCity||s.newsUrl?'変更':'場所とRSSを設定','','button secondary'))}
    ${settingRow('音楽',musicState?.track?escape(`${musicState.count}曲を選択中`):'',musicState?.track?'ok':null,'このPCの音楽ファイルをホームで流します。送信はしません。',`${btn('music-choose','曲を選ぶ','music','button secondary')}${btn('media','YouTube','','text-button','aria-label="YouTubeを流す"')}`)}
    <div class="setting-foot">${btn('display-undo','前の表示に戻す','undo','text-button')}${btn('display-reset','既定に戻す','','text-button')}</div>`],
@@ -644,12 +742,22 @@ function render(){
  renderedView=target;
  tick();showDialogue();showReply();showTarget();showRequestStatus();showInputFiles();paintMood();
  if(activePanel?.kind==='inbox')paintInbox();
+ if(activePanel?.kind==='stage-studio')paintStageStudio();
 }
 function syncLiveSurface(){render();}
 function scheduleRender(){clearTimeout(refreshTimer);refreshTimer=setTimeout(syncLiveSurface,80);}
 function tick(){
- const now=new Date();
- if($('#clock-display'))$('#clock-display').textContent=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+ const now=new Date(),mcfg=monitorConfig(display());
+ if(!focusTimer.running&&focusTimer.syncedMinutes!==mcfg.focusMinutes){focusTimer.minutes=mcfg.focusMinutes;focusTimer.remainingSeconds=mcfg.focusMinutes*60;focusTimer.syncedMinutes=mcfg.focusMinutes;}
+ if(focusTimer.running){
+  focusTimer.remainingSeconds=Math.max(0,focusTimer.remainingSeconds-1);
+  if(focusTimer.remainingSeconds===0){
+   focusTimer.running=false;focusTimer.completed+=1;focusTimer.remainingSeconds=focusTimer.minutes*60;
+   celebrateUntil=Date.now()+3200;notice('集中タイマーが完了しました。ひと息つきましょう。');
+  }
+  if(view==='home')paintDeck();
+ }
+ if($('#clock-display'))$('#clock-display').textContent=now.toLocaleTimeString('ja-JP',mcfg.clockSeconds?{hour:'2-digit',minute:'2-digit',second:'2-digit'}:{hour:'2-digit',minute:'2-digit'});
  if($('#clock-date'))$('#clock-date').textContent=`${now.getMonth()+1}月${now.getDate()}日（${now.toLocaleDateString('ja-JP',{weekday:'short'})}）`;
  const season=$('#clock-season');if(season)season.textContent=seasonLine(now);
  const sub=$('#clock-sub');
@@ -975,7 +1083,24 @@ const actions={
  proposals:()=>{closePanel();view='workspace';workTab='tasks';render();},
  'skill-details':el=>{const skill=state.skills.find(s=>s.id===el.dataset.id);openSheet(skill.name,`<p>${escape(skill.source==='learned-proposal'?'仕事から提案された手順です。確認して有効化するまで使用しません。':skill.description)}</p><pre>${escape(skill.content||'共有スキルです。実行時に出所とハッシュを照合して読み込みます。')}</pre><p class="small-text">${escape(skill.sourceJobId?'元の仕事: '+skill.sourceJobId:'')}</p>`);},
  view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}clearTimeout(toastTimer);toastEl.classList.remove('show');if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
- display:()=>{view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
+ display:()=>{closePanel();view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
+ 'stage-customize':()=>{activePanel?.kind==='stage-studio'?closePanel():openStageStudio();},
+ 'scene-apply':el=>{const key=el.dataset.scene||el.dataset.value,sc=MONITOR_SCENES[key];if(sc)return patchDisplay(sc.patch);},
+ 'layout-set':el=>patchDisplay({layout:el.dataset.value}),
+ 'clock-style-set':el=>patchDisplay({clockStyle:el.dataset.value}),
+ 'clock-size-set':el=>patchDisplay({clockSize:el.dataset.value}),
+ 'toggle-pin-widget':el=>{
+  const w=el.dataset.widget;if(!w||['clock','companion'].includes(w))return;
+  const prefs=display(),mcfg=monitorConfig(prefs),cur=mcfg.pinnedWidgets;
+  const nextPinned=cur.includes(w)?cur.filter(x=>x!==w):[...cur,w].slice(-4);
+  const nextWidgets=prefs.widgets.includes(w)?prefs.widgets:[...prefs.widgets,w];
+  return patchDisplay({pinnedWidgets:nextPinned,widgets:nextWidgets});
+ },
+ 'focus-toggle':()=>{focusTimer.running=!focusTimer.running;if(view==='home')paintDeck();},
+ 'focus-reset':()=>{focusTimer.running=false;focusTimer.remainingSeconds=(focusTimer.minutes||25)*60;if(view==='home')paintDeck();},
+ 'focus-preset':el=>{const mins=Number(el.dataset.minutes)||25;focusTimer.running=false;focusTimer.minutes=mins;focusTimer.remainingSeconds=mins*60;focusTimer.syncedMinutes=mins;if(view==='home')paintDeck();return patchDisplay({focusMinutes:mins});},
+ 'memo-edit':memoSheet,
+ 'open-routines':()=>{closePanel();view='workspace';workTab='tasks';render();},
  'discard-close':closeSheet,'discard-cancel':()=>{$('.discard-bar',overlay)?.remove();$('.modal-body input,.modal-body textarea',overlay)?.focus();},
  share:async()=>{capabilityUI?.stop();sharedView=!sharedView;if(sharedView){invalidatePendingSubmit();view='home';closeSheet();closePanel();cancelVoice();}dialogueRenderKey='';render();paintHome();},
  fullscreen:async()=>{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();},
@@ -1066,7 +1191,7 @@ document.addEventListener('click',e=>{
  const el=e.target.closest('[data-action]');if(!el)return;
  if(el.closest('#display-menu-list'))closeDisplayMenu();
  if(el.dataset.action==='backdrop'){if(e.target===el)requestCloseSheet();return;}
- if(['allow-network','night-set','widget-toggle'].includes(el.dataset.action))return;
+ if(['allow-network','night-set','widget-toggle','clock-seconds-set','weather-mode-toggle','work-card-set'].includes(el.dataset.action))return;
  const action=actions[el.dataset.action];if(!action)return;
  if(el.tagName==='A')e.preventDefault();
  (el.dataset.action==='retry-request'?quiet:safe)(action)(el);
@@ -1079,6 +1204,9 @@ document.addEventListener('change',e=>{
  if(action==='idle-set')run(()=>patchDisplay({ambient:{...display().ambient,idleMinutes:Number(el.value)}}));
  if(action==='awake-set')run(()=>patchDisplay({ambient:{...display().ambient,keepAwake:el.checked}}));
  if(action==='rotate-set')run(()=>patchDisplay({ambient:{...display().ambient,rotateSeconds:Number(el.value)}}));
+ if(action==='clock-seconds-set')run(()=>patchDisplay({clockSeconds:el.checked}));
+ if(action==='weather-mode-toggle')run(()=>patchDisplay({weatherMode:el.checked?'always':'notable'}));
+ if(action==='work-card-set')run(()=>patchDisplay({workCard:el.checked}));
  if(action==='voice-tone'){const pack=VOICE_TONES[el.value];if(pack)for(const input of el.form?.querySelectorAll('input[name^="line:"]')||[])input.placeholder=pack.lines[input.name.slice(5)]||'（何も言わない）';}
  if(action==='widget-toggle'){const prefs=display(),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];run(()=>patchDisplay({widgets:order.filter(w=>w===el.value?el.checked:prefs.widgets.includes(w))}));}
 });
@@ -1088,6 +1216,8 @@ document.addEventListener('submit',e=>{
   const form=e.target,fd=new FormData(form),data=Object.fromEntries(fd.entries());
   if(form.id==='composer-form'){
    await quiet(submitDialogue)();
+  }else if(form.id==='memo-form'){
+   await patchDisplay({pinnedNote:String(data.note||'').trim().slice(0,240)});closeSheet();notice('ピン留めメモを更新しました。');
   }else if(form.id==='steer-form'){
    const id=form.dataset.id,j=state.jobs.find(x=>x.id===id),input=$('#steer-input',form);if(!input.value.trim())return;
    await bridge.request(`/api/agent/sessions/${id}/message`,'POST',{text:input.value.trim(),mode:j&&['running','queued'].includes(j.status)?'steer':'followup'});input.value='';notice('この仕事に伝えました。');

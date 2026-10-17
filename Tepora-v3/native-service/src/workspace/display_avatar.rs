@@ -71,7 +71,24 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
     require(input.is_object(), 400, "Invalid display settings")?;
     for key in ordered_keys(input) {
         require(
-            ["theme", "textScale", "widgets", "hiddenUntil", "ambient"].contains(&key.as_str()),
+            [
+                "theme",
+                "textScale",
+                "widgets",
+                "hiddenUntil",
+                "ambient",
+                "scene",
+                "layout",
+                "clockStyle",
+                "clockSize",
+                "clockSeconds",
+                "pinnedWidgets",
+                "weatherMode",
+                "workCard",
+                "focusMinutes",
+                "pinnedNote",
+            ]
+            .contains(&key.as_str()),
             400,
             &format!("Display cannot change {key}"),
         )?;
@@ -89,7 +106,7 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
     )?;
     require(
         next["widgets"].as_array().is_some_and(|widgets| {
-            widgets.len() <= 7
+            widgets.len() <= 12
                 && widgets.iter().all(|w| listed(w, "widgets"))
                 && widgets
                     .iter()
@@ -112,6 +129,85 @@ fn validate_display(input: &Value, previous: &Value) -> Result<Value, ApiError> 
             "Invalid hide-until time",
         )?;
     }
+    require(
+        next.get("scene").is_none()
+            || member(&next["scene"], &["standard", "work", "relax", "night"]),
+        400,
+        "Invalid monitor scene",
+    )?;
+    require(
+        next.get("layout").is_none()
+            || member(
+                &next["layout"],
+                &[
+                    "companion-split",
+                    "dashboard-bento",
+                    "center-stage",
+                    "standby-clock",
+                ],
+            ),
+        400,
+        "Invalid stage layout",
+    )?;
+    require(
+        next.get("clockStyle").is_none()
+            || member(&next["clockStyle"], &["editorial", "modern", "mono"]),
+        400,
+        "Invalid clock style",
+    )?;
+    require(
+        next.get("clockSize").is_none()
+            || member(&next["clockSize"], &["compact", "medium", "hero"]),
+        400,
+        "Invalid clock size",
+    )?;
+    require(
+        next.get("clockSeconds").is_none() || next["clockSeconds"].is_boolean(),
+        400,
+        "Invalid clock seconds setting",
+    )?;
+    require(
+        next.get("pinnedWidgets").is_none()
+            || next["pinnedWidgets"].as_array().is_some_and(|pinned| {
+                pinned.len() <= 4
+                    && pinned.iter().all(|w| {
+                        listed(w, "widgets")
+                            && w != &json!("clock")
+                            && w != &json!("companion")
+                    })
+                    && pinned
+                        .iter()
+                        .enumerate()
+                        .all(|(i, w)| !pinned[..i].contains(w))
+            }),
+        400,
+        "Invalid pinned widgets",
+    )?;
+    require(
+        next.get("weatherMode").is_none()
+            || member(&next["weatherMode"], &["notable", "always"]),
+        400,
+        "Invalid weather mode",
+    )?;
+    require(
+        next.get("workCard").is_none() || next["workCard"].is_boolean(),
+        400,
+        "Invalid work card setting",
+    )?;
+    require(
+        next.get("focusMinutes").is_none()
+            || safe_integer(&next["focusMinutes"]).is_some_and(|n| (5..=90).contains(&n)),
+        400,
+        "Invalid focus timer minutes",
+    )?;
+    require(
+        next.get("pinnedNote").is_none()
+            || next["pinnedNote"]
+                .as_str()
+                .is_some_and(|s| s.chars().count() <= 240),
+        400,
+        "Invalid pinned note",
+    )?;
     let ambient = own_merge(&constants()["ambientDefault"], &next["ambient"]);
     require(
         next.get("ambient").is_none() || next["ambient"].is_object(),

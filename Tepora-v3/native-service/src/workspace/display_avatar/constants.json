@@ -48,7 +48,12 @@
     "news",
     "media",
     "work",
-    "artifact"
+    "artifact",
+    "focus",
+    "schedule",
+    "memo",
+    "system",
+    "almanac"
   ],
   "bodies": [
     {
