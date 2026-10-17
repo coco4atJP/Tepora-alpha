@@ -63,14 +63,30 @@ try{
  });
  await check('speech caching preserves nodes while clipping updates on same-breakpoint resize',async()=>{
   await viewport(1440);await nav('home');
-  await evaluate('uiTest.state.dialogue.messages=[{id:"layout-reply",role:"assistant",at:new Date().toISOString(),content:"あ".repeat(80)}];uiTest.paintSpeech();window.savedSpeech=document.querySelector(".speech-text")');
+  const wide=await evaluate(`(()=>{
+   const reply={id:"layout-reply",role:"assistant",at:new Date().toISOString(),content:""};
+   uiTest.state.dialogue.messages=[reply];
+   const measure=length=>{
+    reply.content="あ".repeat(length);uiTest.paintSpeech();
+    const body=document.querySelector(".speech-text");
+    return {contentLength:length,clientWidth:body.clientWidth,clientHeight:body.clientHeight,scrollHeight:body.scrollHeight,actual:body.scrollHeight>body.clientHeight+2};
+   };
+   // Font metrics vary by platform. Find the longest unclipped caption with at most 10 search probes and one final measurement.
+   let low=0,high=513;
+   while(high-low>1){const mid=Math.floor((low+high)/2);if(measure(mid).actual)high=mid;else low=mid;}
+   const measured=measure(low);window.savedSpeech=document.querySelector(".speech-text");return measured;
+  })()`);
+  assert.ok(wide.contentLength>0&&wide.clientWidth>0&&wide.clientHeight>0,`wide fixture must contain visible text: ${JSON.stringify(wide)}`);
+  assert.equal(wide.actual,false,`wide fixture must start unclipped: ${JSON.stringify(wide)}`);
   let clippedAtWide;
   for(const width of [1440,920,1440]){
    await viewport(width);
-   const actual=await evaluate('(()=>{const el=document.querySelector("#speech"),body=el.querySelector(".speech-text");return {cached:body===window.savedSpeech,clipped:el.classList.contains("is-clipped"),actual:body.scrollHeight>body.clientHeight+2};})()');
+   const actual=await evaluate('(()=>{const el=document.querySelector("#speech"),body=el.querySelector(".speech-text");return {cached:body===window.savedSpeech,clipped:el.classList.contains("is-clipped"),clientWidth:body.clientWidth,clientHeight:body.clientHeight,scrollHeight:body.scrollHeight,actual:body.scrollHeight>body.clientHeight+2};})()');
+   const dimensions=JSON.stringify({width,contentLength:wide.contentLength,wide,actual});
    assert.equal(actual.cached,true,'unchanged speech must not replace DOM');
-   assert.equal(actual.clipped,actual.actual,`clipping at ${width}px`);
-   if(width===920)assert.notEqual(actual.actual,clippedAtWide,'fixture must cross the clipping boundary');else clippedAtWide=actual.actual;
+   assert.equal(actual.clipped,actual.actual,`clipping at ${width}px: ${dimensions}`);
+   if(width===920)assert.notEqual(actual.actual,clippedAtWide,`fixture must cross the clipping boundary: ${dimensions}`);
+   else{assert.equal(actual.actual,wide.actual,`wide clipping must be restored: ${dimensions}`);clippedAtWide=actual.actual;}
   }
  });
  await check('only a panel containing the focused job approvals hides duplicate bench controls',async()=>{
