@@ -169,6 +169,10 @@ energy or a residual-energy threshold never initiates interruption.
 A surviving candidate **pauses**, rather than cancels, its exact TTS element.
 Quiet ownership uses that exact element's synchronous `paused` flag before
 awaiting worker cancellation, independently of the browser's queued `pause` event.
+If data is still loading, that owned pause may reject the initial `play()` with
+`AbortError`. Only this expected abort preserves the pause handle; unrelated
+play failures still release output and ask for manual playback. A late expected
+abort also cannot quiet a readout that its valid handle has already resumed.
 After the configured 800–3000 ms acoustic tail (default 1200), a newly reset mono
 wake session requires another wake phrase. No old PCM or detector state is reused.
 A second wake cancels only the paused readout and opens ASR for a new utterance.

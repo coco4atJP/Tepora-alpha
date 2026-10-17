@@ -67,12 +67,13 @@ jobs:
         env:
           PYTHON: python
         run: npm run quality
-      - name: Offline monitor and layout browser regressions
+      - name: Offline monitor, layout and pending playback regressions
         if: runner.os == 'Linux'
         working-directory: Tepora-v3
         run: |
           node tests/browser-monitor.mjs
           node tests/browser-ui-layout.mjs
+          node tests/browser-pending-play.mjs "$RUNNER_TEMP/tepora-pending-play"
       - name: Failed regression stage diagnostics
         if: failure()
         env:
@@ -128,5 +129,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tepora-v3-regression-${{ matrix.os }}
-          path: Tepora-v3/validation/
+          path: |
+            Tepora-v3/validation/
+            ${{ runner.temp }}/tepora-pending-play/
           if-no-files-found: warn

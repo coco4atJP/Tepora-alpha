@@ -1,5 +1,47 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Pending initial playback ownership (2026-10-17 UTC)
+
+Review of `9113561` found that pausing an HTMLAudioElement before its initial
+`play()` settled rejected that request with AbortError. The generic failure
+handler invalidated the owned interruption handle, so confirmation timeout
+returned to idle while the fully loaded readout stayed paused.
+
+`tests/browser-pending-play.mjs` gates actual loopback WAV delivery until after
+the candidate pause. It returns the native play promise unchanged, observes its
+AbortError and then releases the WAV. Before the repair it reproduces
+`readyState=4`, `paused=true`, `state=idle`; the already-playing control passes.
+After the repair **2/2** native browser cases resume the same element and return
+to barge listening without ASR, another generation, notices or runtime errors.
+An exact initial-play marker records the owned pause and is removed when that
+promise settles; only its expected AbortError bypasses generic failure cleanup.
+Manual controls, cancellation/replacement and genuine autoplay refusal retain
+their existing ownership fences.
+
+Five additional Node checks cover pending and already-playing output, late
+expected abort after resume, unrelated AbortError and genuine autoplay denial.
+The capability suite passes **67/67**, with **266/266** focused voice checks,
+existing native-media regressions **6/6**, rendered UI **13/13**, **299** syntax
+modules and preview build passing. The new real-browser regression also runs
+in the Linux CI browser step; its screenshots/results are included in that
+run's validation artifact. Exact-head OS CI results are recorded on
+[PR #248](https://github.com/coco4atJP/Tepora-alpha/pull/248).
+
+The first broad local run at UTC 23:52 exposed an existing budget-fixture clock
+dependency: its ten-minute retry crossed midnight and correctly reset the daily
+budget, violating the same-day test expectation. That fixture now uses fixed
+UTC noon, and a separate 23:55 → 00:05 case verifies new-day admission while
+preserving previous-day usage. Runtime budget logic and wait limits are unchanged.
+All **34/34** runtime fixtures pass. Broad local `npm test` then passes
+**1019/1023**, zero skips; the four remaining failures are the previously
+recorded three Chromium SUID sandbox starts and one read-only bwrap UID map.
+
+The local browser uses an isolated 1280×900 Chromium profile, muted silent WAV,
+explicit autoplay permission and `--no-sandbox`. HTTP(S) is restricted to the
+fixture's exact loopback origin. Both synthetic microphones close. This verifies
+browser playback/event ownership, not a real microphone, model, AEC or native
+WebView. No model download, credentials or paid inference are used.
+
 ## Voice integration boundary repairs (2026-10-17 UTC)
 
 Independent review of `017d378` found three defects beyond the earlier fixtures:

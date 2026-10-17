@@ -8,7 +8,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  const opts=(entries,selected)=>entries.map(([v,l])=>`<option value="${escape(v)}" ${v===selected?'selected':''}>${escape(l)}</option>`).join('');
  const editable=p=>Object.fromEntries(['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','timeoutMs','maxParallel','resource','voice','dimensions','assetOrigins'].filter(k=>p[k]!==undefined&&p[k]!==null).map(k=>[k,p[k]]));
  let config={revision:0,profiles:[],routes:{}},selected=null,jobs=[],pending=null,loginTimer=null,querySerial=0,playing=null,pendingPlaybackId=null,speechEpoch=0,readoutRequest=null,readoutStarting=false,playbackTimer=null,bargePause=null;
- const bargeResumes=new WeakMap();
+ const bargeResumes=new WeakMap(),initialPlays=new WeakMap();
  const guard=()=>{if(!isPrivate())throw Error('個人表示に戻してから開いてください。');};
  async function refresh(){config=await bridge.request('/api/capabilities');onChanged({capabilities:config});}
  function reportError(e){if(isPrivate())notice(e.message||String(e));}
@@ -85,6 +85,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  function pauseForBarge(){
   const audio=playing;
   if(!audio||audio.tagName!=='AUDIO'||audio.paused||audio.ended||audio.error||audio.muted||!(audio.volume>0)||!audio.isConnected||!isPrivate()||document.hidden||bargeResumes.has(audio))return null;
+  const initial=initialPlays.get(audio);if(initial)initial.pausedByBarge=true;
   const token={audio,epoch:speechEpoch,ownPause:true,resuming:false};bargePause=token;audio.pause();
   return {
    async resume(){
@@ -115,8 +116,12 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
   audio.onpause=()=>{if(current()){if(bargePause?.audio===audio&&bargePause.ownPause)bargePause.ownPause=false;else invalidateBarge();quiet();}};
   audio.onended=audio.onerror=()=>{if(current()){invalidateBarge();quiet();}};
   for(const name of ['seeking','ratechange','pointerdown','keydown','input','change'])audio.addEventListener(name,()=>{if(current())invalidateBarge();});
-  onPlayback(true,audio);
-  audio.play().catch(()=>{if(current()){invalidateBarge();quiet();notice('音声の準備ができました。再生ボタンを押してください。');}});
+  const initial={pausedByBarge:false};initialPlays.set(audio,initial);onPlayback(true,audio);
+  audio.play().catch(error=>{
+   // Pausing before data arrives rejects this exact play request. That expected
+   // abort must not revoke the pause handle or quiet a later owned resume.
+   if(current()&&!(error?.name==='AbortError'&&initial.pausedByBarge)){invalidateBarge();quiet();notice('音声の準備ができました。再生ボタンを押してください。');}
+  }).finally(()=>{if(initialPlays.get(audio)===initial)initialPlays.delete(audio);});
  }
  function stopPlayback(){invalidateBarge();clearTimeout(playbackTimer);playbackTimer=null;speechEpoch++;readoutStarting=false;pendingPlaybackId=null;const previous=playing;playing=null;previous?.pause();for(const el of document.querySelectorAll('audio[data-media-id],video[data-media-id]'))el.pause();$('#ability-now-playing')?.remove();onPlayback(false,null);}
  function settleReadout(job){

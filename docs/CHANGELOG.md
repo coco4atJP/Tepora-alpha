@@ -2,6 +2,8 @@
 
 ## Voice integration boundary repairs (beta.11)
 
+- Preserve owned pause/resume when a candidate aborts initial playback before data arrives; cover delayed loopback WAV and already-playing native elements
+- Pin same-day budget retry fixtures to UTC noon and separately verify daily budget rollover, avoiding a wall-clock-dependent failure near midnight
 - Frame Node speech-worker JSON by UTF-8 byte Content-Length and test the shipped Python parser across ASR/wake/barge and cancellation
 - Start microphone watchdog clocks after permission/context startup and handle native queued pause events without stalling interruption
 - Reject busy Whisper finishes before capturing a waveform or waiting for the decoder; bound cancelled-session retention and verify real AudioSessions recovery

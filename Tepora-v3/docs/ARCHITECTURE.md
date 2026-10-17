@@ -148,7 +148,9 @@ Endpoint Whisper admits one decode without queued finish waveforms;
 busy finish discards that capture with HTTP 429 while a cancelled native call
 drains. Browser watchdog clocks start after capture startup, and interruption
 establishes quiet ownership from the exact element's synchronous paused flag
-before its queued media event. Provider routing and worker permissions are unchanged.
+before its queued media event. An owned pause also marks its pending initial
+play request so an expected AbortError cannot revoke resume ownership.
+Provider routing and worker permissions are unchanged.
 
 ## Desktop, speech and verification
 

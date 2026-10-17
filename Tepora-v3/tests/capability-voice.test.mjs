@@ -243,6 +243,33 @@ test('barge pause resumes the same audio without generating another request',asy
  assert.equal(await handle.resume(),false);handle.cancel();assert.equal(audio.paused,false,'consumed handle cannot stop resumed audio');
 });
 
+for(const pending of [true,false])test(`barge pause preserves ${pending?'pending initial play AbortError':'already-playing'} ownership until resume`,async t=>{
+ const f=fixture(t),initial=deferred();if(pending)f.nextPlay=initial;f.jobs=[ready()];await f.ui.readReply();await settle();
+ const audio=f.audios[0],handle=f.ui.pauseForBarge();assert.ok(handle);assert.equal(audio.paused,true);
+ if(pending){initial.reject(Object.assign(Error('The play request was interrupted by pause'),{name:'AbortError'}));await settle();f.nextPlay=null;}
+ assert.equal(await handle.resume(),true);assert.equal(audio.paused,false);assert.equal(f.speaking,true);
+ assert.equal(f.notices.length,0);assert.equal(f.posts().length,1);assert.equal(f.audios.length,1);
+});
+
+test('an expected initial play abort arriving after owned resume cannot quiet resumed output',async t=>{
+ const f=fixture(t),initial=deferred();f.nextPlay=initial;f.jobs=[ready()];await f.ui.readReply();
+ const audio=f.audios[0],handle=f.ui.pauseForBarge();f.nextPlay=null;assert.equal(await handle.resume(),true);
+ initial.reject(Object.assign(Error('Delayed owned pause rejection'),{name:'AbortError'}));await settle();
+ assert.equal(audio.paused,false);assert.equal(f.speaking,true);assert.equal(f.notices.length,0);
+});
+
+test('an initial play AbortError without a barge pause still releases output and reports failure',async t=>{
+ const f=fixture(t),initial=deferred();f.nextPlay=initial;f.jobs=[ready()];await f.ui.readReply();
+ initial.reject(Object.assign(Error('Unrelated interruption'),{name:'AbortError'}));await settle();
+ assert.equal(f.speaking,false);assert.equal(f.notices.length,1);
+});
+
+test('a genuine initial autoplay refusal invalidates an owned barge handle',async t=>{
+ const f=fixture(t),initial=deferred();f.nextPlay=initial;f.jobs=[ready()];await f.ui.readReply();
+ const audio=f.audios[0],handle=f.ui.pauseForBarge();initial.reject(Object.assign(Error('Autoplay denied'),{name:'NotAllowedError'}));await settle();f.nextPlay=null;
+ assert.equal(await handle.resume(),false);assert.equal(audio.paused,true);assert.equal(f.speaking,false);assert.equal(f.notices.length,1);
+});
+
 test('barge cancellation stops only its owned output and ignores later ready events',async t=>{
  const f=fixture(t);f.jobs=[ready()];await f.ui.readReply();const handle=f.ui.pauseForBarge();handle.cancel();
  assert.equal(f.speaking,false);assert.equal(await handle.resume(),false);f.emit(ready());assert.equal(f.audios.length,1);
