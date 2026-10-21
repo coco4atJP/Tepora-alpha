@@ -1,5 +1,85 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Real-model acceptance benchmark
+
+The selectable matrix also includes MiMo V2.6 Flash and Muse Spark 1.3 Contributor. MiMo uses Chat Completions; Muse uses Responses, including native tool-call replay and nested streamed usage accounting. Their current Go endpoints and SDK round trips are covered by the deterministic regression; their actual API results must be recorded separately.
+
+The [benchmark method](BENCHMARK.md) covers 22 basic behaviors with explicit cloud consent, real Pi SDK registrations and Jev-selected Computer Use actions. It is separate from `quality:full`: local fixture success does not imply real-provider success. Results record source fingerprints, independent exact oracles, latency, provider response log IDs, known/unknown usage and missing capabilities. Initial manual-protocol pilot runs are exploratory evidence and do not certify the Pi path. The corrected connection audit verified actual Pi native responses for all three requested models; the user supplied matching Console Logs evidence (2026-10-21 11:21 JST, three HTTP 200 requests). Ongoing provider failures remain separate from registration correctness. The new deterministic OpenCode regression exercises real SDK login, account refresh, three current model IDs, credential/session/client headers and native reasoning/tool-result continuation without external inference.
+
+## macOS signing and current browser gates
+
+`npm run build` now requests a complete ad-hoc macOS signature instead of leaving
+the linker signature on an unsealed app. Hardened runtime remains enabled; the
+entitlements allow V8 JIT and the separately signed Rust addon. Tauri applies
+the file to its executable signing targets. Developer ID signing can override
+the default with `APPLE_SIGNING_IDENTITY`; Apple notarization credentials and
+a valid signing identity are separate release requirements. Ad-hoc signing does
+not establish a notarized, Gatekeeper-approved public distribution.
+
+The [post-build verifier](../scripts/verify-macos-bundle.mjs) checks the complete
+resource seal with `codesign --verify --deep --strict`, verifies the Node/addon
+signatures, then executes V8 and loads the actual addon without opening user data.
+The macOS CI smoke applies the same verifier to the installed copy from the DMG.
+A [macOS regression](../tests/macos-signing.test.mjs) signs a temporary real app,
+accepts it, and rejects a subsequent resource modification; it skips other OSes.
+Native addon/runtime staging replaces files atomically rather than rewriting
+an executable inode, preserving mapped bytes and avoiding stale macOS signature
+state during debug/release switches. A failed copy preserves the prior binary.
+
+The Computer Use gate exposed Chrome's macOS updater retaining stderr after the
+browser itself exits normally. Shutdown still waits for `close` before releasing
+the owned profile, with a bounded 30-second drain for an already exited process;
+the live-process kill bound remains five seconds. Clock-driven lifecycle tests
+cover the extra drain and retain the existing blocked-restart/failed-kill checks.
+
+The routing E2E saves and reopens the current Computer Use form. The lamp E2E
+waits for the asynchronous weather subtitle. The capability E2E uses unambiguous
+accessible button names and both current OAuth entry points, requiring preview
+authentication rejection without network authentication requests or fake panels.
+Native inspection also exposed stale legacy permission rendering in Settings;
+the switch now displays the effective network policy, matching the provider
+dialog. Routing E2E covers both enable and disable without changing policy defaults.
+The gate remains `npm run quality:full`; set `PYTHON` to a Python environment with
+Playwright and `CHROMIUM_PATH` to an installed Chrome when needed. These local
+browser/model fixtures do not certify real OAuth accounts or paid model quality.
+
+Local macOS arm64 native inspection on 2026-10-21 JST used the signed release
+Tauri app and its actual WebView, with the existing Accessibility/Screen Recording
+permissions. Home, Settings and the provider dialog rendered and accepted native
+Accessibility actions. Both permission switches agreed without changing their
+values. At a 390×844 native window, the composer, bottom navigation and connection
+controls remained visible; the window was restored to 1440×960 before Command-Q
+exited with code zero and empty startup stderr. Screenshots and AX snapshots were
+recorded separately from Chrome E2E. This is scoped screen/launch/exit acceptance,
+not real-account login, microphone/audio, full-screen or long-duration acceptance.
+
+## Compatibility-host input and download regressions (2026-10-21 JST)
+
+The ordinary Node/Tauri service creates attachment copies exclusively, retrying
+only filename collisions. Parallel same-named uploads and later attachments
+retain distinct files and their original bytes. Concurrent retries with the
+same request ID share preparation and delivery; successful receipts retain the
+existing 500-entry service-local cache. Failed preparation releases the ID for
+an explicit retry. This cache does not establish deduplication across restarts.
+
+[Input admission fixtures](../tests/input-admission.test.mjs) exercise the real
+authenticated HTTP routes, SQLite transcripts and temporary files with a
+synthetic model boundary. They cover parallel filenames, existing-file
+preservation, concurrent/later retries and recovery after a filesystem failure.
+[Session download fixtures](../tests/session-files-http.test.mjs) reject file
+and directory links outside the canonical session root, preserve internal links
+and linked roots, and retain empty-file, directory and 50 MB bounds. Windows
+directory cases use junctions without requiring file-symlink privileges; direct
+file-symlink cases run on Unix. Downloads check the opened file and enforce the
+byte limit while reading before publishing a successful response.
+
+The [runtime budget fixtures](../tests/rust-runtime.test.mjs) now pin same-day
+rechecks to UTC noon. A separate 23:55-to-00:05 case verifies that a daily-budget
+wait resumes on the next UTC day without raising the limit. The prior real-time
+fixture could fail during the ten minutes before UTC midnight. These fixtures
+use no real provider account, paid inference or user data; cross-platform CI and
+installer acceptance remain separate checks.
+
 ## pi-ai refresh durability and saved catalogs (2026-10-17 UTC)
 
 Focused local checks under Node **24.19.0** passed **19 tests**: seven inert

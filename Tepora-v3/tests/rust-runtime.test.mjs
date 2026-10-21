@@ -38,9 +38,9 @@ function retryTimers(t,clock){
  return {records,advanceTo(timer){clock.now=timer.deadline;timer.fire();}};
 }
 
-async function fixture(t,{settings={},timers=false}={}){
+async function fixture(t,{settings={},timers=false,now=Date.now()}={}){
  const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-rust-runtime-'));
- const clock={now:Date.now()},gates=[],events=[];
+ const clock={now},gates=[],events=[];
  const f={dir,clock,events,gate(){const gate=deferred();gates.push(gate);return gate;}};
  if(timers)f.timers=retryTimers(t,clock);
  function open(){
@@ -126,7 +126,8 @@ test('Rust runtime: needsStep preserves passive/event/checkpoint/clear and last-
 
 test('Rust runtime: session and daily budgets retry once per token and resume on a raised limit',async t=>{
  for(const kind of ['sessionUsd','dailyUsd'])await t.test(kind,async t=>{
-  const f=await fixture(t,{settings:{budget:{[kind]:1}},timers:true}),{rt}=f,s=f.session();let steps=0;
+  // This case exercises a same-day recheck; UTC rollover has its own case below.
+  const f=await fixture(t,{settings:{budget:{[kind]:1}},timers:true,now:Date.parse('2026-10-21T12:00:00Z')}),{rt}=f,s=f.session();let steps=0;
   if(kind==='sessionUsd')rt.sessions.update(s.id,{stats:{...s.stats,cost:1}});
   else f.store.value('agent-usage:'+new Date(f.clock.now).toISOString().slice(0,10),{cost:1});
   rt.loop.step=async id=>{steps++;return answer(rt,id);};rt.wake(s.id);
@@ -139,6 +140,19 @@ test('Rust runtime: session and daily budgets retry once per token and resume on
   assert.equal(second.cleared,true);assert.equal(steps,1);assert.equal(rt.timers.has(s.id),false);
   first.fire();second.fire();await delay(20);assert.equal(steps,1);assert.equal(finished(f,s.id).length,1);
  });
+});
+
+test('Rust runtime: a daily budget wait resumes after UTC midnight without raising the limit',async t=>{
+ const f=await fixture(t,{settings:{budget:{dailyUsd:1}},timers:true,now:Date.parse('2026-10-21T23:55:00Z')}),{rt}=f,s=f.session();let steps=0;
+ f.store.value('agent-usage:2026-10-21',{cost:1});
+ rt.loop.step=async id=>{steps++;return answer(rt,id);};rt.wake(s.id);
+ await until(()=>rt.timers.has(s.id)&&!rt.runs.has(s.id),'daily budget release');
+ const timer=rt.timers.get(s.id);assert.equal(timer.ms,600000);assert.equal(steps,0);
+ f.timers.advanceTo(timer);
+ await until(()=>rt.sessions.get(s.id).status==='done'&&!rt.runs.has(s.id),'new UTC day continuation');
+ assert.equal(new Date(f.clock.now).toISOString(),'2026-10-22T00:05:00.000Z');
+ assert.equal(steps,1);assert.equal(rt.timers.has(s.id),false);assert.equal(rt.settings().budget.dailyUsd,1);
+ timer.fire();await delay(20);assert.equal(steps,1);assert.equal(finished(f,s.id).length,1);
 });
 
 test('Rust runtime: replaced, stopped and closed provider-retry callbacks cannot admit work',async t=>{

@@ -5,7 +5,7 @@ import {Worker} from 'node:worker_threads';
 import {randomUUID,createHash} from 'node:crypto';
 import path from 'node:path';
 import {existsSync,lstatSync,readFileSync,openSync,closeSync,constants} from 'node:fs';
-import {builtinModels} from '@earendil-works/pi-ai/providers/all';
+import {teporaPiModels} from './pi-catalog.mjs';
 import {invariant} from './policy.mjs';
 import {insideEndpoint,normalURL,NetworkBlocked} from './network-policy.mjs';
 import {ProviderError,classifyResponse} from './provider-protocols.mjs';
@@ -13,7 +13,7 @@ import {atomicVault} from './provider-auth.mjs';
 import {checkedPiModels,storedPiCatalog,supportedPiApi} from './pi-model-catalog.mjs';
 
 export const PI_VERSION='1.3.0';
-const catalog=builtinModels();
+const catalog=teporaPiModels();
 const accountPattern=/^pi-[a-f0-9-]{36}$/;
 const authOrigins={
  openai:['https://auth.openai.com'], 'openai-codex':['https://auth.openai.com'],

@@ -126,7 +126,11 @@ export class Browser{
    const done=error=>{if(settled)return;settled=true;cancel(timer);error?reject(error):resolve();};
    const kill=()=>{
     if(settled)return;
-    timer=schedule(()=>done(new Error('The previous browser process did not stop; its profile is still in use.')),5000);
+    // Chrome's macOS updater can inherit stderr and outlive a normally exited
+    // browser. Keep the close barrier (and profile ownership), allowing a bounded
+    // drain for that case. An unresponsive live browser retains the 5 s kill bound.
+    const drainMs=(proc.exitCode!==null||proc.signalCode)?30000:5000;
+    timer=schedule(()=>done(new Error('The previous browser process did not stop; its profile is still in use.')),drainMs);
     // An exited child can still own open stdio. Wait for close in that case too.
     if(proc.pid&&proc.exitCode===null&&!proc.signalCode)try{proc.kill('SIGKILL');}catch(error){done(error);}
    };

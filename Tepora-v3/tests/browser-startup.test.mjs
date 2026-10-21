@@ -113,6 +113,27 @@ test('shutdown waits for close when exit precedes the Browser.close response',as
  assert.deepEqual(proc.signals,[]);assert.equal(f.timers.every(timer=>timer.cleared),true);
 });
 
+test('a normally exited browser gets a bounded stdio drain without freeing its profile early',async t=>{
+ let f;f=await fixture(t,{connect:()=>({ready:Promise.resolve(),closed:false,on:()=>{},close(){this.closed=true;},send:async method=>{
+  if(method==='Browser.close')f.children[0].exit();return {};
+ }})});
+ const proc=await launch(f);let stopped=false;const closing=f.browser.close().then(()=>{stopped=true;});await flush();
+ f.timers.at(-1).callback();
+ assert.equal(f.timers.at(-1).delay,30000,'Chrome updater descendants can retain stderr after the browser exits');
+ assert.equal(stopped,false);assert.equal(f.browser.proc,proc);assert.deepEqual(proc.signals,[]);
+ proc.emit('close',0);await closing;assert.equal(stopped,true);assert.equal(f.browser.proc,null);
+ assert.equal(f.timers.at(-1).cleared,true);
+});
+
+test('the post-exit stdio drain times out and keeps the profile owned until close',async t=>{
+ let f;f=await fixture(t,{connect:()=>({ready:Promise.resolve(),closed:false,on:()=>{},close(){this.closed=true;},send:async method=>{
+  if(method==='Browser.close')f.children[0].exit();return {};
+ }})});
+ const proc=await launch(f),failed=assert.rejects(f.browser.close(),/previous browser process did not stop/);await flush();
+ f.timers.at(-1).callback();assert.equal(f.timers.at(-1).delay,30000);f.timers.at(-1).callback();await failed;
+ assert.equal(f.browser.proc,proc);assert.deepEqual(proc.signals,[]);proc.emit('close',0);assert.equal(f.browser.proc,null);
+});
+
 test('shared shutdown blocks restart until close after SIGKILL, and stale callbacks cannot touch the replacement',async t=>{
  const f=await fixture(t),proc=await launch(f);proc.autoExit=false;
  let done=false;

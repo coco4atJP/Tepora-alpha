@@ -3,20 +3,21 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 import json,sys,shutil,os
 root=Path(sys.argv[1]);out=Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
-checks=[];errors=[]
+checks=[];errors=[];auth_requests=[]
 with sync_playwright() as p:
  executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome')
  browser=p.chromium.launch(**({'executable_path':executable} if executable else {}),headless=True,args=['--no-sandbox'])
  page=browser.new_page(viewport={'width':1440,'height':1000},color_scheme='light')
  page.set_default_timeout(4000)
  page.on('pageerror',lambda e:errors.append(str(e)))
+ page.on('request',lambda r:auth_requests.append(r.url) if any(s in r.url for s in ['/api/provider-auth','/api/pi/auth','/api/codex/login']) else None)
  def close():
   # Typed text is never discarded silently: the sheet asks first, and the test confirms.
   page.get_by_role('button',name='閉じる',exact=True).click()
   if page.locator('.discard-bar').count():page.get_by_role('button',name='破棄して閉じる',exact=True).click()
  page.set_content((root/'tepora-v3-preview.html').read_text(),wait_until='load')
  page.get_by_role('button',name='設定',exact=True).click()
- page.locator('[data-action=abilities-open]').click()
+ page.get_by_role('button',name='能力の接続を管理',exact=True).click()
  page.get_by_role('dialog').wait_for()
  print('abilities sheet open',flush=True)
  for role,preset,model in [('decision','laya','multilingual'),('embedding','embedding','local-embedding'),('tts','tts','local-speech'),('image','image','image-model')]:
@@ -76,16 +77,20 @@ with sync_playwright() as p:
  page.screenshot(path=str(out/'16-model-catalog.png'))
  checks.append('Offline model metadata import/search does not execute provider package names')
  close()
- page.locator('[data-action=codex-settings]').click()
- page.get_by_role('button',name='ChatGPTの契約でサインイン',exact=True).click()
- page.screenshot(path=str(out/'17-managed-login.png'))
- assert page.get_by_role('button',name='デバイスコードで接続').is_visible()
- page.get_by_role('button',name='デバイスコードで接続').click()
- assert 'プレビュー' in page.locator('#toast').inner_text()
- checks.append('Managed Codex subscription sign-in is distinct from copying an API key; preview does not authenticate')
+ page.get_by_role('button',name='接続先と役割',exact=True).click()
+ page.get_by_role('button',name='アカウント / OAuth',exact=True).click()
+ page.wait_for_function("document.querySelector('#toast').textContent.includes('プレビューでは実アカウントへログインしません')")
+ assert page.get_by_role('dialog',name='知能と通信の使い分け').is_visible()
+ assert not page.locator('#pi-auth-panel').count()
+ page.get_by_role('button',name='従来のChatGPT接続',exact=True).click()
+ page.wait_for_function("document.querySelector('#toast').textContent.includes('プレビューではOAuthログインや実アカウント接続は行いません')")
+ assert not page.locator('#provider-auth-panel').count()
+ assert not auth_requests,auth_requests
+ page.screenshot(path=str(out/'17-preview-account-guard.png'))
+ checks.append('Current OAuth and legacy ChatGPT entry points reject preview authentication without auth requests or a fake login panel')
  close()
  page.set_viewport_size({'width':390,'height':844})
- page.locator('[data-action=abilities-open]').click()
+ page.get_by_role('button',name='能力の接続を管理',exact=True).click()
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
  page.wait_for_function("!document.querySelector('#toast').classList.contains('show')",timeout=8000)
  page.screenshot(path=str(out/'18-mobile-abilities.png'))
@@ -98,5 +103,5 @@ with sync_playwright() as p:
  assert not errors,errors
  browser.close()
 result={'checks':checks,'errors':errors,'realModels':False,'realAccounts':False,'browser':'Chromium via Playwright','method':'Self-contained preview only; real backend transports are tested separately','viewports':[[1440,1000],[390,844]]}
-(out/'beta8-browser-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+(out/'beta11-browser-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
 print(json.dumps(result,ensure_ascii=False,indent=2))

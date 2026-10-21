@@ -23,6 +23,13 @@ with sync_playwright() as p:
   page.get_by_role('button',name='共有表示（個人の内容を隠す）',exact=True).click()
  providers()
  assert 'ローカルの継続先を追加' in page.locator('.offline-floor').inner_text()
+ for enabled in [True,False]:
+  page.locator('#internet-tools').set_checked(enabled)
+  page.get_by_role('button',name='閉じる',exact=True).click()
+  page.wait_for_function("expected=>document.querySelector('[data-action=allow-network]').checked===expected",arg=enabled)
+  providers()
+  assert page.locator('#internet-tools').is_checked()==enabled
+ checks.append('Settings and provider dialog both show the effective network permission after enabling and disabling it')
  def add(preset,id,name,model,vision=False,lan=False):
   page.get_by_role('button',name='ローカル / カスタム接続',exact=True).click()
   page.locator('#provider-preset').select_option(preset)
@@ -96,11 +103,20 @@ with sync_playwright() as p:
  page.locator('[data-action=computer-launch]').click()
  page.locator('#computer-form').wait_for()
  page.locator('#computer-form [name=enabled]').check()
- page.locator('#computer-form [name=python]').fill('python')
- page.locator('[name=origins]').fill('https://example.com')
+ page.locator('#computer-form [name=control]').select_option('direct')
+ page.locator('#computer-form [name=headless]').check()
+ page.locator('#computer-form [name=browserExecutable]').fill('/fixture/chromium')
+ page.locator('#computer-form [name=maxSteps]').fill('12')
  page.screenshot(path=str(out/'05-computer-settings.png'))
  page.get_by_role('button',name='設定を保存',exact=True).click()
- checks.append('explicit scoped Computer Use configuration; saving preview settings does not start any process')
+ page.locator('[data-action=computer-launch]').click()
+ assert page.locator('#computer-form [name=enabled]').is_checked()
+ assert page.locator('#computer-form [name=control]').input_value()=='direct'
+ assert page.locator('#computer-form [name=headless]').is_checked()
+ assert page.locator('#computer-form [name=browserExecutable]').input_value()=='/fixture/chromium'
+ assert page.locator('#computer-form [name=maxSteps]').input_value()=='12'
+ page.keyboard.press('Escape')
+ checks.append('current Computer Use mode, headless browser, executable and step budget persist on reopen without starting any process')
  page.set_viewport_size({'width':390,'height':844})
  providers()
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')

@@ -60,6 +60,7 @@ npm run test:native        # ネイティブサービスの単体/統合試験
 npm run doctor             # 環境診断
 npm test                   # V3 Nodeテストとルート起動テスト
 npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
+npm run quality:full       # 上記にブラウザE2E・Computer Use連携を追加（Playwrightが必要）
 npm run preview:build      # モデル不要の画面プレビュー
 npm ci --prefix Tepora-v3 --ignore-scripts  # pi-aiとネイティブ用CLI
 npm run desktop            # Tauri開発起動
@@ -67,6 +68,10 @@ npm run build              # Windows/macOSネイティブパッケージ
 ```
 
 標準検証にはPython 3が必要です。ネイティブビルドにはRust stableとOSごとのTauriビルド環境が必要です。Taskを利用する場合も、`task dev`、`task quality`、`task build` は同じV3のコマンドを実行します。
+
+macOSビルドは既定でアドホック署名を行い、アプリのリソース署名と同梱Node/Rustの読み込みを検証します。一般配布用のDeveloper ID署名・Apple公証には別途証明書と認証設定が必要です。詳細は[QA](Tepora-v3/docs/QA.md#macos-signing-and-current-browser-gates)を参照してください。
+
+実APIを使う[基本動作ベンチマーク](Tepora-v3/docs/BENCHMARK.md)を追加しました。`npm --prefix Tepora-v3 run bench:list` で対象を確認できます。DeepSeek V4.1 Flash・MiniMax M3.1 Flash・Step5・MiMo V2.6 Flash・Muse Spark 1.3 Contributorをpi-ai経由で登録し、JevによるComputer Useを含む22項目を既定で各2回測ります。有料APIの実行は通常の品質チェックとは別に明示指定します。
 
 CIは `rust/v3-core-migration` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
 

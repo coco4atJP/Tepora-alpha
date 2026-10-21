@@ -25,7 +25,8 @@ import {defaultPersonas,nextVoice,normalizePersonas} from './persona.mjs';
 /** Loopback-only service. UI and API share an origin; credentials never enter browser storage. */
 import http from 'node:http';
 import {randomBytes,timingSafeEqual,randomUUID} from 'node:crypto';
-import {readFile,mkdir,stat,readdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdir,stat,readdir,writeFile,realpath,open} from 'node:fs/promises';
+import {constants as fsConstants} from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -72,7 +73,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  await agent.tools.loadPlugins().catch(()=>{});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
  const setup=new SetupManager(store,{registry,busy:()=>agent.runs.size>0},{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions});
- const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map();
+ const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map(),pendingInputs=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
  const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.',enabled:true,source:'builtin',createdAt:new Date().toISOString()});
@@ -80,8 +81,14 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  async function saveAttachments(ids){
   const docs=resolveInputs(store,ids);if(!docs.length)return [];
   const folder=path.join(agent.workRoot,'inbox',new Date().toISOString().slice(0,10));await mkdir(folder,{recursive:true});
-  const saved=[];for(const d of docs){let name=d.name.replace(/[\\/:*?"<>|]/g,'_'),file=path.join(folder,name);for(let i=1;;i++){try{await stat(file);file=path.join(folder,name.replace(/(\.[^.]*)?$/,`-${i}$1`));}catch{break;}}
-   await writeFile(file,d.kind==='image'?Buffer.from(d.base64,'base64'):d.content);saved.push({path:file,name:d.name,kind:d.kind||'text'});}
+  const saved=[];for(const d of docs){
+   const name=d.name.replace(/[\\/:*?"<>|]/g,'_'),bytes=d.kind==='image'?Buffer.from(d.base64,'base64'):d.content;
+   for(let i=0;;i++){
+    const file=path.join(folder,i?name.replace(/(\.[^.]*)?$/,`-${i}$1`):name);
+    try{await writeFile(file,bytes,{flag:'wx'});saved.push({path:file,name:d.name,kind:d.kind||'text'});break;}
+    catch(error){if(error.code!=='EEXIST')throw error;}
+   }
+  }
   return saved;
  }
  const server=http.createServer(async(req,res)=>{
@@ -139,16 +146,25 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     const b=await body(req),input=text(b.text,'message',32000);
     invariant(b.requestId===undefined||typeof b.requestId==='string'&&/^[\w-]{8,80}$/.test(b.requestId),'Invalid request id');
     if(b.requestId&&seen.has(b.requestId))return json(res,seen.get(b.requestId),202);
+    if(b.requestId&&pendingInputs.has(b.requestId))return json(res,await pendingInputs.get(b.requestId),202);
     invariant(registry.configured,'先に「AIを接続」でモデルを登録してください。',409);
-    const files=await saveAttachments(b.attachmentIds||[]);
-    const main=agent.main(),source=b.source==='voice'?'voice':'text';
-    // Pictures go to the character as images (it sees them if its model can); every file is also on disk for work agents.
-    const images=[];for(const f of files.filter(f=>f.kind==='image').slice(0,4)){try{images.push({...await loadImage(f.path),name:f.name});}catch{}}
-    const message=files.length?`${input}\n\n[添付ファイル（このPCに保存済み）: ${files.map(f=>f.path).join(', ')}]`:input;
-    agent.send(main.id,{text:message,from:'user',kind:'message',mode:'steer',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
-    const receipt={accepted:true,sessionId:main.id,requestId:b.requestId||null};
-    if(b.requestId){seen.set(b.requestId,receipt);if(seen.size>500)seen.delete(seen.keys().next().value);}
-    return json(res,receipt,202);
+    const admission=(async()=>{
+     const files=await saveAttachments(b.attachmentIds||[]);
+     const main=agent.main(),source=b.source==='voice'?'voice':'text';
+     // Pictures go to the character as images (it sees them if its model can); every file is also on disk for work agents.
+     const images=[];for(const f of files.filter(f=>f.kind==='image').slice(0,4)){try{images.push({...await loadImage(f.path),name:f.name});}catch{}}
+     const message=files.length?`${input}\n\n[添付ファイル（このPCに保存済み）: ${files.map(f=>f.path).join(', ')}]`:input;
+     agent.send(main.id,{text:message,from:'user',kind:'message',mode:'steer',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
+     return {accepted:true,sessionId:main.id,requestId:b.requestId||null};
+    })();
+    // Reserve the id before yielding; successful receipts retain the existing
+    // bounded cache, while failed preparation releases the id for an explicit retry.
+    if(b.requestId)pendingInputs.set(b.requestId,admission);
+    try{
+     const receipt=await admission;
+     if(b.requestId){seen.set(b.requestId,receipt);if(seen.size>500)seen.delete(seen.keys().next().value);}
+     return json(res,receipt,202);
+    }finally{if(b.requestId)pendingInputs.delete(b.requestId);}
    }
    if(p==='/api/agent/sessions'&&method==='GET')return json(res,agent.sessions.list().map(({system,...s})=>s));
    if(p==='/api/agent/spawn'&&method==='POST'){const b=await body(req);invariant(registry.configured,'先にモデルを登録してください。',409);const s=await agent.spawn(agent.main(),{task:text(b.task,'task',32000),title:b.title,from:'user'});return json(res,ui.job(s),202);}
@@ -172,9 +188,17 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
      await walk(root,0);return json(res,{root,files});
     }
     if(action==='download'&&method==='GET'){
-     const root=path.resolve(s.cwd||agent.workRoot),file=path.resolve(root,String(u.searchParams.get('path')||''));invariant(file.startsWith(root+path.sep),'File is outside the session folder',403);
+     const root=await realpath(s.cwd||agent.workRoot),requested=path.resolve(root,String(u.searchParams.get('path')||''));
+     invariant(requested.startsWith(root+path.sep),'File is outside the session folder',403);
+     let file;try{file=await realpath(requested);}catch(e){if(e.code==='ENOENT')return json(res,{error:'File not found'},404);throw e;}invariant(file.startsWith(root+path.sep),'File is outside the session folder',403);
      const info=await stat(file);invariant(info.isFile()&&info.size<=50_000_000,'Download is limited to 50 MB',413);
-     res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(path.basename(file))}`,'Cache-Control':'no-store'});return res.end(await readFile(file));
+     const handle=await open(file,fsConstants.O_RDONLY|(fsConstants.O_NOFOLLOW||0));
+     try{
+      const opened=await handle.stat();invariant(opened.isFile()&&opened.size<=50_000_000,'Download is limited to 50 MB',413);
+      const chunks=[];let size=0;
+      for await(const chunk of handle.createReadStream({autoClose:false})){size+=chunk.length;invariant(size<=50_000_000,'Download is limited to 50 MB',413);chunks.push(chunk);}
+      res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(path.basename(requested))}`,'Cache-Control':'no-store'});return res.end(Buffer.concat(chunks,size));
+     }finally{await handle.close();}
     }
    }
    if(p==='/api/agent/settings'&&method==='GET')return json(res,{...agent.settings(),sandboxAvailable:detectSandbox()});

@@ -687,7 +687,7 @@ function settingsView(){
  const sections=[
   ['ai','AIとの接続',`${settingRow('会話と仕事のAI',ready?escape(s.model||providers.find(p=>p.enabled!==false)?.model||'接続済み'):'未接続',ready?'ok':'attention','',ready?`${btn('providers-launch','接続先と役割','','button secondary')}${btn('catalog-open','モデルを探す','','text-button')}`:`${btn('onboard','AIを接続する','','button')}${btn('providers-launch','接続先と役割','','text-button')}${btn('catalog-open','モデルを探す','','text-button')}`)}
    ${settingRow('通信','',null,'Teporaの通信だけを制限します。OS全体のファイアウォールではありません。',segmented('net-mode',[['online','オンライン'],['trusted-lan','信頼LANだけ'],['offline','完全オフライン']],net.mode,'通信モード'))}
-   ${settingRow('インターネットを使う道具','',null,'天気・ニュース・Web取得・専用ブラウザ',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="allow-network" ${s.allowNetwork?'checked':''} aria-label="インターネットを使う道具を許可"></label>`)}`],
+   ${settingRow('インターネットを使う道具','',null,'天気・ニュース・Web取得・専用ブラウザ',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="allow-network" ${net.internetTools?'checked':''} aria-label="インターネットを使う道具を許可"></label>`)}`],
   ['character','キャラクター',`${settingRow('姿',escape(avatarSummary()),null,'体・色・灯り・顔・小物・動きを選べます。今までのキャラクター（3Dモデル・画像・メッシュアバター）も持ち込めます。',btn('avatar-open','姿を作る','pencil','button secondary'))}
    ${settingRow('人格と口調',escape(characterName(state.dialogue)),null,'名前・振る舞い・口調・呼び名・話しかけ方。姿とは別に設定します。',btn('personas','編集','pencil','button secondary','aria-label="人格と口調を編集"'))}`],
   ['home','ホームと待機画面',`${settingRow('シーンとステージ配置',escape(MONITOR_SCENES[mcfg.scene]?.label||'カスタム'),null,'スマートモニターとしての画面構成・時計・固定ウィジェットを、実際のステージを見ながら調整できます。',`${btn('stage-customize','ステージを見ながら調整','monitor','button secondary')}`)}

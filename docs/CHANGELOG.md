@@ -1,5 +1,25 @@
 # Tepora V3 changelog
 
+## Real-provider benchmark and OpenCode registration (beta.11)
+
+- Add an opt-in 22-case, repeated acceptance benchmark with actual OpenCode main models, Jev Computer Use decisions, exact file/form oracles, browser UI checks, usage estimates and failed-session evidence
+- Register OpenCode through the actual Pi login/profile/SDK path; require the registered key, stable conversation header and Tepora client identity at dispatch, and record OpenCode response log IDs
+- Supplement Pi 1.3.0's older Go catalog with the current MiniMax M3.1 Flash and Step5 IDs and current endpoints; retain SDK adapters, authentication, native reasoning replay and account/billing boundaries
+- Extend the benchmark to MiMo V2.6 Flash and Muse Spark 1.3 Contributor, retaining their distinct Chat Completions/Responses adapters; check nested Responses usage, endpoint matching and real-SDK tool-result continuation
+- Verify delegated file creation in either the assigned parent folder or the worker folder, with worker write/read evidence and independent content checks; retain raw results from the older worker-only location oracle
+- Return 404 for not-yet-created session downloads and cover approval preconditions without mistaking a missing file for a service failure
+- Keep inference explicit, use isolated synthetic data, enforce bounded dispatch budgets and report provider failures and untested capabilities without claiming complete product certification; see [method and commands](../Tepora-v3/docs/BENCHMARK.md)
+
+## Release regression repairs (beta.11)
+
+- Preserve same-named attachment bytes, coalesce concurrent input retries and reject downloads escaping the canonical session root
+- Pin daily-budget regressions to explicit UTC instants and cover midnight recovery
+- Update browser E2E for the current Computer Use/account screens and asynchronous weather rendering
+- Show the effective network-tools permission consistently in Settings and the provider dialog
+- Seal macOS packages with a default ad-hoc signature while retaining hardened runtime; verify resources and the bundled V8/Rust addon after build and DMG installation
+- Add real signed-app resource-tampering coverage; Developer ID signing and Apple notarization still require release credentials
+- Replace staged native binaries atomically and allow a bounded post-exit Chrome stdio drain without releasing its profile early
+
 ## Configurable companion monitor (beta.11)
 
 - Add four scene/layout presets, clock fonts/sizes/seconds, an in-place customizer and up to four pinned cards, while keeping display changes separate from execution permissions

@@ -36,7 +36,7 @@ async function checkedFetch(input,init={}){
 globalThis.fetch=checkedFetch;
 // Suppress raw SDK errors (some upstream SDKs include request bodies in diagnostic logs).
 console.log=console.warn=console.error=()=>{};
-const {builtinModels}=await import('@earendil-works/pi-ai/providers/all');
+const {teporaPiModels}=await import('./pi-catalog.mjs');
 const data=workerData;
 const credentialStore={
  read:async()=>data.accountId?rpc('credential-read'):data.key?{type:'api_key',key:data.key}:undefined,
@@ -56,7 +56,7 @@ const credentialStore={
  },
  delete:async()=>{throw new Error('Logout is owned by the Tepora host');}
 };
-const models=builtinModels({credentials:credentialStore,authContext:{env:async()=>undefined,fileExists:async()=>false}});
+const models=teporaPiModels({credentials:credentialStore,authContext:{env:async()=>undefined,fileExists:async()=>false}});
 try{
  let result;
  if(data.operation==='login'){
@@ -83,7 +83,7 @@ try{
   const stream=models.streamSimple(model,toPiContext(data.messages,data.options.tools||[],model,data.profile.identity),{
    ...data.options,signal:controller.signal,fetch:checkedFetch,transport:'sse',maxRetries:0,timeoutMs:data.profile.firstByteTimeoutMs,
    onProviderStreamEvent:e=>observePiUsage(e,seen),
-   transformHeaders:headers=>({...headers,...(data.sessionHeader||{})})
+   transformHeaders:headers=>({...headers,'User-Agent':'Tepora/3.0 pi-ai/1.3.0',...(data.sessionHeader||{})})
   });
   for await(const event of stream){
    if(event.type==='text_delta'||event.type==='thinking_delta')send({type:'delta',kind:event.type,text:event.delta});
