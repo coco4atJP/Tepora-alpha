@@ -311,3 +311,23 @@ At `933a7b7b`, the Windows regression Node suite completed inside its 480,000 ms
 Each owned browser process now records its `close` event immediately after spawn. Graceful shutdown captures that process and connection before page/CDP teardown, shares one shutdown barrier, and waits for closed stdio rather than treating `exit` or a successful kill request as completion. After a five-second graceful window, it may request SIGKILL, but still waits up to five more seconds for actual close. An unreaped process rejects shutdown and retains ownership. A concurrent start waits for shutdown, and shutdown cancels pending startup/handshake waits without allowing late readiness to publish a connection.
 
 Deterministic lifecycle fixtures separately exercise exit and close, including an exit before the CDP response, delayed close after SIGKILL, repeated close/start, stale callbacks, failed kill/reap and canceled startup/handshake. The real browser fixture also uses native recursive-removal retries (`maxRetries:5`, `retryDelay:100`) for transient Windows handle release; persistent cleanup errors still fail the hook. Existing browser actions, assertions, behavioral deadlines, test selection and CI budgets are unchanged. Focused lifecycle fixtures are not a substitute for the full Windows regression and native installation/startup jobs.
+
+
+## Windows native staging against an open destination (2026-10-21 JST)
+
+At `3bd7e53`, the [Windows native job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713474/job/119062179079) failed one test, `native staging preserves a mapped old binary while publishing complete new bytes`, with `EPERM: operation not permitted, rename '...runtime.ddf33ef2-....tmp' -> '...runtime'`. The Linux and macOS jobs of the same run passed, so the failure is Windows-specific.
+
+The cause is the Windows rename contract. libuv implements `fs__rename()` on Windows as `MoveFileExW(path, new_path, MOVEFILE_REPLACE_EXISTING)`, which cannot replace a destination that another handle still holds open; the API reports `ERROR_ACCESS_DENIED`, which Node surfaces as `EPERM`. The staging test deliberately keeps the previous binary open, exactly like a running Tepora instance that has already loaded the Rust core addon or the bundled Node runtime.
+
+Staging now keeps the single atomic rename on POSIX and falls back on Windows only when the destination reports an in-use code (`EPERM`, `EACCES`, `EBUSY`): the previous file is renamed aside, the new bytes are renamed into place, and the retired file is removed afterwards. If the publish of the new bytes fails, the previous file is renamed back, so a failed publish never removes a working binary and never leaves a retired copy behind. Unrelated errors such as `EIO` are not retried. The addon, the bundled Node runtime and the `build:core` fingerprint all keep using this one staging path.
+
+Focused fixtures inject the rename effect, so the Windows in-use path, the restore-on-failure path and the unrelated-error path are exercised on every platform without opening a real handle against a real binary. The original mapped-binary test still runs unchanged on all platforms. These fixtures do not replace the Windows native and package jobs.
+
+
+## Windows aggregate Node budget (2026-10-21 JST)
+
+At `3bd7e53`, the [Windows regression job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713477/job/119062179191) stopped the serial Node suite at its 480,000 ms aggregate limit, with `setup-journey.test.mjs` still running and no TAP failure before the cutoff. The same commit's [native Windows job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713474/job/119062179079) needed 435,620 ms for the same suite, and an earlier measurement at `6c86be0` completed the serial suite in 514 s within the native job's 600,000 ms step budget.
+
+The aggregate Node budget is now 600,000 ms, matching the native job's own ten-minute step. The 120,000 ms individual file deadline, test selection, assertions, skips and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace.
+
+This is the same correction made for `codex/v3-hands-free-voice-20261017` at `017d378`, which had not been merged into `rust/v3-core-migration`. A longer outer bound does not turn an individual failure into a pass, and these fixtures are not a substitute for the complete Windows regression and package matrices.

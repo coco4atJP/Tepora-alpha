@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Windows CI staging and Node budget repairs (beta.11)
+
+- Publish staged native binaries on Windows even when the previous file is still open or mapped, by retiring the old file before the new bytes take its place; a failed publish restores the working binary and never leaves a retired copy behind
+- Keep the single atomic rename on POSIX and do not retry unrelated filesystem errors
+- Raise the aggregate Node-suite budget to ten minutes so the measured 514-second Windows serial suite is no longer cut off; the 120-second file deadline, assertions, test selection and workflow limits are unchanged
+- Cover the Windows in-use destination, the restore-on-failure path and the retained-file case with focused staging fixtures; see [Windows CI evidence](../Tepora-v3/docs/QA.md#windows-native-staging-against-an-open-destination-2026-10-21-jst)
+
 ## Real-provider benchmark and OpenCode registration (beta.11)
 
 - Add an opt-in 22-case, repeated acceptance benchmark with actual OpenCode main models, Jev Computer Use decisions, exact file/form oracles, browser UI checks, usage estimates and failed-session evidence
