@@ -22,6 +22,28 @@ Rust, full host suites and Windows/macOS/Linux CI remain required. These checks
 use synthetic credentials and no external account or paid inference; Worker and
 controller probes do not establish live OAuth, browser or installer acceptance.
 
+## Cargo dependency PR Windows regression budget (2026-10-22 UTC)
+
+The latest failed regression for [PR #247](https://github.com/coco4atJP/Tepora-alpha/pull/247),
+head `f3c39270ac321184491548b54efcecf2280af5f6`, is
+[run 39180503146](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39180503146).
+Its Windows artifact reports `node-tests` ending at 480,011 ms against a
+480,000 ms aggregate budget. The log ends after test 684 with no failed test
+assertion; Rust/core/native-service tests and the Linux/macOS regression jobs
+passed. The branch changes only Cargo lockfiles.
+
+Backport the existing canonical V3 Node-suite budget and orchestration fixtures
+from `051e0b020b466ba8f4bc80982ea35d798f236c81`. The aggregate budget matches
+the native CI's ten-minute Node step and accommodates the measured 514-second
+Windows serial suite. The 120-second per-file deadline, test selection,
+assertions, serial execution and workflow/job limits remain unchanged. Fixtures
+retain bounded termination, kill grace, spawn errors and nonzero-exit failures.
+Cross-platform CI for the updated PR head remains the Windows acceptance gate.
+
+Local macOS arm64 validation under Node 24.22.1 built the locked Rust core,
+passed all 22 stage/root-entry/workflow tests and syntax-checked 285 JavaScript
+modules. These local checks do not replace the Node 22 cross-platform CI run.
+
 ## Configurable monitor and bounded redraws
 
 Follow-up review adds display-reset defaults/history/revision/undo regressions, exact customizer

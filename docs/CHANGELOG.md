@@ -193,3 +193,8 @@
 These entries describe the imported beta.11 implementation and this branch's cutover. They do not claim automatic V2 data migration, real-model acceptance or completed native release validation.
 
 Earlier changes and milestones are available through Git history.
+
+## Cargo dependency PR Windows CI repair (beta.11)
+
+- Backport the canonical V3 ten-minute Node-suite budget to the Cargo dependency update; its Windows run was cut off at 480,011 ms after test 684
+- Preserve the 120-second per-file deadline and all test assertions, and retain bounded-termination fixtures; see [failure evidence and scope](../Tepora-v3/docs/QA.md#cargo-dependency-pr-windows-regression-budget-2026-10-22-utc)
