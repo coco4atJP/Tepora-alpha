@@ -66,3 +66,20 @@ test('beta5: explicit local dictation editing permission is checked independentl
  const app=await service(t);
  assert.equal((await app.request('/api/voice/edit','POST',{draft:'x',spoken:'fix'})).status,403);
 });
+
+test('Web search key API validates providers, preserves partial settings and never returns keys',async t=>{
+ const app=await service(t),route='/api/agent/search-key';
+ for(const provider of ['brave','tavily','exa','serper','serpapi']){
+  assert.equal((await fetch(app.origin+route,{method:'PUT',headers:{Cookie:app.cookie,'Content-Type':'application/json'},body:JSON.stringify({provider,key:'fixture-search-secret'})})).status,403);
+  assert.deepEqual(await(await app.request(route,'PUT',{provider,key:'fixture-search-secret'})).json(),{provider,keyPresent:true});
+  assert.equal(app.store.value('search-keys')[provider],'fixture-search-secret');
+  const settings=await(await app.request('/api/agent/settings','PATCH',{webSearch:{provider,exaKeyEnv:'CUSTOM_TEST_EXA'}})).json();assert.equal(settings.webSearch.provider,provider);
+  const partial=await(await app.request('/api/agent/settings','PATCH',{webSearch:{searxngUrl:'http://127.0.0.1:8888'}})).json();
+  assert.equal(partial.webSearch.provider,provider);assert.equal(partial.webSearch.exaKeyEnv,'CUSTOM_TEST_EXA');
+  assert.ok(!JSON.stringify([settings,partial,await(await app.request('/api/bootstrap')).json()]).includes('fixture-search-secret'));
+  assert.deepEqual(await(await app.request(route,'PUT',{provider,key:''})).json(),{provider,keyPresent:false});
+  assert.equal(app.store.value('search-keys')[provider],undefined);
+ }
+ for(const body of [{provider:'other',key:'x'},{provider:'exa',key:4},{provider:'tavily',key:'x'.repeat(501)}])assert.equal((await app.request(route,'PUT',body)).status,400);
+ for(const webSearch of [null,[],{provider:'google-cse'},{provider:'exa',exaKeyEnv:7}])assert.equal((await app.request('/api/agent/settings','PATCH',{webSearch})).status,400);
+});

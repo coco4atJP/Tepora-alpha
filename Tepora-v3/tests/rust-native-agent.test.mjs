@@ -263,6 +263,13 @@ async function openEvents(f,app){
  assert.equal((await request(app.origin,route,{method:'PUT',headers:{Cookie:app.cookie,'Content-Type':'application/json'},body:{provider:'brave',key:'fixture-web-secret'}})).status,403);
  for(const body of [{provider:'other',key:'x'},{provider:'brave',key:4},{provider:'brave',key:'x'.repeat(501)}])assert.equal((await app.request(route,'PUT',body)).status,400);
  const stream=await openEvents(f,app);
+ for(const provider of ['tavily','exa','serper','serpapi']){
+  assert.deepEqual(parsed(await app.request(route,'PUT',{provider,key:'fixture-web-secret'})),{provider,keyPresent:true});
+  const settings=parsed(await app.request('/api/agent/settings','PATCH',{webSearch:{provider}}));assert.equal(settings.webSearch.provider,provider);
+  assert.ok(!JSON.stringify(settings).includes('fixture-web-secret'));
+  assert.deepEqual(parsed(await app.request(route,'PUT',{provider,key:''})),{provider,keyPresent:false});
+ }
+ for(const webSearch of [{provider:'google-cse'},{provider:'exa',exaKeyEnv:3},null,[]])assert.equal((await app.request('/api/agent/settings','PATCH',{webSearch})).status,400);
  assert.deepEqual(parsed(await app.request(route,'PUT',{provider:'brave',key:'fixture-web-secret'})),{provider:'brave',keyPresent:true});
  const settings=parsed(await app.request('/api/agent/settings','PATCH',{webSearch:{provider:'searxng',searxngUrl:'http://127.0.0.1:17777/search',braveKeyEnv:'TEPORA_ABSENT_WEB_FIXTURE'}}));
  assert.equal(settings.webSearch.provider,'searxng');

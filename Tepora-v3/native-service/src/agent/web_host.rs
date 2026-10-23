@@ -20,15 +20,22 @@ use std::{
 };
 
 /// Internal-codec snapshot, deliberately without Debug/Serialize. Only the
-/// configured Brave credential is selected; unrelated saved keys stay private.
+/// legacy Brave credential and explicitly selected additional credential are read;
+/// unrelated additional keys stay private.
 #[derive(Clone, PartialEq, Eq)]
 pub struct WebSnapshot {
     pub config: WebConfig,
-    brave_key: String,
+    keys: SecretSnapshot,
 }
 impl WebSnapshot {
+    pub fn with_keys(config: WebConfig, keys: SecretSnapshot) -> Self {
+        Self { config, keys }
+    }
     pub fn new(config: WebConfig, brave_key: String) -> Self {
-        Self { config, brave_key }
+        Self {
+            config,
+            keys: SecretSnapshot::new(brave_key),
+        }
     }
 }
 pub trait WebState: Send + Sync {
@@ -160,7 +167,7 @@ impl WebHost {
                     WebTools::new(
                         self.inner.network.clone(),
                         snapshot.config.clone(),
-                        SecretSnapshot::new(snapshot.brave_key.clone()),
+                        snapshot.keys.clone(),
                         self.inner.browser.clone(),
                         self.inner.decisions.clone(),
                         17,

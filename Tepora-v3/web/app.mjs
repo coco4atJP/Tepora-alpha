@@ -600,9 +600,9 @@ async function budgetSheet(){
 }
 function searchSheet(){
  const w=agentSettings().webSearch;
- openSheet('Web検索',`<form id="search-form"><label class="field"><span>検索の提供元</span><select name="provider">${[['auto','自動（キーがあればBrave、URLがあればSearXNG、なければDuckDuckGo）'],['duckduckgo','DuckDuckGo（キー不要）'],['brave','Brave Search API'],['searxng','SearXNG（自分のサーバー）']].map(([v,t])=>`<option value="${v}" ${w.provider===v?'selected':''}>${escape(t)}</option>`).join('')}</select></label>
- ${field('SearXNGのURL','searxngUrl',w.searxngUrl||'','http://127.0.0.1:8888')}${field('Brave SearchのAPIキー（保存すると上書き）','braveKey','','','password')}
- <p class="small-text">検索語は選んだ提供元へ送られます。キーはこのPCのデータベースに保存します。</p><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'search');
+ openSheet('Web検索',`<form id="search-form"><label class="field"><span>検索の提供元</span><select name="provider">${[['auto','自動（キーがあればBrave、URLがあればSearXNG、なければDuckDuckGo）'],['duckduckgo','DuckDuckGo（キー不要）'],['brave','Brave Search API'],['searxng','SearXNG（自分のサーバー）'],['tavily','Tavily Search API'],['exa','Exa Search API'],['serper','Serper（Google検索）'],['serpapi','SerpAPI（Google検索）']].map(([v,t])=>`<option value="${v}" ${w.provider===v?'selected':''}>${escape(t)}</option>`).join('')}</select></label>
+ ${field('SearXNGのURL','searxngUrl',w.searxngUrl||'','http://127.0.0.1:8888')}${[['brave','Brave Search'],['tavily','Tavily'],['exa','Exa'],['serper','Serper'],['serpapi','SerpAPI']].map(([p,label])=>field(`${label}のAPIキー（空欄は変更なし）`,`${p}Key`,'','','password')).join('')}
+ <p class="small-text">検索語は選んだ提供元へ送られ、APIの利用料金がかかる場合があります。Tavily・Exa・Serper・SerpAPIは明示選択時だけ使います。キーはこのPCのデータベースに保存します。環境変数も利用できます（TAVILY_API_KEY / EXA_API_KEY / SERPER_API_KEY / SERPAPI_API_KEY）。</p><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'search');
 }
 function heartbeatSheet(){
  const h=agentSettings().heartbeat;
@@ -709,7 +709,7 @@ function settingsView(){
   ['abilities','声・画像・意味検索',`${settingRow('能力の接続',connected.length?connected.join('・'):'',connected.length?'ok':null,connected.length?'':'読み上げ・画像・意味検索などを、役割ごとに接続できます。',`${btn('abilities-open','管理','','button secondary','aria-label="能力の接続を管理"')}${btn('creative-new','つくってみる','','text-button')}`)}
    ${settingRow('音声入力',s.asrStreamUrl||s.asrUrl?'設定済み':'',s.asrStreamUrl||s.asrUrl?'ok':null,'マイクはボタンを押したときだけ使います。',btn('voice-settings','設定','','button secondary','aria-label="音声入力の設定"'))}`],
   ['work','仕事の実行',`${settingRow('サンドボックス',({off:'オフ（このPCで直接実行）',workspace:'作業フォルダだけ書き込める',readonly:'読み取りだけ',container:'コンテナ'})[agentSettings().sandbox.mode],agentSettings().sandbox.mode==='off'?null:'ok','保護は既定でオフです。必要なときだけ、作業エージェントのコマンドとファイル書き込みを閉じ込めます。',segmented('sandbox-set',[['off','オフ'],['workspace','作業フォルダ'],['readonly','読み取り'],['container','コンテナ']],agentSettings().sandbox.mode,'サンドボックス'))}
-   ${settingRow('Web検索',({auto:'自動',brave:'Brave Search',searxng:'SearXNG',duckduckgo:'DuckDuckGo'})[agentSettings().webSearch.provider]||'自動',null,'調べものに使う検索。キーなしで使えるDuckDuckGoが既定です。',btn('search-setup','設定','','button secondary','aria-label="Web検索の設定"'))}
+   ${settingRow('Web検索',({auto:'自動',brave:'Brave Search',searxng:'SearXNG',duckduckgo:'DuckDuckGo',tavily:'Tavily',exa:'Exa',serper:'Serper',serpapi:'SerpAPI'})[agentSettings().webSearch.provider]||'自動',null,'調べものに使う検索。キーなしで使えるDuckDuckGoが既定です。',btn('search-setup','設定','','button secondary','aria-label="Web検索の設定"'))}
    ${settingRow('常駐と見回り',agentSettings().heartbeat.enabled?`${agentSettings().heartbeat.minutes}分ごと`:'オフ',agentSettings().heartbeat.enabled?'ok':null,'決まった間隔でキャラクターが仕事の様子を見回り、伝えることがあれば話しかけます。',btn('heartbeat-setup','設定','','button secondary','aria-label="見回りの設定"'))}
    ${settingRow('判断モデル',state.capabilities?.routes?.decision?(state.capabilities.profiles.find(p=>p.id===state.capabilities.routes.decision)?.name||'接続済み'):'未接続',state.capabilities?.routes?.decision?'ok':null,'選ぶ・判定するだけの速いモデルです。画面操作、ページの要点抜き出し、仕上げの確認、見回りの判定に使います。Liquid d1（クラウド）か Laya（このPC）を接続します。',btn('abilities-open','接続','','button secondary','aria-label="判断モデルを接続"'))}
    ${settingRow('コンピューター操作',computerSummary(),state.computer?.config?.enabled?'ok':null,'作業担当がブラウザ（見えないまま動かせます）とMacのアプリを操作します。判断モデルが画面上の操作を選び、作業担当が直接操作もできます。',btn('computer-launch','設定','','button secondary','aria-label="コンピューター操作の設定"'))}
@@ -1239,7 +1239,7 @@ document.addEventListener('submit',e=>{
    await bridge.request(`/api/agent/sessions/${id}/message`,'POST',{text:input.value.trim(),mode:j&&['running','queued'].includes(j.status)?'steer':'followup'});input.value='';notice('この仕事に伝えました。');
   }else if(form.id==='search-form'){
    const value=await bridge.request('/api/agent/settings','PATCH',{webSearch:{...agentSettings().webSearch,provider:data.provider,searxngUrl:data.searxngUrl.trim()}});
-   if(data.braveKey)await bridge.request('/api/agent/search-key','PUT',{provider:'brave',key:data.braveKey});
+   for(const provider of ['brave','tavily','exa','serper','serpapi'])if(data[`${provider}Key`])await bridge.request('/api/agent/search-key','PUT',{provider,key:data[`${provider}Key`]});
    state.agent={...state.agent,settings:value};closeSheet();render();
   }else if(form.id==='budget-form'){
    const value=await bridge.request('/api/agent/settings','PATCH',{budget:{dailyUsd:Math.max(0,Number(data.dailyUsd)||0),sessionUsd:Math.max(0,Number(data.sessionUsd)||0)},verifyCompletion:data.verifyCompletion,metacognition:fd.has('metacognition'),dream:fd.has('dream'),cacheRetention:{...agentSettings().cacheRetention,main:data.mainCache}});

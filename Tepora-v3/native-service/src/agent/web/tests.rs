@@ -743,3 +743,167 @@ async fn provider_false_results_are_empty_but_null_document_or_item_fails() {
         }
     }
 }
+
+#[tokio::test]
+async fn additional_provider_requests_and_normalization_match_shared_node_fixtures() {
+    let fixtures: Value = serde_json::from_str(include_str!(
+        "../../../../tests/fixtures/web-search-providers.json"
+    ))
+    .unwrap();
+    for f in fixtures.as_array().unwrap() {
+        let provider = f["provider"].as_str().unwrap();
+        let (net, stub) = fixture(vec![Spec::text(
+            200,
+            "application/json",
+            serde_json::to_vec(&f["response"]).unwrap(),
+        )]);
+        let web = tools(
+            net,
+            WebConfig {
+                provider: provider.into(),
+                ..WebConfig::default()
+            },
+            SecretSnapshot::default().with_key(provider, "fixture-search-key".into()),
+        );
+        let result = web
+            .search("日本語 a&b", 2, &RequestCancellation::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            result.results,
+            f["expected"].as_array().unwrap().clone(),
+            "{provider}"
+        );
+        assert_eq!(result.provider, provider);
+        let calls = stub.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        let (admitted, request) = &calls[0];
+        assert_eq!(admitted.purpose, Purpose::WebTool);
+        assert_eq!(
+            format!(
+                "{}{}",
+                admitted.url.origin().ascii_serialization(),
+                admitted.url.path()
+            ),
+            f["url"].as_str().unwrap()
+        );
+        assert_eq!(request.method.as_str(), f["method"].as_str().unwrap());
+        if let Some(header) = f["header"].as_str() {
+            assert_eq!(request.headers[header], f["auth"].as_str().unwrap());
+            assert!(request.headers[header].is_sensitive());
+            assert_eq!(
+                serde_json::from_slice::<Value>(&request.body).unwrap(),
+                f["body"]
+            );
+            assert!(!admitted.url.as_str().contains("fixture-search-key"));
+        } else {
+            let params = admitted.url.query_pairs().collect::<HashMap<_, _>>();
+            assert_eq!(params["q"], "日本語 a&b");
+            assert_eq!(params["api_key"], "fixture-search-key");
+            assert_eq!(params["engine"], "google");
+            assert!(request.body.is_empty());
+        }
+    }
+}
+#[tokio::test]
+async fn additional_providers_fail_closed_and_never_echo_secrets_or_follow_redirects() {
+    for provider in ["tavily", "exa", "serper", "serpapi"] {
+        let (net, stub) = fixture(vec![]);
+        let config = WebConfig {
+            provider: provider.into(),
+            ..WebConfig::default()
+        };
+        let missing = tools(net, config.clone(), SecretSnapshot::default())
+            .search("test", 8, &RequestCancellation::new())
+            .await
+            .err()
+            .unwrap();
+        assert!(message(&missing).contains("APIキー"));
+        assert!(stub.calls.lock().unwrap().is_empty());
+        let field = match provider {
+            "serper" => "organic",
+            "serpapi" => "organic_results",
+            _ => "results",
+        };
+        let (net, _) = fixture(vec![Spec::text(
+            200,
+            "application/json",
+            format!("{{\"{field}\":[]}}"),
+        )]);
+        assert!(tools(
+            net,
+            config.clone(),
+            SecretSnapshot::default().with_key(provider, "fixture-search-key".into())
+        )
+        .search("empty", 8, &RequestCancellation::new())
+        .await
+        .unwrap()
+        .results
+        .is_empty());
+        for spec in [
+            Spec::text(401, "application/json", "fixture-search-key"),
+            Spec::text(429, "application/json", "fixture-search-key"),
+            Spec::text(503, "application/json", "fixture-search-key"),
+            Spec::text(200, "application/json", "fixture-search-key"),
+            Spec::text(200, "application/json", r#"{"error":"fixture-search-key"}"#),
+            Spec::text(200, "application/json", format!("{{\"{field}\":42}}")),
+            Spec::redirect("https://elsewhere.test/?api_key=fixture-search-key"),
+        ] {
+            let (net, stub) = fixture(vec![spec]);
+            let result = tools(
+                net,
+                config.clone(),
+                SecretSnapshot::default().with_key(provider, "fixture-search-key".into()),
+            )
+            .search("test", 8, &RequestCancellation::new())
+            .await
+            .err()
+            .unwrap();
+            assert!(!message(&result).contains("fixture-search-key"));
+            assert_eq!(stub.calls.lock().unwrap().len(), 1);
+        }
+        let (net, _) = fixture(vec![]);
+        let cancel = RequestCancellation::new();
+        cancel.cancel();
+        assert!(tools(net, config.clone(), SecretSnapshot::default())
+            .search("stopped", 8, &cancel)
+            .await
+            .is_err());
+        let (net, stub) = fixture(vec![]);
+        net.update_policy(NetworkPolicy {
+            mode: NetworkMode::Offline,
+            ..NetworkPolicy::default()
+        });
+        assert!(tools(
+            net,
+            config,
+            SecretSnapshot::default().with_key(provider, "fixture-search-key".into())
+        )
+        .search("offline", 8, &RequestCancellation::new())
+        .await
+        .is_err());
+        assert!(stub.calls.lock().unwrap().is_empty());
+    }
+}
+#[test]
+fn additional_secrets_do_not_change_auto_selection_and_config_validates() {
+    let (net, _) = fixture(vec![]);
+    assert_eq!(
+        tools(
+            net,
+            WebConfig::default(),
+            SecretSnapshot::default().with_key("exa", "fixture-search-key".into())
+        )
+        .provider(),
+        "duckduckgo"
+    );
+    assert!(WebConfig::from_value(&json!({"provider":"exa","exaKeyEnv":"CUSTOM_EXA"})).is_ok());
+    for v in [
+        Value::Null,
+        json!([]),
+        json!({"provider":"google-cse"}),
+        json!({"tavilyKeyEnv":8}),
+    ] {
+        assert!(WebConfig::from_value(&v).is_err());
+    }
+}

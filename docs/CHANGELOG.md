@@ -1,5 +1,11 @@
 # Tepora V3 changelog
 
+## Additional Web search providers (beta.11)
+
+- Add explicitly selected Tavily, Exa, Serper and SerpAPI in both Node and native Rust Web search paths, with matching settings, key APIs and UI
+- Preserve existing auto routing/defaults; reject new API redirects, bound results/deadlines and omit credential-bearing diagnostics
+- Share request/response fixtures across runtimes; no live paid-provider acceptance is claimed; see [Web search](../Tepora-v3/docs/WEB-SEARCH.md)
+
 ## Windows CI staging and Node budget repairs (beta.11)
 
 - Publish staged native binaries on Windows even when the previous file is still open or mapped, by retiring the old file before the new bytes take its place; a failed publish restores the working binary and never leaves a retired copy behind
@@ -26,6 +32,7 @@
 - Seal macOS packages with a default ad-hoc signature while retaining hardened runtime; verify resources and the bundled V8/Rust addon after build and DMG installation
 - Add real signed-app resource-tampering coverage; Developer ID signing and Apple notarization still require release credentials
 - Replace staged native binaries atomically and allow a bounded post-exit Chrome stdio drain without releasing its profile early
+
 
 ## Configurable companion monitor (beta.11)
 
