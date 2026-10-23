@@ -575,3 +575,35 @@ async fn checked_http_rejects_mixed_reserved_dns_before_any_loopback_connection(
     host.close();
     network.close();
 }
+
+#[tokio::test]
+async fn additional_key_rotation_cancels_paused_dns_without_dispatch() {
+    for provider in ["tavily", "exa", "serper", "serpapi"] {
+        let state = State::new();
+        let config = WebConfig {
+            provider: provider.into(),
+            ..Default::default()
+        };
+        *lock(&state.0) = WebSnapshot::with_keys(
+            config.clone(),
+            SecretSnapshot::default().with_key(provider, "fixture-old-key".into()),
+        );
+        let dns = Dns::new(true);
+        let (host, net, transport) = fixture(state.clone(), dns.clone(), vec![]);
+        let pending = tokio::spawn(settle(start(&host, "a", "web_search", search())));
+        tokio::time::timeout(std::time::Duration::from_secs(2), dns.entered.notified())
+            .await
+            .unwrap();
+        *lock(&state.0) = WebSnapshot::with_keys(
+            config,
+            SecretSnapshot::default().with_key(provider, "fixture-new-key".into()),
+        );
+        host.invalidate();
+        dns.release.notify_one();
+        let error = pending.await.unwrap().unwrap_err();
+        assert_eq!(error.error["status"], 409);
+        assert!(lock(&transport.calls).is_empty());
+        assert_eq!(host.active_count(), 0);
+        assert_eq!(net.active_count(), 0);
+    }
+}

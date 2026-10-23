@@ -1,0 +1,157 @@
+[
+  {
+    "provider": "tavily",
+    "url": "https://api.tavily.com/search",
+    "method": "POST",
+    "header": "authorization",
+    "auth": "Bearer fixture-search-key",
+    "body": {
+      "query": "日本語 a&b",
+      "max_results": 2,
+      "search_depth": "basic",
+      "include_answer": false,
+      "include_raw_content": false,
+      "auto_parameters": false
+    },
+    "response": {
+      "results": [
+        null,
+        {
+          "url": "https://"
+        },
+        {
+          "url": "https://key:secret@example.org"
+        },
+        {
+          "title": "Tavily",
+          "url": "https://example.org/t",
+          "content": "exact snippet",
+          "published_date": "2026-10-01"
+        },
+        {
+          "url": "javascript:alert(1)"
+        },
+        {
+          "url": "https://example.org/empty",
+          "content": 8
+        }
+      ]
+    },
+    "expected": [
+      {
+        "title": "Tavily",
+        "url": "https://example.org/t",
+        "snippet": "exact snippet",
+        "age": "2026-10-01"
+      },
+      {
+        "title": "",
+        "url": "https://example.org/empty",
+        "snippet": "",
+        "age": null
+      }
+    ]
+  },
+  {
+    "provider": "exa",
+    "url": "https://api.exa.ai/search",
+    "method": "POST",
+    "header": "x-api-key",
+    "auth": "fixture-search-key",
+    "body": {
+      "query": "日本語 a&b",
+      "numResults": 2,
+      "type": "auto",
+      "contents": {
+        "highlights": true
+      }
+    },
+    "response": {
+      "results": [
+        {
+          "title": "Exa",
+          "url": "https://example.org/e",
+          "highlights": [
+            "one",
+            3,
+            "two"
+          ],
+          "publishedDate": "2026-10-02"
+        },
+        {
+          "title": "Text",
+          "url": null,
+          "text": "fallback",
+          "link": "https://example.org/text"
+        }
+      ]
+    },
+    "expected": [
+      {
+        "title": "Exa",
+        "url": "https://example.org/e",
+        "snippet": "one two",
+        "age": "2026-10-02"
+      },
+      {
+        "title": "Text",
+        "url": "https://example.org/text",
+        "snippet": "fallback",
+        "age": null
+      }
+    ]
+  },
+  {
+    "provider": "serper",
+    "url": "https://google.serper.dev/search",
+    "method": "POST",
+    "header": "x-api-key",
+    "auth": "fixture-search-key",
+    "body": {
+      "q": "日本語 a&b",
+      "num": 2
+    },
+    "response": {
+      "organic": [
+        {
+          "title": "Serper",
+          "link": "https://example.org/s",
+          "snippet": "organic",
+          "date": "2 days ago",
+          "content": null,
+          "publishedDate": null
+        }
+      ]
+    },
+    "expected": [
+      {
+        "title": "Serper",
+        "url": "https://example.org/s",
+        "snippet": "organic",
+        "age": "2 days ago"
+      }
+    ]
+  },
+  {
+    "provider": "serpapi",
+    "url": "https://serpapi.com/search.json",
+    "method": "GET",
+    "response": {
+      "organic_results": [
+        {
+          "title": "SerpAPI",
+          "link": "https://example.org/a",
+          "snippet": "organic"
+        }
+      ]
+    },
+    "expected": [
+      {
+        "title": "SerpAPI",
+        "url": "https://example.org/a",
+        "snippet": "organic",
+        "age": null
+      }
+    ]
+  }
+]

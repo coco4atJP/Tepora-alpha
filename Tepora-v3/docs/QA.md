@@ -174,6 +174,10 @@ from the passing deterministic regressions. When using a shared Cargo output
 directory, set `TEPORA_NATIVE_SERVICE_BINARY` to the built executable for the
 native-process HTTP tests.
 
+## Additional Web search providers
+
+See [Web search](WEB-SEARCH.md) for provider contracts and live-test limits. `tests/web-search-providers.test.mjs` and native `agent::web` tests share dummy-key request/normalization fixtures. Existing native WebHost tests retain stale-binding cancellation; native HTTP tests cover the expanded authenticated key API and validated partial settings. The aggregate gate includes these regressions. No live paid-provider request is part of this gate.
+
 ## Standard gate
 
 From the repository root:

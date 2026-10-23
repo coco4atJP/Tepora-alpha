@@ -104,6 +104,12 @@ impl State {
                 require(patch.is_object(), 400, "Invalid agent settings")?;
                 let old = self.value("agent-settings")?;
                 let mut next = merge(&old, patch);
+                if let Some(web) = patch.get("webSearch") {
+                    require(web.is_object(), 400, "Invalid webSearch")?;
+                    let merged = merge(&merge(&self.defaults["agent"]["webSearch"], &old["webSearch"]), web);
+                    crate::agent::web::WebConfig::from_value(&merged).map_err(|e| ApiError::bad_request(e.error["message"].as_str().unwrap_or("Invalid webSearch")))?;
+                    next["webSearch"] = merged;
+                }
                 if truth(&patch["sandbox"]) {
                     next["sandbox"] = sandbox_settings(
                         &merge(&self.defaults["agent"]["sandbox"], &old["sandbox"]),

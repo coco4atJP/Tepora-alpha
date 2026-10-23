@@ -17,6 +17,7 @@ import {SemanticMemory} from './semantic.mjs';
 import {ToolHub} from './tool-hub.mjs';
 import {ComputerUse} from './computer/index.mjs';
 import {loadImage} from './agent/images.mjs';
+import {SEARCH_KEY_ENVS} from './tools/web.mjs';
 import {AgentRuntime} from './agent/runtime.mjs';
 import {AgentUIModel} from './agent/ui-model.mjs';
 import {validateRules} from './agent/policy.mjs';
@@ -209,7 +210,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/agent/policy'&&method==='GET')return json(res,agent.dreamer.status());
    if(p==='/api/agent/policy/revert'&&method==='POST')return json(res,{policy:agent.dreamer.revert()});
    if(p==='/api/agent/dream'&&method==='POST')return json(res,await agent.dreamer.dream({reason:'manual'}));
-   if(p==='/api/agent/search-key'&&method==='PUT'){const b=await body(req);invariant(['brave'].includes(b.provider)&&typeof b.key==='string'&&b.key.length<=500,'Invalid key');const keys={...(store.value('search-keys')||{})};if(b.key)keys[b.provider]=b.key;else delete keys[b.provider];store.value('search-keys',keys);return json(res,{provider:b.provider,keyPresent:!!b.key});}
+   if(p==='/api/agent/search-key'&&method==='PUT'){const b=await body(req);invariant(Object.hasOwn(SEARCH_KEY_ENVS,b.provider)&&typeof b.key==='string'&&b.key.length<=500,'Invalid key');const keys={...(store.value('search-keys')||{})};if(b.key)keys[b.provider]=b.key;else delete keys[b.provider];store.value('search-keys',keys);return json(res,{provider:b.provider,keyPresent:!!b.key});}
    if(p==='/api/agent/plugins/reload'&&method==='POST'){const r=await agent.tools.loadPlugins();agent.refreshPrompts();return json(res,r);}
    if(p==='/api/agent/approvals'&&method==='GET')return json(res,{approvals:ui.approvals()});
    if(p==='/api/agent/approvals'&&method==='POST'){const b=await body(req);invariant(Array.isArray(b.ids)&&b.ids.length>0&&b.ids.length<=50,'Approval ids are required');invariant(typeof b.allow==='boolean','allow must be boolean');

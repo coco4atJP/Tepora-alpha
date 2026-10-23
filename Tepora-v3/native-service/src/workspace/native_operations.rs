@@ -90,23 +90,24 @@ impl Workspace {
             Operation::SearchKey { body } => {
                 let key = body["key"].as_str()
                     .ok_or_else(|| ApiError::bad_request("Invalid key"))?;
-                require(body["provider"] == "brave" && json_codec::utf16_units(key).len() <= 500,
+                let provider = body["provider"].as_str().unwrap_or("");
+                require(crate::agent::web::KEY_PROVIDERS.contains(&provider) && json_codec::utf16_units(key).len() <= 500,
                     400, "Invalid key")?;
                 {
                     let mut state = self.lock()?;
                     let old = state.value("search-keys")?;
                     let mut keys = old.as_object().cloned().unwrap_or_default();
                     if key.is_empty() {
-                        keys.shift_remove("brave");
+                        keys.shift_remove(provider);
                     } else {
-                        keys.insert("brave".into(), json!(key));
+                        keys.insert(provider.into(), json!(key));
                     }
                     state.set_value("search-keys", Value::Object(keys))?;
                 }
                 // Credentials never appear in a durable/public event. Revoke
                 // the previous web binding before acknowledging this change.
                 native.host.invalidate_web()?;
-                json!({"provider":"brave","keyPresent":!key.is_empty()})
+                json!({"provider":provider,"keyPresent":!key.is_empty()})
             }
             Operation::SessionDelete { id } => request(AgentRequest::DeleteSession { id: id.clone() })?,
             Operation::SessionAccept { id } => {

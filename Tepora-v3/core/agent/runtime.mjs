@@ -12,7 +12,7 @@ import {NOTICE,isSilentReply,mayBeSilent} from './prompts.mjs';
 import {ToolRegistry} from '../tools/registry.mjs';
 import {ProcessManager,execTools} from '../tools/exec.mjs';
 import {fsTools} from '../tools/fs.mjs';
-import {WebTools} from '../tools/web.mjs';
+import {WebTools,WEB_SEARCH_DEFAULTS,webSearchConfig} from '../tools/web.mjs';
 import {agentTools,skillIndex} from '../tools/agent.mjs';
 import {McpPool} from '../tools/mcp-pool.mjs';
 import {Policy} from './policy.mjs';
@@ -30,7 +30,7 @@ import {invariant} from '../policy.mjs';
 import {estimateModelUsage,modelUsageSnapshot} from '../model-usage.mjs';
 
 export const AGENT_DEFAULTS=Object.freeze({workRoot:'',maxDepth:3,maxSteps:0,progressEvery:50,concurrency:8,verifyCompletion:'auto',delegationGuard:true,metacognition:true,dream:true,cacheRetention:{main:'long',worker:'short'},budget:{sessionUsd:0,dailyUsd:0},
- heartbeat:{enabled:false,minutes:30,text:''},sandbox:SANDBOX_DEFAULT,webSearch:{provider:'auto',searxngUrl:'',braveKeyEnv:'BRAVE_API_KEY'},policy:{rules:[]},idleCompactSeconds:20});
+ heartbeat:{enabled:false,minutes:30,text:''},sandbox:SANDBOX_DEFAULT,webSearch:WEB_SEARCH_DEFAULTS,policy:{rules:[]},idleCompactSeconds:20});
 const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
 export function stampHeader(date=new Date(),source=''){
  const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'}).formatToParts(date).map(x=>[x.type,x.value]));
@@ -114,6 +114,7 @@ export class AgentRuntime{
  configure(patch){
   invariant(patch&&typeof patch==='object'&&!Array.isArray(patch),'Invalid agent settings');
   const old=this.store.value('agent-settings')||{},next={...old,...patch};
+  if('webSearch' in patch)next.webSearch=webSearchConfig(patch.webSearch,old.webSearch);
   if(patch.sandbox)next.sandbox=sandboxConfig(patch.sandbox,old.sandbox||SANDBOX_DEFAULT);
   for(const k of ['maxDepth','maxSteps','progressEvery','concurrency','idleCompactSeconds'])if(k in patch)invariant(Number.isInteger(patch[k])&&patch[k]>=0&&patch[k]<=100000,`Invalid ${k}`);
   if('dream' in patch)invariant(typeof patch.dream==='boolean','dream is true or false');

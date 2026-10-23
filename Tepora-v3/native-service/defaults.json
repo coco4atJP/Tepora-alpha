@@ -62,7 +62,11 @@
     "webSearch": {
       "provider": "auto",
       "searxngUrl": "",
-      "braveKeyEnv": "BRAVE_API_KEY"
+      "braveKeyEnv": "BRAVE_API_KEY",
+      "tavilyKeyEnv": "TAVILY_API_KEY",
+      "exaKeyEnv": "EXA_API_KEY",
+      "serperKeyEnv": "SERPER_API_KEY",
+      "serpapiKeyEnv": "SERPAPI_API_KEY"
     },
     "policy": {
       "rules": []

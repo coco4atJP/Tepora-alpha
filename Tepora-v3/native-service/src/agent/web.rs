@@ -67,7 +67,20 @@ pub fn summarize(name: &str, args: &Value) -> Result<String, EffectError> {
         _ => Err(error(503, "Native web tool is not implemented")),
     }
 }
-pub const SEARCH_PROVIDERS: [&str; 4] = ["auto", "brave", "searxng", "duckduckgo"];
+pub const SEARCH_PROVIDERS: [&str; 8] = [
+    "auto",
+    "brave",
+    "searxng",
+    "duckduckgo",
+    "tavily",
+    "exa",
+    "serper",
+    "serpapi",
+];
+pub const KEY_PROVIDERS: [&str; 5] = ["brave", "tavily", "exa", "serper", "serpapi"];
+fn additional(provider: &str) -> bool {
+    matches!(provider, "tavily" | "exa" | "serper" | "serpapi")
+}
 /// A trusted owner-supplied snapshot/revision check, never page instructions.
 /// It runs without holding a database lock across an awaited request.
 pub trait WebAuthority: Send + Sync {
@@ -87,6 +100,10 @@ pub struct WebConfig {
     pub provider: String,
     pub searxng_url: String,
     pub brave_key_env: String,
+    pub tavily_key_env: String,
+    pub exa_key_env: String,
+    pub serper_key_env: String,
+    pub serpapi_key_env: String,
 }
 impl Default for WebConfig {
     fn default() -> Self {
@@ -94,16 +111,27 @@ impl Default for WebConfig {
             provider: "auto".into(),
             searxng_url: String::new(),
             brave_key_env: "BRAVE_API_KEY".into(),
+            tavily_key_env: "TAVILY_API_KEY".into(),
+            exa_key_env: "EXA_API_KEY".into(),
+            serper_key_env: "SERPER_API_KEY".into(),
+            serpapi_key_env: "SERPAPI_API_KEY".into(),
         }
     }
 }
 impl WebConfig {
     pub fn from_value(v: &Value) -> Result<Self, EffectError> {
+        if !v.is_object() {
+            return Err(error(400, "Invalid webSearch"));
+        }
         let mut c = Self::default();
         for (key, target) in [
             ("provider", &mut c.provider),
             ("searxngUrl", &mut c.searxng_url),
             ("braveKeyEnv", &mut c.brave_key_env),
+            ("tavilyKeyEnv", &mut c.tavily_key_env),
+            ("exaKeyEnv", &mut c.exa_key_env),
+            ("serperKeyEnv", &mut c.serper_key_env),
+            ("serpapiKeyEnv", &mut c.serpapi_key_env),
         ] {
             if let Some(v) = v.get(key) {
                 *target = v
@@ -112,19 +140,61 @@ impl WebConfig {
                     .into();
             }
         }
+        if !SEARCH_PROVIDERS.contains(&c.provider.as_str()) {
+            return Err(error(400, "Invalid webSearch.provider"));
+        }
+        for value in [
+            &c.searxng_url,
+            &c.brave_key_env,
+            &c.tavily_key_env,
+            &c.exa_key_env,
+            &c.serper_key_env,
+            &c.serpapi_key_env,
+        ] {
+            if utf16_units(value).len() > 2000 {
+                return Err(error(400, "Invalid webSearch field length"));
+            }
+        }
         Ok(c)
     }
+    pub fn key_env(&self, provider: &str) -> &str {
+        match provider {
+            "brave" => &self.brave_key_env,
+            "tavily" => &self.tavily_key_env,
+            "exa" => &self.exa_key_env,
+            "serper" => &self.serper_key_env,
+            "serpapi" => &self.serpapi_key_env,
+            _ => "",
+        }
+    }
 }
-/// Actor resolves saved Brave key first, then config.braveKeyEnv. No Debug/JSON
+/// Actor resolves saved keys first, then their configured environment names. No Debug/JSON
 /// representation prevents accidental credentials in diagnostics or receipts.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct SecretSnapshot {
     brave: String,
+    additional: HashMap<String, String>,
 }
 impl SecretSnapshot {
+    pub fn with_key(mut self, provider: &str, key: String) -> Self {
+        self.additional.insert(provider.into(), key);
+        self
+    }
+    fn key(&self, provider: &str) -> &str {
+        if provider == "brave" {
+            &self.brave
+        } else {
+            self.additional
+                .get(provider)
+                .map(String::as_str)
+                .unwrap_or("")
+        }
+    }
+
     pub fn new(brave: impl Into<String>) -> Self {
         Self {
             brave: brave.into(),
+            additional: HashMap::new(),
         }
     }
 }
@@ -307,7 +377,9 @@ impl WebTools {
         for (i, provider) in order.iter().enumerate() {
             match self.search_with(provider, query, count, cancel).await {
                 Ok(mut r)
-                    if !r.results.is_empty() || i + 1 == order.len() && self.browser.is_none() =>
+                    if !r.results.is_empty()
+                        || i + 1 == order.len()
+                            && (self.browser.is_none() || additional(&self.config.provider)) =>
                 {
                     r.fallback_from = errors;
                     return Ok(r);
@@ -320,7 +392,7 @@ impl WebTools {
                 }
             }
         }
-        if self.browser.is_some() && !denied {
+        if self.browser.is_some() && !denied && !additional(&self.config.provider) {
             let url = format!(
                 "https://html.duckduckgo.com/html/?q={}&kl=jp-jp",
                 encode_component(query)?
@@ -342,7 +414,7 @@ impl WebTools {
                     errors.push(format!("browser: {}", slice(&message(&e), 0, 120)));
                 }
             }
-        } else if self.browser.is_some() && denied {
+        } else if self.browser.is_some() && denied && !additional(&self.config.provider) {
             errors.push("browser: unavailable after a network-policy denial".into());
         }
         Err(error(
@@ -358,6 +430,13 @@ impl WebTools {
         cancel: &RequestCancellation,
     ) -> Result<SearchResults, EffectError> {
         self.check(cancel)?;
+        let count = count.clamp(1, 20);
+        if !SEARCH_PROVIDERS.contains(&provider) || provider == "auto" {
+            return Err(error(400, "Unknown search provider"));
+        }
+        if additional(provider) {
+            return self.search_additional(provider, query, count, cancel).await;
+        }
         let mut options = FetchOptions::default();
         let (url, provider) = match provider {
             "brave" => {
@@ -414,14 +493,9 @@ impl WebTools {
                 ("https://html.duckduckgo.com/html/".into(), "duckduckgo")
             }
         };
-        let (response, _) = fetch_following_guarded(
-            &self.network,
-            &url,
-            options,
-            cancel,
-            self.authority.clone(),
-        )
-        .await?;
+        let (response, _) =
+            fetch_following_guarded(&self.network, &url, options, cancel, self.authority.clone())
+                .await?;
         if !(200..300).contains(&response.status) {
             return Err(error(
                 502,
@@ -505,6 +579,101 @@ impl WebTools {
                 })
                 .collect::<Result<Vec<_>, EffectError>>()?
         };
+        check_cancel(cancel)?;
+        Ok(SearchResults {
+            provider: provider.into(),
+            results,
+            fallback_from: vec![],
+        })
+    }
+    async fn search_additional(
+        &self,
+        provider: &str,
+        query: &str,
+        count: usize,
+        cancel: &RequestCancellation,
+    ) -> Result<SearchResults, EffectError> {
+        let key = self.keys.key(provider);
+        if key.is_empty() {
+            return Err(error(
+                409,
+                format!("{provider}のAPIキーが設定されていません。"),
+            ));
+        }
+        let mut options = FetchOptions {
+            method: Method::POST,
+            max_bytes: 2_000_000,
+            redirects: false,
+            ..FetchOptions::default()
+        };
+        options.headers.insert(
+            header::ACCEPT,
+            header::HeaderValue::from_static("application/json"),
+        );
+        options.headers.insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static("application/json"),
+        );
+        let (url, auth, body) = match provider {
+            "tavily" => (
+                "https://api.tavily.com/search".to_owned(),
+                "authorization",
+                json!({"query":query,"max_results":count,"search_depth":"basic","include_answer":false,"include_raw_content":false,"auto_parameters":false}),
+            ),
+            "exa" => (
+                "https://api.exa.ai/search".into(),
+                "x-api-key",
+                json!({"query":query,"numResults":count,"type":"auto","contents":{"highlights":true}}),
+            ),
+            "serper" => (
+                "https://google.serper.dev/search".into(),
+                "x-api-key",
+                json!({"q":query,"num":count}),
+            ),
+            "serpapi" => {
+                options.method = Method::GET;
+                (
+                    format!(
+                        "https://serpapi.com/search.json?engine=google&q={}&api_key={}",
+                        encode_component(query)?,
+                        encode_component(key)?
+                    ),
+                    "",
+                    Value::Null,
+                )
+            }
+            _ => return Err(error(400, "Unknown search provider")),
+        };
+        if !auth.is_empty() {
+            let text = if provider == "tavily" {
+                format!("Bearer {}", sql_text(key))
+            } else {
+                sql_text(key)
+            };
+            let mut value = header::HeaderValue::from_str(&text)
+                .map_err(|_| error(400, "Invalid search credential header"))?;
+            value.set_sensitive(true);
+            options.headers.insert(auth, value);
+            options.body = Bytes::from(
+                serde_json::to_vec(&body).map_err(|_| error(400, "Invalid search query"))?,
+            );
+        }
+        // Fixed endpoint, no redirects, no raw response/transport errors in durable receipts.
+        let (response, _) =
+            fetch_following_guarded(&self.network, &url, options, cancel, self.authority.clone())
+                .await
+                .map_err(search_transport_error)?;
+        if !(200..300).contains(&response.status) {
+            return Err(error(502, format!("HTTP {}", response.status)));
+        }
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(network_error)
+            .map_err(search_transport_error)?;
+        let v: Value =
+            serde_json::from_slice(&bytes).map_err(|_| error(502, "Invalid search JSON"))?;
+        let results = normalize_additional(provider, &v, count)?;
         check_cancel(cancel)?;
         Ok(SearchResults {
             provider: provider.into(),
@@ -729,6 +898,61 @@ impl WebTools {
         }
     }
 }
+fn search_transport_error(e: EffectError) -> EffectError {
+    if e.aborted {
+        return EffectError::cancelled(false);
+    }
+    let blocked = e.error["blocked"] == true;
+    let mut safe = error(
+        if blocked { 403 } else { 502 },
+        if blocked {
+            "network policy denied"
+        } else if e.error["status"] == 504 {
+            "request timed out"
+        } else {
+            "request failed"
+        },
+    );
+    if blocked {
+        safe.error["blocked"] = json!(true);
+    }
+    safe
+}
+fn result_field<'a>(value: &'a Value, fields: &[&str]) -> Option<&'a Value> {
+    fields
+        .iter()
+        .find_map(|field| value.get(*field).filter(|v| !v.is_null()))
+}
+fn normalize_additional(
+    provider: &str,
+    v: &Value,
+    count: usize,
+) -> Result<Vec<Value>, EffectError> {
+    if !v.is_object() || v.get("error").is_some_and(truthy) || v.get("message").is_some_and(truthy)
+    {
+        return Err(error(502, "Search provider returned an error"));
+    }
+    let field = match provider {
+        "serper" => "organic",
+        "serpapi" => "organic_results",
+        _ => "results",
+    };
+    let empty = vec![];
+    let rows = match v.get(field) {
+        None | Some(Value::Null) => &empty,
+        Some(Value::Array(rows)) => rows,
+        _ => return Err(error(502, "Invalid search results")),
+    };
+    Ok(rows.iter().filter_map(|x| {
+        let url=result_field(x,&["url","link"])?.as_str()?;
+        let parsed=Url::parse(url).ok()?;
+        if !matches!(parsed.scheme(),"http"|"https") || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {return None;}
+        let snippet=if provider=="exa" {
+            x["highlights"].as_array().map(|a|a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" ")).unwrap_or_else(||x["text"].as_str().unwrap_or("").into())
+        } else {result_field(x,&["content","snippet"]).and_then(Value::as_str).unwrap_or("").into()};
+        Some(json!({"title":x["title"].as_str().unwrap_or(""),"url":url,"snippet":snippet,"age":result_field(x,&["publishedDate","published_date","date"]).and_then(Value::as_str)}))
+    }).take(count).collect())
+}
 #[derive(Clone)]
 pub struct FetchOptions {
     pub headers: HeaderMap,
@@ -736,6 +960,7 @@ pub struct FetchOptions {
     pub timeout: Duration,
     pub method: Method,
     pub body: Bytes,
+    pub redirects: bool,
 }
 impl Default for FetchOptions {
     fn default() -> Self {
@@ -745,6 +970,7 @@ impl Default for FetchOptions {
             timeout: Duration::from_millis(30000),
             method: Method::GET,
             body: Bytes::new(),
+            redirects: true,
         }
     }
 }
@@ -809,7 +1035,7 @@ async fn fetch_following_guarded(
                         Arc::new(WebEgressGuard(a.clone())) as Arc<dyn crate::network::EgressGuard>
                     }),
                     purpose: Purpose::WebTool,
-                    redirects: true,
+                    redirects: options.redirects,
                     max_bytes: options.max_bytes,
                     timeout: options.timeout,
                     ..NetworkScope::default()

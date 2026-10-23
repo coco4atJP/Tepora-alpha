@@ -2,6 +2,8 @@
 
 # Tepora V3 · 3.0.0-beta.11
 
+V3のWeb検索はBrave・SearXNG・DuckDuckGoに加え、明示選択でTavily・Exa・Serper・SerpAPIを利用できます。[設定と検証範囲](Tepora-v3/docs/WEB-SEARCH.md)。
+
 Teporaは、ひとつのキャラクターとの会話を続けながら、別のワーカーへ非同期に仕事を任せるローカル中心のAIワークスペースです。このブランチの起動・開発・検証・ネイティブビルドはすべて **V3 beta.11** を対象にしています。
 
 V3の開発本流は **`rust/v3-core-migration`** に一本化します。旧 `v3.0-beta/companion-os` の全履歴はこのブランチに含まれています。旧版とのAPI・設定形式の後方互換性はリリース要件にしません。ユーザーデータの削除や自動変換は別途明示的に扱います。GitHubの既定ブランチ設定とは独立して、以下のcloneコマンドで開発本流を取得できます。

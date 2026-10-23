@@ -5,7 +5,31 @@ import {splitSections,lexicalScores} from '../agent/decisions.mjs';
 import {oneLine} from './format.mjs';
 
 const UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36 Tepora';
-export const SEARCH_PROVIDERS=['auto','brave','searxng','duckduckgo'];
+export const SEARCH_KEY_ENVS=Object.freeze({brave:'BRAVE_API_KEY',tavily:'TAVILY_API_KEY',exa:'EXA_API_KEY',serper:'SERPER_API_KEY',serpapi:'SERPAPI_API_KEY'});
+export const SEARCH_PROVIDERS=['auto','brave','searxng','duckduckgo','tavily','exa','serper','serpapi'];
+export const WEB_SEARCH_DEFAULTS=Object.freeze({provider:'auto',searxngUrl:'',...Object.fromEntries(Object.entries(SEARCH_KEY_ENVS).map(([p,e])=>[`${p}KeyEnv`,e]))});
+export function webSearchConfig(value={},old={}){
+ invariant(value&&typeof value==='object'&&!Array.isArray(value),'Invalid webSearch');
+ const c={...WEB_SEARCH_DEFAULTS,...old,...value};
+ invariant(SEARCH_PROVIDERS.includes(c.provider),'Invalid webSearch.provider');
+ for(const k of ['searxngUrl',...Object.keys(SEARCH_KEY_ENVS).map(p=>`${p}KeyEnv`)])invariant(typeof c[k]==='string'&&c[k].length<=2000,`Invalid webSearch.${k}`);
+ return c;
+}
+const ADDITIONAL_PROVIDERS=['tavily','exa','serper','serpapi'];
+// Never include transport errors, URLs or provider response bodies in receipts: these may echo keys.
+const searchError=(provider,e)=>`${provider}: ${e?.blocked?'network policy denied':e?.name==='TimeoutError'||e?.name==='AbortError'?'request timed out':e?.searchSafe?e.message:'request failed'}`;
+function searchResultURL(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!!u.hostname&&!u.username&&!u.password;}catch{return false;}}
+function normalizedResults(provider,j,count){
+ invariant(j&&typeof j==='object'&&!Array.isArray(j),'Invalid search response',502);
+ invariant(!j.error&&!j.message,'Search provider returned an error',502);
+ const rows=j[provider==='serper'?'organic':provider==='serpapi'?'organic_results':'results']??[];
+ invariant(Array.isArray(rows),'Invalid search results',502);
+ return rows.filter(x=>x&&typeof x==='object'&&typeof (x.url??x.link)==='string'&&searchResultURL(x.url??x.link)).slice(0,count).map(x=>({
+  title:typeof x.title==='string'?x.title:'',url:x.url??x.link,
+  snippet:provider==='exa'?(Array.isArray(x.highlights)?x.highlights.filter(v=>typeof v==='string').join(' '):typeof x.text==='string'?x.text:''):typeof (x.content??x.snippet)==='string'?(x.content??x.snippet):'',
+  age:typeof (x.publishedDate??x.published_date??x.date)==='string'?(x.publishedDate??x.published_date??x.date):null
+ }));
+}
 /** Follows up to five redirects, re-checking every hop against the network policy. */
 export async function fetchFollowing(network,url,{signal,headers={},maxBytes=10_000_000,timeoutMs=30000,method='GET',body}={}){
  let current=url;
@@ -38,7 +62,8 @@ export class WebTools{
   const others=sections.map((t,i)=>({i,h:/^#{1,4} (.+)$/m.exec(t)?.[1]||oneLine(t,40)})).filter(x=>!picked.some(p=>p.i===x.i)).slice(0,30).map(x=>oneLine(x.h,48));
   return {picked,total:sections.length,method,others};
  }
- config(){return {provider:'auto',searxngUrl:'',braveKeyEnv:'BRAVE_API_KEY',...this.settings?.().webSearch};}
+ config(){return webSearchConfig(this.settings?.().webSearch||{});}
+ key(provider){return this.keys?.(provider)||process.env[this.config()[`${provider}KeyEnv`]]||'';}
  provider(){
   const c=this.config();if(c.provider!=='auto')return c.provider;
   if(this.keys?.('brave')||process.env[c.braveKeyEnv])return 'brave';if(c.searxngUrl)return 'searxng';return 'duckduckgo';
@@ -50,17 +75,33 @@ export class WebTools{
   const order=[first,...(c.provider==='auto'?['brave','searxng','duckduckgo']:[]).filter(p=>p!==first&&(p!=='brave'||this.keys?.('brave')||process.env[c.braveKeyEnv])&&(p!=='searxng'||c.searxngUrl))];
   const errors=[];
   for(const provider of order){
-   try{const r=await this.searchWith(provider,query,{count,signal});if(r.results.length||provider===order.at(-1)&&!this.browser)return {...r,...(errors.length?{fallbackFrom:errors}:{})};errors.push(`${provider}: no results`);}
-   catch(e){if(signal?.aborted)throw e;errors.push(`${provider}: ${String(e.message).slice(0,120)}`);}
+   try{const r=await this.searchWith(provider,query,{count,signal});if(r.results.length||provider===order.at(-1)&&(!this.browser||ADDITIONAL_PROVIDERS.includes(c.provider)))return {...r,...(errors.length?{fallbackFrom:errors}:{})};errors.push(`${provider}: no results`);}
+   catch(e){if(signal?.aborted)throw e;errors.push(ADDITIONAL_PROVIDERS.includes(provider)?searchError(provider,e):`${provider}: ${String(e.message).slice(0,120)}`);}
   }
-  if(this.browser){
+  if(this.browser&&!ADDITIONAL_PROVIDERS.includes(c.provider)){
    try{const {html}=await this.browser.render(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=jp-jp`,{signal});return {provider:'browser',results:parseDuckDuckGo(html).slice(0,count),fallbackFrom:errors};}
    catch(e){if(signal?.aborted)throw e;errors.push(`browser: ${String(e.message).slice(0,120)}`);}
   }
   invariant(false,`Web search failed: ${errors.join('; ')}`,502);
  }
  async searchWith(provider,query,{count=8,signal}={}){
-  const c=this.config();
+  const c=this.config();count=Math.min(20,Math.max(1,Math.trunc(count)||8));
+  invariant(SEARCH_PROVIDERS.includes(provider)&&provider!=='auto','Unknown search provider',400);
+  if(ADDITIONAL_PROVIDERS.includes(provider)){
+   const key=this.key(provider);if(!key)throw Object.assign(new Error(`${provider}のAPIキーが設定されていません。`),{status:409,searchSafe:true});
+   const headers={Accept:'application/json','Content-Type':'application/json'};
+   let url,body,method='POST';
+   if(provider==='tavily'){url='https://api.tavily.com/search';headers.Authorization=`Bearer ${key}`;body={query,max_results:count,search_depth:'basic',include_answer:false,include_raw_content:false,auto_parameters:false};}
+   if(provider==='exa'){url='https://api.exa.ai/search';headers['x-api-key']=key;body={query,numResults:count,type:'auto',contents:{highlights:true}};}
+   if(provider==='serper'){url='https://google.serper.dev/search';headers['X-API-KEY']=key;body={q:query,num:count};}
+   if(provider==='serpapi'){url=`https://serpapi.com/search.json?${new URLSearchParams({engine:'google',q:query,api_key:key})}`;method='GET';}
+   try{
+    // API credentials are bound to a fixed endpoint. Reject redirects instead of replaying keys.
+    const r=await this.network.request(url,{method,signal,headers,...(body?{body:JSON.stringify(body)}:{})},{purpose:'web-tool',maxBytes:2_000_000,timeoutMs:30000,redirects:false});
+    if(!r.ok){await r.body?.cancel();throw Object.assign(new Error(`HTTP ${r.status}`),{searchSafe:true});}
+    return {provider,results:normalizedResults(provider,await r.json(),count)};
+   }catch(e){if(signal?.aborted)throw e;throw Object.assign(new Error(searchError(provider,e).slice(provider.length+2)),{status:e?.blocked?403:502,blocked:!!e?.blocked,searchSafe:true});}
+  }
   if(provider==='brave'){
    const key=this.keys?.('brave')||process.env[c.braveKeyEnv];invariant(key,'Brave SearchのAPIキーが設定されていません。',409);
    const {response:r}=await fetchFollowing(this.network,`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`,{signal,headers:{Accept:'application/json','X-Subscription-Token':key}});
