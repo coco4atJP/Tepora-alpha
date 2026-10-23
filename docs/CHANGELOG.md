@@ -1,5 +1,14 @@
 # Tepora V3 changelog
 
+## Voice and memory model candidates (beta.11)
+
+- Add current local/cloud STT, TTS and embedding candidates, without changing existing routes, installing models or authenticating accounts
+- Connect recorded STT through identity-bound capability routes on both hosts; distinguish GPT-Transcribe multipart language fields and require per-recording external consent
+- Add an optional local MOSS/Qwen/Kokoro WAV TTS adapter and Inworld-compatible speech selection; preserve explicit text/recipient confirmation and cancellation
+- Version embedding input recipes, context and optional model revisions; keep Qwen query instructions separate from documents and require explicit reindexing after space changes
+- Separate external query consent from shared-memory indexing consent; test synthetic transports, Node/native parity and offline settings UI
+- See [choices, official sources and unverified paths](../Tepora-v3/docs/MODALITY-MODELS.md); real model quality, paid APIs and native desktop UI remain untested
+
 ## Windows CI staging and Node budget repairs (beta.11)
 
 - Publish staged native binaries on Windows even when the previous file is still open or mapped, by retiring the old file before the new bytes take its place; a failed publish restores the working binary and never leaves a retired copy behind

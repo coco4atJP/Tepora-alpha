@@ -8,6 +8,7 @@ import {VoiceDraft} from './draft.mjs';
 import {createFocusTimer} from './focus-timer.mjs';
 import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
+import {TranscriptionRequest} from './transcription.mjs';
 import {VoiceCapture} from './voice.mjs';
 import {RealtimeVoiceCapture} from './realtime-voice.mjs';
 import {jobStatus,needsPerson} from './status.mjs';
@@ -58,6 +59,7 @@ const glowHost=document.createElement('div');glowHost.className='stage-glow';
 const lightsHost=document.createElement('div');lightsHost.className='stage-lights';
 const draftContext=new DialogueDraftContext();
 const draft=new VoiceDraft();
+const transcriptions=new TranscriptionRequest((audio,headers,signal)=>bridge.request('/api/voice/transcribe','POST',audio,headers,{signal}));
 let capabilityUI=null;
 function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
 let providerUI=null;
@@ -681,7 +683,7 @@ function paintSettingsNav(){
 }
 function settingsView(){
  const s=settings(),prefs=display(),mcfg=monitorConfig(prefs),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
- const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
+ const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={stt:'音声認識',tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
  const connected=Object.entries(roleNames).filter(([role])=>caps.routes?.[role]).map(([,n])=>n);
  const order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
  const sections=[
@@ -797,7 +799,7 @@ function pinDraft(){return draftContext.pin(state.dialogue.session);}
 function clearDraftDestination(){draftContext.clear();}
 function showTarget(){
  const host=$('#target-hint');if(!host)return;if(sharedView){host.innerHTML='';return;}
- const voiceReady=settings().voiceEnabled&&(settings().asrStreamUrl||settings().asrUrl);
+ const voiceReady=settings().voiceEnabled&&(settings().asrStreamUrl||settings().asrUrl||state.capabilities?.routes?.stt);
  host.innerHTML=voiceReady?`<div class="voice-send">${btn('voice-autosend',voiceSendEnabled?'話し終えたら送信: オン':'話し終えたら送信: オフ','',`chip-button${voiceSendEnabled?' is-on':''}`,`aria-pressed="${voiceSendEnabled}" ${composerLocked()&&!voiceSendEnabled?'disabled':''}`)}</div>`:'';
  const input=$('#composer-input'),name=characterName(state.dialogue);
  if(input){input.placeholder=`${name}に話しかける`;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,200)}px`;}
@@ -906,7 +908,7 @@ function openSheet(title,body,kind='generic',id=null){
  document.body.classList.add('dialog-open');
  setTimeout(()=>{const first=kind==='avatar'?null:$('.modal-body input:not([type=hidden]):not([readonly]):not([type=checkbox]),.modal-body textarea,.modal-body select',overlay);(first||$('#modal-title',overlay))?.focus();},0);
 }
-function closeSheet(){capabilityUI?.onClose();avatarStudioUI?.close();pendingRelay=null;
+function closeSheet(){if(transcriptions.reviewing)transcriptions.cancel();capabilityUI?.onClose();avatarStudioUI?.close();pendingRelay=null;
  clearTimeout(toastTimer);toastEl.classList.remove('show');
  const wasAvatar=activeDialog?.kind==='avatar';
  overlay.replaceChildren();document.body.classList.remove('dialog-open');activeDialog=null;sheetBaseline='';
@@ -937,7 +939,7 @@ function closePanel(){
 function openInbox(){openPanel('あなたの番',inboxHTML(inboxList(),{presence}),'inbox');}
 function paintInbox(){const body=$('#panel .panel-body');if(!body||activePanel?.kind!=='inbox')return;const top=body.scrollTop;body.innerHTML=inboxHTML(inboxList(),{presence});body.scrollTop=top;}
 function voiceSheet(){
- const s=settings();openSheet('ローカル音声と軽量判断',`<form id="voice-form">
+ const s=settings();openSheet('ローカル音声と軽量判断',`<p>役割別の音声認識は、能力の接続でモデル・送信先を選びます。外部への録音送信は、停止後に毎回確認します。リアルタイム入力は下のローカル設定から選べます。</p>${btn('abilities-open','音声認識の接続先を選ぶ','','button secondary')}<form id="voice-form">
  ${field('リアルタイム音声ワーカーのURL','asrStreamUrl',s.asrStreamUrl||'','http://127.0.0.1:8768')}
  ${field('LayaのSystem One URL','decisionUrl',s.decisionUrl,'http://127.0.0.1:8767/v1/systemone')}
  ${field('判断モデル','decisionModel',s.decisionModel||'multilingual')}
@@ -1034,9 +1036,19 @@ function revealComposer(){
  setTimeout(()=>$('#composer-input')?.focus(),0);
 }
 function cancelVoice(){
+ transcriptions.cancel();
  const capture=voice;voice=null;voiceBusy=false;voiceAnchor=null;voiceEpoch++;pendingSpeech='';
  if($('#voice-caption'))$('#voice-caption').textContent='';paintMicrophone(false);
  capture?.cancel().catch(()=>{});
+}
+function transcriptionProfile(){
+ const id=state.capabilities?.routes?.stt;if(!id)return null;
+ const p=state.capabilities.profiles.find(p=>p.id===id&&p.enabled&&p.role==='stt');
+ if(!p)throw Error('音声認識の接続先が無効です。能力の接続で確認してください。');return p;
+}
+async function transcribeRecording(wav,anchor,epoch){
+ const profile=anchor.transcriptionProfile;if(!profile)return bridge.request('/api/voice/transcribe','POST',wav);
+ return transcriptions.run(wav,profile,{owns:()=>epoch===voiceEpoch&&!sharedView&&attachmentEpoch===anchor.attachmentEpoch&&draftContext.accepts(anchor,draft),onReview:(p,bytes)=>openSheet('録音の送信先を確認',`<p>この録音（${Math.ceil(bytes/1024)} KB）を、次の接続先へ送って文字起こしします。利用料が発生する場合があります。</p><p><strong>${escape(p.name)}</strong> · ${escape(p.model)}<br>${escape(p.baseUrl)}</p><p>結果は下書きに反映します。この録音から会話を自動送信しません。取り消すと外部へ送りません。</p><div class="sheet-actions">${btn('transcription-send','この録音を送って認識する','','button')}${btn('transcription-cancel','送らず取り消す','','button secondary')}</div>`,'transcription')});
 }
 async function recordToggle(){capabilityUI?.stopPlayback();
  requireComposerUnlocked();
@@ -1045,14 +1057,15 @@ async function recordToggle(){capabilityUI?.stopPlayback();
  if(voiceBusy)return;
  if(voice){const capture=voice,anchor=voiceAnchor,epoch=voiceEpoch;voiceBusy=true;try{
   if(capture instanceof RealtimeVoiceCapture)await capture.stop();
-  else{const wav=await capture.stop();if(epoch!==voiceEpoch)return;const r=await bridge.request('/api/voice/transcribe','POST',wav);await finishSpeech(r.text,anchor,epoch);}
+  else{const wav=await capture.stop();if(epoch!==voiceEpoch)return;const r=await transcribeRecording(wav,anchor,epoch);await finishSpeech(r.text,anchor,epoch);}
  }catch(e){if(epoch===voiceEpoch&&e.name!=='AbortError')throw e;}
  finally{if(epoch===voiceEpoch){voice=null;voiceBusy=false;paintMicrophone(false);}}return;}
- if(!settings().asrStreamUrl&&!settings().asrUrl){voiceSheet();return;}
+ const transcription=transcriptionProfile();
+ if(!transcription&&!settings().asrStreamUrl&&!settings().asrUrl){voiceSheet();return;}
  pinDraft();const epoch=++voiceEpoch;
- const anchor=draftContext.anchor(draft,{start:$('#composer-input').selectionStart,end:$('#composer-input').selectionEnd,id:crypto.randomUUID(),attachmentEpoch,sessionId:state.dialogue.session.id});voiceAnchor=anchor;
+ const anchor=draftContext.anchor(draft,{start:$('#composer-input').selectionStart,end:$('#composer-input').selectionEnd,id:crypto.randomUUID(),attachmentEpoch,sessionId:state.dialogue.session.id});voiceAnchor=anchor;anchor.transcriptionProfile=transcription?structuredClone(transcription):null;anchor.externalTranscription=transcription&&transcription.domain!=='device';
  voiceBusy=true;
- const capture=settings().asrStreamUrl?new RealtimeVoiceCapture(bridge):new VoiceCapture();voice=capture;
+ const capture=!transcription&&settings().asrStreamUrl?new RealtimeVoiceCapture(bridge):new VoiceCapture();voice=capture;
  try{
   if(capture instanceof RealtimeVoiceCapture){
    await capture.start({onPartial:text=>{if(voice===capture&&epoch===voiceEpoch)$('#voice-caption').textContent=text;},onFinal:text=>{if(epoch===voiceEpoch){safe(finishSpeech)(text,anchor,epoch);voice=null;paintMicrophone(false);}},
@@ -1079,7 +1092,7 @@ async function finishSpeech(text,anchor,epoch){
   }
   if(epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
   if(!draftContext.accepts(anchor,draft))throw new Error('入力が変わったため、自動では反映しませんでした。');
-  const autoSubmit=voiceSendEnabled&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&!composerLocked();
+  const autoSubmit=voiceSendEnabled&&!anchor.externalTranscription&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&!composerLocked();
   draft.apply(patch);$('#composer-input').value=draft.content;showTarget();
   $('#voice-caption').textContent=(patch.summary||'下書きに反映しました。')+' まだ送信していません。';
   if(autoSubmit)await safe(submitDialogue)(false,false,{revision:draft.revision,epoch});
@@ -1183,6 +1196,7 @@ const actions={
  weather:async()=>{if(!settings().weatherCity||!settings().allowNetwork){connectionDataSheet();return;}await loadFeeds(true);},
  news:async()=>{if(!settings().newsUrl||!settings().allowNetwork){connectionDataSheet();return;}await loadFeeds(true);},
  media:mediaSheet,'media-external':async()=>bridge.request('/api/media/open','POST',{url:$('[name=url]',overlay).value}),
+ 'transcription-send':()=>{if(transcriptions.confirm())closeSheet();},'transcription-cancel':closeSheet,
  mic:recordToggle,'append-speech':()=>{requireComposerUnlocked();if(!pendingSpeech||pendingSpeech.epoch!==voiceEpoch||pendingSpeech.anchor.destination!==draftContext.destination)return;draft.manual(draft.content+pendingSpeech.text);$('#composer-input').value=draft.content;pendingSpeech='';$('#voice-caption').textContent='下書きに追加しました。まだ送信していません。';},
  'undo-draft':()=>{requireComposerUnlocked();cancelVoice();pinDraft();draft.undo();$('#composer-input').value=draft.content;showTarget();},
  'hide-reply':()=>{replyHidden=true;showReply();},

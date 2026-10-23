@@ -148,3 +148,25 @@ test('native speech: held upstream cancel does not delay media Stop or shutdown'
   if(mode!=='close'){await c.state(job.id,'cancelled');await c.close();}
  }
 });
+
+
+test('modality speech: Node/native refuse unselected MOSS voices and enforce profile-specific limits before egress',async t=>{
+ const f=await fixture(t);
+ for(const c of f.clients){
+  for(const [model,voice,prompt]of [['OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX','SELECT_INSTALLED_BUILTIN','合成'],['inworld-tts-2-flash','Dennis','a'.repeat(4001)],['Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice','Ono_Anna','a'.repeat(4001)],['kokoro','jf_alpha','a'.repeat(4001)]]){
+   const before=await c.json('/api/capabilities'),profile={id:'tts',name:'Synthetic speech',protocol:'openai-speech',baseUrl:f.origin+'/v1',domain:'device',model,voice,audioFormat:'wav',enabled:true};
+   await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles:[profile],routes:{tts:'tts'}}});
+   await c.json('/api/media/jobs','POST',await f.body(c,'tts','bounded-speech',prompt),400);
+  }
+ }
+ assert.equal(f.records.length,0);
+});
+
+test('semantic review: Node/native refuse stale index and query recipients before egress',async t=>{
+ const f=await fixture(t);
+ for(const c of f.clients){
+  const before=await c.json('/api/capabilities');await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles:[{id:'embedding',name:'Synthetic embedding',protocol:'openai-embeddings',baseUrl:f.origin+'/v1',domain:'device',model:'synthetic',enabled:true}],routes:{embedding:'embedding'}}});
+  for(const route of ['index','search'])await c.json('/api/semantic/'+route,'POST',{profileIdentity:'stale-reviewed-recipient',query:'合成',consent:true},409);
+ }
+ assert.equal(f.records.length,0);
+});

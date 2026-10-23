@@ -783,7 +783,7 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .dialog-open{overflow:hidden}
 .modal-backdrop{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(28,22,16,.38);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:fade-in .14s ease-out}
 @keyframes fade-in{from{opacity:.88}to{opacity:1}}
-.modal{width:min(600px,100%);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg),var(--edge-light);animation:modal-in .18s cubic-bezier(.22,1,.36,1)}
+.modal{color:var(--text);width:min(600px,100%);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg),var(--edge-light);animation:modal-in .18s cubic-bezier(.22,1,.36,1)}
 @keyframes modal-in{from{transform:translateY(6px) scale(.99);opacity:.96}to{transform:none;opacity:1}}
 .modal.wide{width:min(940px,100%)}
 .modal-header{flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 12px 12px 22px;border-bottom:1px solid var(--line)}

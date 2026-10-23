@@ -7,7 +7,7 @@ export const previewMode=location.protocol==='file:' || window.__TEPORA_PREVIEW_
 let csrfToken='', stream=null;
 const listeners=new Set();
 const dispatch=e=>{for(const fn of listeners)fn(e);};
-const previewDefaults={companion:'Tepora',provider:'llama.cpp',baseUrl:'http://127.0.0.1:8080/v1',model:'',asrUrl:'',asrStreamUrl:'',asrModel:'Qwen/Qwen3-ASR-1.7B',decisionUrl:'',decisionModel:'multilingual',allowCloud:false,allowNetwork:false,shareMemory:false,voiceEnabled:true,autoAmbient:false,concurrency:2,maxSteps:64,maxTokens:2048,weatherCity:'',newsUrl:'',apiKeyEnv:'',runtimeBinary:'',modelPath:'',bravePath:''};
+const previewDefaults={companion:'Tepora',provider:'llama.cpp',baseUrl:'http://127.0.0.1:8080/v1',model:'',asrUrl:'',asrStreamUrl:'',asrModel:'Qwen/Qwen3-ASR-0.6B',decisionUrl:'',decisionModel:'multilingual',allowCloud:false,allowNetwork:false,shareMemory:false,voiceEnabled:true,autoAmbient:false,concurrency:2,maxSteps:64,maxTokens:2048,weatherCity:'',newsUrl:'',apiKeyEnv:'',runtimeBinary:'',modelPath:'',bravePath:''};
 let saved;try{saved=JSON.parse(localStorage.getItem('tepora-preview-v3')||'null');}catch{}
 let previewState={seq:0,jobs:[],artifacts:[],memories:[],messages:[],skills:[],mcp:[],settings:previewDefaults,...saved,preview:true,platform:'preview',workspace:'プレビュー内のみ'};
 previewState.display=previewState.display||structuredClone(DISPLAY_DEFAULT);
@@ -107,7 +107,7 @@ async function previewRequest(p,method,b){
  if(p==='/api/capabilities'){
   if(method==='GET')return structuredClone(previewState.capabilities);
   if(b.expectedRevision!==previewState.capabilities.revision)throw Error('接続設定が更新されています。');
-  const protocols={'system-one':'decision','openai-embeddings':'embedding','ollama-embed':'embedding','openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'};
+  const protocols={'openai-transcribe':'stt','openai-transcriptions':'stt','system-one':'decision','openai-embeddings':'embedding','ollama-embed':'embedding','openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'};
   const profiles=b.config.profiles.map(p=>{if(!protocols[p.protocol]||!p.id||!p.name||!p.model)throw Error('接続ID・名前・モデルを入力してください。');new URL(p.baseUrl);return {...p,role:protocols[p.protocol],identity:uid(),enabled:p.enabled!==false,keyPresent:false};});
   for(const [role,id]of Object.entries(b.config.routes)){if(!profiles.some(p=>p.id===id&&p.role===role&&p.enabled))throw Error('役割に対応した接続を選んでください。');}
   previewState.capabilities={schema:1,revision:b.expectedRevision+1,profiles,routes:b.config.routes};emitPreview('capabilities.updated',previewState.capabilities);return structuredClone(previewState.capabilities);
@@ -242,6 +242,6 @@ export const bridge={
  preview:previewMode,
  on(fn){listeners.add(fn);return()=>listeners.delete(fn);},
  async init(){const snapshot=await this.request('/api/bootstrap');csrfToken=snapshot.csrf||'';if(!previewMode){stream=new EventSource(`/api/events?since=${snapshot.seq}`);stream.onmessage=e=>{try{dispatch(JSON.parse(e.data));}catch{}};stream.onerror=()=>dispatch({type:'transport.status',data:{online:false}});stream.onopen=()=>dispatch({type:'transport.status',data:{online:true}});}return snapshot;},
- async request(p,method='GET',value,headers={}){if(previewMode){try{return await previewRequest(p,method,value);}catch(e){e.status||=409;throw e;}}const opts={method,credentials:'same-origin',headers:{'X-Tepora-CSRF':csrfToken}};if(value!==undefined){if(value instanceof Blob){opts.body=value;opts.headers['Content-Type']=value.type||'audio/wav';}else{opts.body=JSON.stringify(value);opts.headers['Content-Type']='application/json';}}Object.assign(opts.headers,headers);const r=await fetch(p,opts);let result;try{result=await r.json();}catch{throw new Error(`HTTP ${r.status}: 応答が読み取れません。`);}if(!r.ok)throw Object.assign(new Error(result.error||`HTTP ${r.status}`),{status:r.status});return result;},
+ async request(p,method='GET',value,headers={},options={}){if(previewMode){try{return await previewRequest(p,method,value);}catch(e){e.status||=409;throw e;}}const opts={signal:options.signal,method,credentials:'same-origin',headers:{'X-Tepora-CSRF':csrfToken}};if(value!==undefined){if(value instanceof Blob){opts.body=value;opts.headers['Content-Type']=value.type||'audio/wav';}else{opts.body=JSON.stringify(value);opts.headers['Content-Type']='application/json';}}Object.assign(opts.headers,headers);const r=await fetch(p,opts);let result;try{result=await r.json();}catch{throw new Error(`HTTP ${r.status}: 応答が読み取れません。`);}if(!r.ok)throw Object.assign(new Error(result.error||`HTTP ${r.status}`),{status:r.status});return result;},
  close(){stream?.close();}
 };

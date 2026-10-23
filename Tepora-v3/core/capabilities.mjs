@@ -3,17 +3,19 @@ import {validateProfile,ResourceGate} from './provider-registry.mjs';
 import {invariant,text} from './policy.mjs';
 import {normalURL,NetworkBlocked} from './network-policy.mjs';
 import {DecisionClient} from './decision.mjs';
+import {embeddingInputs} from './embedding-space.mjs';
 import {ModelDispatch} from './model-usage.mjs';
 
 /** Modality endpoints are NOT chat models. No dependency on Vercel or a hosted gateway. */
 export const CAPABILITY_PROTOCOLS={
  'system-one':'decision','openai-embeddings':'embedding','ollama-embed':'embedding',
+ 'openai-transcriptions':'stt','openai-transcribe':'stt',
  'openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'
 };
-export const CAPABILITY_ROLES=['decision','embedding','tts','image','image_edit','video'];
+export const CAPABILITY_ROLES=['decision','embedding','stt','tts','image','image_edit','video'];
 const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 const fields=new Set(['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp',
- 'enabled','apiKeyEnv','timeoutMs','maxParallel','resource','voice','dimensions','assetOrigins']);
+ 'enabled','apiKeyEnv','timeoutMs','maxParallel','resource','voice','dimensions','assetOrigins','embeddingFormat','contextTokens','modelRevision','audioFormat']);
 export function validateCapability(raw){
  invariant(raw&&typeof raw==='object'&&!Array.isArray(raw)&&Object.keys(raw).every(k=>fields.has(k)),'Unknown capability setting');
  invariant(Object.hasOwn(CAPABILITY_PROTOCOLS,raw.protocol),'Choose a supported modality protocol');
@@ -28,6 +30,10 @@ export function validateCapability(raw){
   pinnedAddress:p.pinnedAddress,allowPlainHttp:p.allowPlainHttp,apiKeyEnv:p.apiKeyEnv,timeoutMs:p.timeoutMs,
   maxParallel:p.maxParallel,resource:p.resource,protocol:raw.protocol,role:CAPABILITY_PROTOCOLS[raw.protocol],
   voice:raw.voice||'alloy',dimensions:raw.dimensions||null,assetOrigins:assetOrigins.map(x=>new URL(x).origin)};
+ if(raw.embeddingFormat!==undefined){invariant(result.role==='embedding'&&['plain-v1','qwen3-retrieval-v1'].includes(raw.embeddingFormat),'Invalid embedding format');result.embeddingFormat=raw.embeddingFormat;}
+ if(raw.contextTokens!==undefined){invariant(raw.protocol==='ollama-embed'&&Number.isInteger(raw.contextTokens)&&raw.contextTokens>=512&&raw.contextTokens<=8192,'Invalid embedding context');result.contextTokens=raw.contextTokens;}
+ if(raw.modelRevision!==undefined){invariant(result.role==='embedding'&&typeof raw.modelRevision==='string'&&raw.modelRevision.length<=200,'Invalid model revision');result.modelRevision=raw.modelRevision;}
+ if(raw.audioFormat!==undefined){invariant(result.role==='tts'&&['mp3','wav'].includes(raw.audioFormat),'Invalid speech format');result.audioFormat=raw.audioFormat;}
  result.identity=hash(result);return result;
 }
 export class Capabilities{
@@ -79,10 +85,21 @@ export class Capabilities{
   });
   return client.decide(state,questions,signal);
  }
- async embed(inputs,{signal,profile=this.pin('embedding')}={}){
+ async transcribe(audio,{signal,profileIdentity,consent=false,profile=this.pin('stt')}={}){
+  const p=profile;invariant(p.role==='stt','Not a transcription endpoint');
+  invariant(profileIdentity===p.identity,'音声の送信先が変わりました。確認し直してください。',409);
+  invariant(p.domain==='device'||consent===true,'録音を外部へ送る確認が必要です。',403);
+  invariant(Buffer.isBuffer(audio)&&audio.length>=44&&audio.length<=12*1024*1024&&audio.toString('ascii',0,4)==='RIFF'&&audio.toString('ascii',8,12)==='WAVE','Use bounded PCM WAV audio',400);
+  const form=new FormData();form.set('file',new Blob([audio],{type:'audio/wav'}),'recording.wav');form.set('model',p.model);form.set('response_format','json');
+  form.set(p.protocol==='openai-transcribe'?'languages[]':'language','ja');
+  const response=await this.request(p,'/audio/transcriptions',{body:form,signal,maxBytes:256000});signal?.throwIfAborted();
+  const data=await response.json();invariant(typeof data.text==='string'&&data.text.length<=32000,'Invalid ASR transcript',502);
+  return {text:data.text};
+ }
+ async embed(inputs,{signal,profile=this.pin('embedding'),purpose='document'}={}){
   const p=profile;invariant(p.role==='embedding','Not an embedding endpoint');
   invariant(Array.isArray(inputs)&&inputs.length>=1&&inputs.length<=32&&inputs.every(s=>typeof s==='string'&&s.length>0&&s.length<=12000),'Embedding input budget exceeded');
-  const json={model:p.model,input:inputs};if(p.protocol==='openai-embeddings'){json.encoding_format='float';if(p.dimensions)json.dimensions=p.dimensions;}
+  const json={model:p.model,input:embeddingInputs(p,inputs,purpose)};if(p.protocol==='ollama-embed'&&p.contextTokens)json.options={num_ctx:p.contextTokens};if(p.protocol==='openai-embeddings'){json.encoding_format='float';if(p.dimensions)json.dimensions=p.dimensions;}
   const r=await this.request(p,p.protocol==='ollama-embed'?'/embed':'/embeddings',{json,signal});const data=await r.json();
   let vectors;
   if(p.protocol==='ollama-embed')vectors=data.embeddings;

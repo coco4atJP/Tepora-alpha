@@ -2229,3 +2229,15 @@ async fn accounting_receipts_include_typed_decision_and_cancellation_once() {
     assert!(["cancelled","unknown"].contains(&state.receipts[1]["outcome"].as_str().unwrap()));
     assert!(state.receipts[1]["cost"].is_null());
 }
+
+#[test]
+fn reviewed_modality_presets_match_node_normalization_and_identity() {
+    let cases: Value=serde_json::from_str(include_str!("fixtures/modality-presets.json")).unwrap();
+    for case in cases.as_array().unwrap(){
+        assert_eq!(validate_capability(&case["raw"]).unwrap(),case["expected"]);
+    }
+    let p=json!({"identity":"synthetic","embeddingFormat":"qwen3-retrieval-v1"});
+    assert_ne!(embedding_identity(&p),p["identity"]);
+    assert_eq!(embedding_identity(&json!({"identity":"legacy"})),json!("legacy"));
+    assert_eq!(embedding_inputs(&p,&json!(["質問","原文"]),"ranking"),json!(["Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: 質問","原文"]));
+}

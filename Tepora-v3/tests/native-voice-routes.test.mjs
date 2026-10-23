@@ -53,7 +53,7 @@ async function fixture(t){
   if(req.url==='/api/cancel'){reply(res,200,{cancelled:true});return;}
   if(req.url==='/props'){reply(res,200,{n_ctx:8192,total_slots:1});return;}
   if(req.url===editPath){reply(res,200,editResponse);return;}
-  if(req.url===asrPath){reply(res,asrStatus,asrResponse);return;}
+  if(req.url===asrPath||req.url==='/v1/audio/transcriptions'){reply(res,asrStatus,asrResponse);return;}
   reply(res,404,{error:'Unrecognized synthetic endpoint'});
  });
  mock.on('connection',socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));});
@@ -257,6 +257,30 @@ test('native voice routes: held speech cleanup does not delay edit or ASR cancel
   await stopping;
   for(const result of await Promise.all(pending)){if(stop==='shutdown')shutdownResult(result);else assert.equal(result.status,499,JSON.stringify(result));}
   for(const call of held)f.reply(call.res,200,call.url===editPath?modelAnswer():{text:'LATE RESULT'});
+  await c.close();
+ }
+});
+
+
+test('modality STT: Node/native pin the same recipient, frame Japanese hints and cancel Stop All',{timeout:60000},async t=>{
+ const f=await fixture(t),wav=Buffer.alloc(48);wav.write('RIFF');wav.write('WAVE',8);
+ for(const native of [false,true]){
+  const c=await f.start(native),settings=await f.configureAsr(c),baseUrl=new URL(settings.asrUrl).origin+'/v1';
+  const before=await c.json('/api/capabilities');
+  const saved=await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles:[{id:'synthetic-stt',name:'Synthetic GPT-compatible STT',protocol:'openai-transcribe',baseUrl,model:'gpt-transcribe',domain:'device'}],routes:{stt:'synthetic-stt'}}});
+  const profile=saved.profiles[0],headers={'X-Tepora-Audio-Profile':profile.identity};
+  const count=f.records.length;
+  const stale=await c.request('/api/voice/transcribe','POST',wav,{'X-Tepora-Audio-Profile':'stale'});assert.equal(stale.status,409);assert.equal(f.records.length,count);
+  let response=await c.request('/api/voice/transcribe','POST',wav,headers);assert.equal(response.status,200);assert.deepEqual(await response.json(),{text:'合成音声🌸の文字起こし'});
+  const recorded=f.records.at(-1);assert.equal(recorded.url,'/v1/audio/transcriptions');const fields=recorded.raw.toString();assert.match(fields,/name="languages\[\]"/);assert.doesNotMatch(fields,/name="language"/);assert.match(fields,/gpt-transcribe/);
+  f.holds.add('/v1/audio/transcriptions');const index=f.held.length;
+  const pending=c.request('/api/voice/transcribe','POST',wav,headers);await wait(()=>f.held.length>index,'capability STT admitted');
+  await c.json('/api/stop','POST',{});response=await pending;assert.ok([499,500,503].includes(response.status),'cancelled recognition cannot succeed');
+  f.held[index].res.destroy();f.holds.delete('/v1/audio/transcriptions');
+  const registry=await c.json('/api/capabilities');
+  const cloud=await c.json('/api/capabilities','PUT',{expectedRevision:registry.revision,config:{profiles:[{id:'synthetic-cloud-stt',name:'Uncalled external fixture',protocol:'openai-transcribe',baseUrl:'https://never-called.invalid/v1',model:'gpt-transcribe',domain:'cloud'}],routes:{stt:'synthetic-cloud-stt'}}});
+  const beforeExternal=f.records.length;
+  response=await c.request('/api/voice/transcribe','POST',wav,{'X-Tepora-Audio-Profile':cloud.profiles[0].identity});assert.equal(response.status,403);assert.match((await response.json()).error,/確認/);assert.equal(f.records.length,beforeExternal,'unconsented external STT must not fall back to legacy ASR');
   await c.close();
  }
 });

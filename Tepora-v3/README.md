@@ -104,7 +104,8 @@ offline. It never installs packages from metadata or treats a capability listing
 | Main/chat/work/vision/dictation | Chat Completions, Responses, Anthropic Messages, Gemini generateContent |
 | Typed decisions | System One `state + questions -> answers`: Liquid d1 (cloud) and the local Laya multilingual worker |
 | Embeddings | OpenAI-compatible `/embeddings`, Ollama `/embed` |
-| TTS | OpenAI-compatible `/audio/speech` |
+| Recorded STT | GPT-Transcribe `languages[]` and Whisper-compatible `language` multipart `/audio/transcriptions` |
+| TTS | OpenAI-compatible `/audio/speech`, local MOSS/Qwen/Kokoro WAV and Inworld TTS-2 |
 | Images | OpenAI-compatible `/images/generations` and multipart `/images/edits` |
 | Video | xAI asynchronous `/videos/generations` and `/videos/{request_id}` |
 
@@ -117,6 +118,10 @@ Additional subscription plans have provider-specific scope/auth requirements. Th
 not impersonate other clients or treat a coding-only plan as unlimited general-purpose inference.
 Official OpenCode Go's required coding/session-header integration and other subscription OAuth
 flows are not implemented.
+
+Current STT/TTS/embedding candidates, explicit cloud consent, local adapter prerequisites and
+unverified runtime paths are documented in [Modality models](docs/MODALITY-MODELS.md).
+Presets do not install models, authenticate accounts or migrate existing indexes.
 
 ## Local floor and optional workers
 
@@ -145,7 +150,7 @@ python workers/speech_server.py --model /path/to/installed/Qwen3-ASR-checkpoint 
 Windows may require WSL/a supported inference host. Captured chunks are 200 ms, **not a 200 ms
 latency claim**. Existing speech capture, local semantic-draft editing and protected manual edits
 remain. No full-duplex voice, wake-word/diarization or Pixel-equivalent quality claim is made.
-New local TTS/image/video/embedding runtime managers are deliberately not added.
+The optional local WAV TTS adapter is manually started; automatic runtime managers are not added.
 
 ## Agents
 

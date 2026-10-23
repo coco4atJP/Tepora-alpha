@@ -229,8 +229,8 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/capabilities'&&method==='PUT'){const b=await body(req);return json(res,capabilities.save(b.config,b.expectedRevision));}
    const capKey=p.match(/^\/api\/capabilities\/([^/]+)\/key$/);
    if(capKey&&method==='POST'){const b=await body(req);return json(res,capabilities.setKey(capKey[1],b.key,b.identity));}
-   if(p==='/api/semantic/index'&&method==='POST'){const b=await body(req);return json(res,await semantic.index({allowExternal:b.consent===true,signal:AbortSignal.timeout(90000)}));}
-   if(p==='/api/semantic/search'&&method==='POST'){const b=await body(req);return json(res,await semantic.search(b.query,{allowExternal:b.consent===true,signal:AbortSignal.timeout(30000)}));}
+   if(p==='/api/semantic/index'&&method==='POST'){const b=await body(req);return json(res,await semantic.index({profileIdentity:b.profileIdentity,allowExternal:b.consent===true,signal:AbortSignal.timeout(90000)}));}
+   if(p==='/api/semantic/search'&&method==='POST'){const b=await body(req);return json(res,await semantic.search(b.query,{profileIdentity:b.profileIdentity,allowExternal:b.consent===true,signal:AbortSignal.timeout(30000)}));}
    if(p==='/api/media/jobs'&&method==='GET')return json(res,{jobs:media.snapshot()});
    if(p==='/api/media/jobs'&&method==='POST'){const b=await body(req);invariant(b.consent===true,'送信先と生成内容への確認が必要です。',403);return json(res,media.create(b),202);}
    const mediaJob=p.match(/^\/api\/media\/jobs\/([a-f0-9]{64})(?:\/(cancel|resume))?$/);
@@ -394,7 +394,17 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/connector/weather' && method==='POST')return json(res,await connectors.weather());
    if(p==='/api/connector/news' && method==='POST')return json(res,await connectors.news());
    if(p==='/api/media/open' && method==='POST'){const b=await body(req);return json(res,await connectors.openMedia(b.url));}
-   if(p==='/api/voice/transcribe' && method==='POST')return json(res,await connectors.transcribe(await body(req,true)));
+   if(p==='/api/voice/transcribe' && method==='POST'){
+    const identity=req.headers['x-tepora-audio-profile'];
+    if(identity||capabilities.get().routes.stt){
+     invariant(store.settings.voiceEnabled!==false,'Microphone is disabled',403);
+     const cancel=new AbortController(),id='transcription:'+randomUUID();probes.set(id,cancel);
+     const abort=()=>{if(!res.writableEnded)cancel.abort();};res.once('close',abort);
+     try{return json(res,await capabilities.transcribe(await body(req,true),{profileIdentity:identity,consent:req.headers['x-tepora-audio-consent']==='true',signal:cancel.signal}));}
+     finally{probes.delete(id);res.off('close',abort);}
+    }
+    return json(res,await connectors.transcribe(await body(req,true)));
+   }
    if(p==='/api/context/export' && method==='GET'){res.setHeader('Content-Disposition','attachment; filename="tepora-context.json"');return json(res,store.export());}
    if(p==='/api/context/import' && method==='POST')return json(res,store.import(await body(req)));
    if(p==='/api/artifacts' && method==='GET')return json(res,store.list('artifact'));

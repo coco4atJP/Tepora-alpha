@@ -147,6 +147,28 @@ impl VoiceOperations {
         }.await;
         self.complete(&flight, result)
     }
+    pub(super) async fn transcribe_capability(&self,settings:&Value,capabilities:&crate::capabilities::Capabilities,audio:Vec<u8>,identity:&str,consent:bool,cancel:RequestCancellation)->Result<Value,ApiError>{
+        require(settings["voiceEnabled"]!=false,403,"Microphone is disabled")?;
+        let profile=capabilities.pin("stt").map_err(ApiError::from)?;
+        require(profile["identity"]==identity,409,"音声の送信先が変わりました。確認し直してください。")?;
+        require(profile["domain"]=="device"||consent,403,"録音を外部へ送る確認が必要です。")?;
+        require(audio.len()>=44&&audio.len()<=crate::http::BODY_LIMIT&&audio.starts_with(b"RIFF")&&audio.get(8..12)==Some(b"WAVE"),400,"Use bounded PCM WAV audio")?;
+        let flight=self.admit(false,cancel)?;
+        let result=async {
+            let boundary=format!("----tepora-{}",Uuid::new_v4().simple());
+            let mut body=format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.wav\"\r\nContent-Type: audio/wav\r\n\r\n").into_bytes();body.extend_from_slice(&audio);
+            let language=if profile["protocol"]=="openai-transcribe"{"languages[]"}else{"language"};
+            for (key,value) in [("model",json_codec::sql_text(profile["model"].as_str().unwrap_or(""))),("response_format","json".into()),(language,"ja".into())]{
+                body.extend_from_slice(format!("\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}").as_bytes());
+            }
+            body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+            let response=capabilities.request(&profile,"/audio/transcriptions",crate::capabilities::CapabilityRequest{body:crate::capabilities::CapabilityBody::EncodedMedia{bytes:body.into(),content_type:format!("multipart/form-data; boundary={boundary}")},max_bytes:RESPONSE_BYTES,..Default::default()},&flight.cancel).await.map_err(ApiError::from)?;
+            let value=response.json().map_err(ApiError::from)?;
+            require(value["text"].as_str().is_some_and(|s|json_codec::utf16_units(s).len()<=TRANSCRIPT_UNITS),502,"Invalid ASR transcript")?;
+            Ok(json!({"text":value["text"]}))
+        }.await;
+        self.complete(&flight,result)
+    }
     pub(super) async fn transcribe(
         &self,
         settings: &Value,

@@ -338,6 +338,9 @@ impl SemanticMemory {
         access: Access,
         caller: &RequestCancellation,
     ) -> Result<Value, CapabilityError> {
+        self.index_expected(access,caller,None).await
+    }
+    pub async fn index_expected(&self,access:Access,caller:&RequestCancellation,expected_identity:Option<&Value>)->Result<Value,CapabilityError>{
         check(caller)?;
         if self
             .inner
@@ -349,6 +352,7 @@ impl SemanticMemory {
         }
         let _busy = Busy(&self.inner.busy);
         let profile = self.inner.capabilities.pin("embedding")?;
+        if expected_identity.is_some_and(|id|*id!=profile["identity"]){return Err(CapabilityError::new(409,"埋め込み先が変わりました。確認し直してください。"));}
         let external = profile["domain"] != "device";
         if external && !access.allow_external {
             return Err(CapabilityError::new(
@@ -366,7 +370,7 @@ impl SemanticMemory {
             .iter()
             .filter(|d| {
                 snapshot.vectors.get(id(d)).is_none_or(|v| {
-                    v["identity"] != profile["identity"]
+                    v["identity"] != crate::capabilities::embedding_identity(&profile)
                         || v["contentHash"] != content_hash(text(d, "content"))
                 })
             })
@@ -396,7 +400,7 @@ impl SemanticMemory {
         };
         check(caller)?;
         check(&operation.cancel)?;
-        let proposals=batch.iter().enumerate().map(|(index,before)|VectorProposal{before:before.clone(),vector:json!({"id":before["id"],"identity":profile["identity"],"contentHash":content_hash(text(before,"content")),"vector":result["vectors"][index],"dimensions":result["dimensions"]})}).collect::<Vec<_>>();
+        let proposals=batch.iter().enumerate().map(|(index,before)|VectorProposal{before:before.clone(),vector:json!({"id":before["id"],"identity":crate::capabilities::embedding_identity(&profile),"contentHash":content_hash(text(before,"content")),"vector":result["vectors"][index],"dimensions":result["dimensions"]})}).collect::<Vec<_>>();
         // Serialize final publication against Stop/Close. Once cancellation
         // returns, no already-admitted operation can publish a cache write.
         let added = {
@@ -419,7 +423,7 @@ impl SemanticMemory {
                 current
                     .vectors
                     .get(id(d))
-                    .is_some_and(|v| v["identity"] == profile["identity"])
+                    .is_some_and(|v| v["identity"] == crate::capabilities::embedding_identity(&profile))
             })
             .count();
         Ok(
@@ -432,6 +436,9 @@ impl SemanticMemory {
         options: SearchOptions,
         caller: &RequestCancellation,
     ) -> Result<Value, CapabilityError> {
+        self.search_expected(query,options,caller,None).await
+    }
+    pub async fn search_expected(&self,query:&Value,options:SearchOptions,caller:&RequestCancellation,expected_identity:Option<&Value>)->Result<Value,CapabilityError>{
         validate_query(query)?;
         if !(1..=30).contains(&options.limit) {
             return Err(CapabilityError::new(400, "Invalid search limit"));
@@ -444,13 +451,15 @@ impl SemanticMemory {
             .into_iter()
             .filter(|d| allowed(d, options.access))
             .collect::<Vec<_>>();
+        let selected=self.inner.capabilities.pin("embedding");
+        if expected_identity.is_some_and(|id|selected.as_ref().map_or(true,|p|*id!=p["identity"])){return Err(CapabilityError::new(409,"埋め込み先が変わりました。確認し直してください。"));}
         let lexical = lexical_ranking(query, &docs);
         let mut semantic = vec![];
         let mut note = "キーワード検索";
         let mut indexed = 0;
-        if let Ok(profile) = self.inner.capabilities.pin("embedding") {
+        if let Ok(profile) = selected {
             if profile["domain"] == "device" || options.access.allow_external {
-                let query_input = json!([query]);
+                let query_input = crate::capabilities::embedding_inputs(&profile,&json!([query]),"query");
                 let result = tokio::select! {biased;
                     error=caller.cancelled()=>return Err(error.into()),
                     error=operation.cancel.cancelled()=>return Err(error.into()),
@@ -513,10 +522,12 @@ impl SemanticMemory {
         let mut inputs = vec![query.clone()];
         inputs.extend(values.iter().cloned());
         let inputs = json!(inputs);
+        let owned_profile;let profile=if let Some(p)=profile{p}else{owned_profile=self.inner.capabilities.pin("embedding")?;&owned_profile};
+        let inputs=crate::capabilities::embedding_inputs(profile,&inputs,"ranking");
         let result = tokio::select! {biased;
             error=caller.cancelled()=>return Err(error.into()),
             error=operation.cancel.cancelled()=>return Err(error.into()),
-            result=self.inner.capabilities.embed(&inputs,profile,&operation.cancel)=>result?
+            result=self.inner.capabilities.embed(&inputs,Some(profile),&operation.cancel)=>result?
         };
         check(caller)?;
         check(&operation.cancel)?;
@@ -680,7 +691,7 @@ fn semantic_ranking(
         .filter(|d| profile["domain"] == "device" || d["scope"] == "shared")
     {
         if let Some(e) = vectors.get(id(d)).filter(|e| {
-            e["identity"] == profile["identity"]
+            e["identity"] == crate::capabilities::embedding_identity(&profile)
                 && e["contentHash"] == content_hash(text(d, "content"))
                 && e["dimensions"] == result["dimensions"]
         }) {

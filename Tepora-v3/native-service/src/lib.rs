@@ -158,7 +158,7 @@ pub enum Operation {
     ConnectorWeather,
     ConnectorNews,
     VoiceEdit { body: Value },
-    VoiceTranscribe { audio: Vec<u8> },
+    VoiceTranscribe { audio: Vec<u8>, target: Option<(String,bool)> },
     SpeechStart,
     SpeechChunk { body: Value },
     SpeechFinish { body: Value },

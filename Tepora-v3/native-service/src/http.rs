@@ -771,10 +771,11 @@ impl HttpState {
             }
         }
         if self.config.agent && method == Method::POST && path == "/api/voice/transcribe" {
+            let target=request.headers().get("x-tepora-audio-profile").and_then(|v|v.to_str().ok()).map(|id|(id.to_owned(),request.headers().get("x-tepora-audio-consent").is_some_and(|v|v=="true")));
             let audio = self.read_asset_bytes(request.into_body(), BODY_LIMIT).await.map_err(|e| {
                 if e.status == 413 { ApiError::new(413, "Request body too large") } else { e }
             })?;
-            return self.json_operation(Operation::VoiceTranscribe { audio }, 200).await;
+            return self.json_operation(Operation::VoiceTranscribe { audio, target }, 200).await;
         }
         if self.config.agent {
             if let Some(route) = native_agent_route(&method, path) {

@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--device", default="cpu", help="cpu or cuda; other devices are not validated")
     parser.add_argument("--port", type=int, default=8012)
     args = parser.parse_args()
-    model = args.model or ("Qwen/Qwen3-ASR-1.7B" if args.backend == "qwen" else "turbo")
+    model = args.model or ("Qwen/Qwen3-ASR-0.6B" if args.backend == "qwen" else "turbo")
     print(f"Loading {model} on {args.device}. Missing weights may be downloaded by the selected library.", flush=True)
     transcriber = make_transcriber(args.backend, model, args.device)
     uvicorn.run(create_app(transcriber, model, args.port, os.environ.get("TEPORA_ASR_KEY", "")), host="127.0.0.1", port=args.port, access_log=False)
