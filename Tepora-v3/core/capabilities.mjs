@@ -91,7 +91,7 @@ export class Capabilities{
   invariant(p.domain==='device'||consent===true,'録音を外部へ送る確認が必要です。',403);
   invariant(Buffer.isBuffer(audio)&&audio.length>=44&&audio.length<=12*1024*1024&&audio.toString('ascii',0,4)==='RIFF'&&audio.toString('ascii',8,12)==='WAVE','Use bounded PCM WAV audio',400);
   const form=new FormData();form.set('file',new Blob([audio],{type:'audio/wav'}),'recording.wav');form.set('model',p.model);form.set('response_format','json');
-  form.set(p.protocol==='openai-transcribe'?'languages[]':'language','ja');
+  form.set(p.protocol==='openai-transcribe'?'languages[]':'language',p.model==='nvidia/nemotron-3.5-asr-streaming-0.6b'?'ja-JP':'ja');
   const response=await this.request(p,'/audio/transcriptions',{body:form,signal,maxBytes:256000});signal?.throwIfAborted();
   const data=await response.json();invariant(typeof data.text==='string'&&data.text.length<=32000,'Invalid ASR transcript',502);
   return {text:data.text};

@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Updated recorded ASR candidates (beta.11)
+
+- Suggest the Japanese-capable 2026-10-21 Granite Speech 5.0 470M TurboCTC for new recorded-input profiles; retain existing Qwen configurations
+- Add a local-only CPU/CUDA adapter using native Transformers CTC, resampling and bounded temporary WAV input; no downloads or remote code
+- Add the official Nemotron 3.5 recorded HTTP subset with ja-JP locale; do not claim the separate realtime WebSocket is integrated
+- Verify mocked decoding and Node/native HTTP contracts; the exact Granite public revision pin remains blocked by HTTP403 metadata access and real model quality/latency remains untested
+
 ## Voice and memory model candidates (beta.11)
 
 - Add current local/cloud STT, TTS and embedding candidates, without changing existing routes, installing models or authenticating accounts

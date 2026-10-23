@@ -1,12 +1,14 @@
 # 音声・記憶検索のモデル設定（beta.11）
 
-公式資料の確認日: **2026-10-23**。会話の主モデルとは別の設定です。「能力の接続」で新しく追加する際、STTはQwen3-ASR 0.6B、TTSはMOSS-TTS-Nano CPU ONNX、埋め込みはQwen3-Embedding 0.6Bを候補として表示します。保存済み接続・経路・索引を自動移行しません。初期状態では能力の経路は空で、モデル導入・常駐起動・アカウント認証も行いません。
+公式資料の確認日: **2026-10-23**。会話の主モデルとは別の設定です。「能力の接続」で新しく追加する際、STTはGranite Speech 5.0 TurboCTC 470Mの10/21多言語版、TTSはMOSS-TTS-Nano CPU ONNX、埋め込みはQwen3-Embedding 0.6Bを候補として表示します。保存済み接続・経路・索引を自動移行しません。初期状態では能力の経路は空で、モデル導入・常駐起動・アカウント認証も行いません。
 
 ## 選定と実装範囲
 
 |用途|候補|接続実装と制約|
 |---|---|---|
-|ローカルSTT|`Qwen/Qwen3-ASR-0.6B`|既存の `speech/server.py --backend qwen`。日本語対応の新世代モデル、CPU既定。1.7Bもモデル欄で指定可能。実機の精度・速度は未測定。|
+|ローカルSTT第一候補|`ibm-granite/granite-speech-5.0-470m-turboctc`|2026-10-21日本語対応、470MのCTC。新 `speech/granite_asr.py` からローカルcheckpointのみをCPU/CUDAで呼ぶ。Transformers>=5.16。録音終了後の認識で、streamingではない。正確な公開revision SHA取得はHTTP403で未完了。|
+|ローカルSTT代替|`nvidia/nemotron-3.5-asr-streaming-0.6b`|公式NeMo-Speech.cppのHTTP multipartに接続。日本語localeは `ja-JP`。upstreamモデルはcache付きstreaming対応だが、今回のTepora経路は録音後認識。Q8_0 GGUF約742MB。|
+|ローカルSTT代替|`Qwen/Qwen3-ASR-0.6B`|既存の `speech/server.py --backend qwen`。日本語対応の新世代モデル、CPU既定。1.7Bもモデル欄で指定可能。実機の精度・速度は未測定。|
 |軽量互換STT|`turbo`|同adapterの `--backend faster-whisper`。CPU int8。MacのMPS実行は対応しない。CUDAは選択時のみ。|
 |クラウドSTT|OpenAI `gpt-transcribe`|`openai-transcribe`形式、`/v1/audio/transcriptions`へ録音をmultipart送信。日本語指定は `languages[]=ja`。|
 |クラウドSTT代替|Groq `whisper-large-v3-turbo`|`openai-transcriptions`形式、`https://api.groq.com/openai/v1`。こちらは `language=ja`。短い録音にも最低課金時間あり。|
@@ -27,6 +29,22 @@ MOSSの上記モデル・codecとQwen/KokoroはApache-2.0。クラウドは各�
 MOSSはモデルとcodecの両方が必要です。公式の組み込みvoiceを使う場合、利用者の参照音声は不要です。モデルpresetの `SELECT_INSTALLED_BUILTIN` は選択待ちの表示で実在voiceではなく、両ホストで送信前に拒否します。adapterの `--list-voices` が取得済みmanifestにある実在IDだけを読み出します。利用者が確認したIDをadapterの `--voice` と能力UIのvoice欄へ同じ値で設定してください。勝手なvoice選択や新しい音声クローンは行いません。
 
 以下は手動セットアップ例であり、アプリが実行する処理ではありません。必要なPython環境・依存パッケージ・ライセンス・モデルサイズを利用者が確認し、別途取得してください。この変更の検証ではインストールや重みの取得を行っていません。
+
+Graniteの新adapterはTorch/Torchaudio（互換version）・Transformers>=5.16.0が必要です。モデルとprocessorをローカルパス・`local_files_only=True`・`trust_remote_code=False`で読み、CPUはfloat32/2 threads、CUDAは明示選択です。8–96kHzのmono PCM16 WAVをprocessorのsample rateへリサンプリングし、最大65秒をCTCで一括復号します。model.generateは非自己回帰CTCで、言語promptやLLMのmax_new_tokensを送りません。`language=ja`は対応言語の確認に使い、モデルは対応言語を自動認識します。マイクやモデルを自動で起動せず、既存のASR設定・保存済み経路は保持します。legacy設定のasrModel/CLI既定Qwenはそのままで、新しい能力設定の候補だけを変更します。
+
+公開model cardは10/21多言語版と旧英語版revision `947f59a`を区別しています。adapterは既知の旧revisionパス/metadataと16384でないCTC headを拒否しますが、これは重みのSHA証明ではありません。正確な多言語revisionを読む公開APIがプロキシHTTP403のため、**このローカルバッチの公開revision pinは未確定**です。利用者が導入する際は、公式の日本語対応snapshotを確認し固定してください。`main`を不変のrevisionとは扱いません。weights約946MBという配布容量と、CPU float32実行時のRAMは異なります。モデルを取得・実行・精度測定したわけではありません。
+
+Apple SiliconのMLX経路はIBM公式資料でmlx-audio>=0.5.1が紹介されていますが、このHTTP adapterには接続していません。MPS/MLX推論の動作保証はしません。
+
+```sh
+python Tepora-v3/speech/server.py --backend granite --model /path/to/installed/granite-multilingual-checkpoint --device cpu --port 8012
+# Nemotronは取得済みの正しい多言語GGUFを指定する（short aliasによる自動取得は使わない）
+nemo-speech serve --asr-model /path/to/installed/nemotron-3.5-multilingual.q8_0.gguf --host 127.0.0.1 --port 8013 --no-ui --max-upload-mb 12
+```
+
+Nemotronの公式runtimeはWindows/macOS/Linux、CPU/CUDA/Metal/Vulkanを案内していますが、今回は導入も実機試験も行っていません。`/v1/models`で実際にロードした多言語モデルを利用者が確認する必要があります（HTTPのmodel欄だけでモデルをロード/選択するサーバーではありません）。本プリセットを `asrStreamUrl` に入れても動きません。upstreamの `/v1/audio/transcriptions/realtime` は独自WebSocketイベント・PCM16で、Teporaの既存Float32 `/api/start/chunk/finish` とは別です。この変換adapterは未実装です。
+
+MOSS-Transcribe-Diarize 0.9Bは長時間・話者分離向けの別候補として調査しましたが、今回は接続しません。MOSS-Transcribe-preview-2Bは英語専用なので日本語の既定にはしません。
 
 STTは [既存音声ガイド](../README.md#local-floor-and-optional-workers) を参照し、`qwen-asr` または `faster-whisper` とHTTP adapter依存を用意します。`speech/server.py` の `--model` には取得済みローカルディレクトリも指定できます。その場合は能力側のモデルIDもサーバーが受理する値に合わせてください。既存adapterは明示起動時にライブラリが不足ファイルを取得し得るため、完全オフライン運用には事前取得とライブラリのオフライン設定が必要です。vLLM streamingは別の対応環境が必要で、録音STT用プリセットはstreamingを起動しません。
 
@@ -81,6 +99,8 @@ Node/Rustの正規化済みプリセット一致、multipartの新旧フィー�
 - [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano)、[確認した低水準ONNX runtime](https://github.com/OpenMOSS/MOSS-TTS-Nano/blob/8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb/ort_cpu_runtime.py)、[ONNXモデル](https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX)、[codec](https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX)
 - [Supertonic保存版・保守終了](https://github.com/supertone-oss-archive/supertonic)、[対応Speech API](https://github.com/supertone-oss-archive/supertonic-py/blob/main/docs/cli/serve.md)、[weightsと利用条件](https://huggingface.co/supertone-oss-archive/supertonic-3)
 
+- [IBM Granite 10/21多言語版・公式実行方法](https://huggingface.co/ibm-granite/granite-speech-5.0-470m-turboctc)、[公開announcement](https://huggingface.co/blog/ibm-granite/granite-speech-5)、[CTC config実装](https://github.com/huggingface/transformers/blob/main/src/transformers/models/granite_speech5/configuration_granite_speech5.py)
+- [Nemotron 3.5 ASR](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)、[公式NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)、[HTTP/独自WebSocket仕様](https://github.com/NVIDIA/NeMo-Speech.cpp/blob/main/docs/api.md)、[MOSS長時間ASR](https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-Diarize)
 - [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR)、[faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - [Qwen3-TTS CustomVoiceモデル](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice)、[実行方法](https://github.com/QwenLM/Qwen3-TTS)
 - [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)、[voice評価](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)

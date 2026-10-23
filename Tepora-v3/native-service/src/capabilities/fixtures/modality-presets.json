@@ -1,8 +1,74 @@
 [
   {
     "raw": {
+      "id": "stt-granite",
+      "name": "Granite Speech 5.0 470M · 10/21日本語版",
+      "protocol": "openai-transcriptions",
+      "baseUrl": "http://127.0.0.1:8012/v1",
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc",
+      "domain": "device",
+      "enabled": true,
+      "maxParallel": 1,
+      "timeoutMs": 120000
+    },
+    "expected": {
+      "id": "stt-granite",
+      "name": "Granite Speech 5.0 470M · 10/21日本語版",
+      "baseUrl": "http://127.0.0.1:8012/v1",
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc",
+      "domain": "device",
+      "enabled": true,
+      "pinnedAddress": "",
+      "allowPlainHttp": false,
+      "apiKeyEnv": "",
+      "timeoutMs": 120000,
+      "maxParallel": 1,
+      "resource": "stt-granite",
+      "protocol": "openai-transcriptions",
+      "role": "stt",
+      "voice": "alloy",
+      "dimensions": null,
+      "assetOrigins": [],
+      "identity": "020937e8d49b0a55e359450a5f2b41e0fa2b967e31be911bdd2c84699f7aede9"
+    }
+  },
+  {
+    "raw": {
+      "id": "stt-nemotron",
+      "name": "Nemotron 3.5 0.6B · 録音後認識",
+      "protocol": "openai-transcriptions",
+      "baseUrl": "http://127.0.0.1:8013/v1",
+      "model": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "domain": "device",
+      "enabled": true,
+      "maxParallel": 1,
+      "timeoutMs": 120000
+    },
+    "expected": {
+      "id": "stt-nemotron",
+      "name": "Nemotron 3.5 0.6B · 録音後認識",
+      "baseUrl": "http://127.0.0.1:8013/v1",
+      "model": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "domain": "device",
+      "enabled": true,
+      "pinnedAddress": "",
+      "allowPlainHttp": false,
+      "apiKeyEnv": "",
+      "timeoutMs": 120000,
+      "maxParallel": 1,
+      "resource": "stt-nemotron",
+      "protocol": "openai-transcriptions",
+      "role": "stt",
+      "voice": "alloy",
+      "dimensions": null,
+      "assetOrigins": [],
+      "identity": "0473f8052fec8808f948f33675069db2651476acc8d84a650f17740b41eff9c9"
+    }
+  },
+  {
+    "raw": {
       "id": "stt-qwen",
-      "name": "Qwen3-ASR 0.6B · 日本語・新世代",
+      "name": "Qwen3-ASR 0.6B · 日本語代替",
       "protocol": "openai-transcriptions",
       "baseUrl": "http://127.0.0.1:8012/v1",
       "model": "Qwen/Qwen3-ASR-0.6B",
@@ -13,7 +79,7 @@
     },
     "expected": {
       "id": "stt-qwen",
-      "name": "Qwen3-ASR 0.6B · 日本語・新世代",
+      "name": "Qwen3-ASR 0.6B · 日本語代替",
       "baseUrl": "http://127.0.0.1:8012/v1",
       "model": "Qwen/Qwen3-ASR-0.6B",
       "domain": "device",
@@ -29,7 +95,7 @@
       "voice": "alloy",
       "dimensions": null,
       "assetOrigins": [],
-      "identity": "af16df03578fb57d184f563cd1eabf4d5fe5a9a7dbddb9a92864ef263faf8c58"
+      "identity": "322771890eb8cb8edb5609c9ab933780f35c4db454f66729229dd138babe897d"
     }
   },
   {

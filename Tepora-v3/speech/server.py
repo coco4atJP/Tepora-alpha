@@ -21,6 +21,9 @@ import uvicorn
 MAX_BYTES = 12 * 1024 * 1024
 
 def make_transcriber(backend: str, model_id: str, device: str):
+    if backend == "granite":
+        from granite_asr import make_transcriber as granite_transcriber
+        return granite_transcriber(model_id, device)
     if backend == "faster-whisper":
         from faster_whisper import WhisperModel
         model = WhisperModel(model_id, device=device, compute_type="int8" if device == "cpu" else "float16")
@@ -103,14 +106,19 @@ def create_app(transcriber: Any, model_id: str, port: int, api_key: str = "") ->
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=["qwen", "faster-whisper"], default="qwen")
+    parser.add_argument("--backend", choices=["granite", "qwen", "faster-whisper"], default="qwen")
     parser.add_argument("--model", default="")
     parser.add_argument("--device", default="cpu", help="cpu or cuda; other devices are not validated")
     parser.add_argument("--port", type=int, default=8012)
     args = parser.parse_args()
     model = args.model or ("Qwen/Qwen3-ASR-0.6B" if args.backend == "qwen" else "turbo")
-    print(f"Loading {model} on {args.device}. Missing weights may be downloaded by the selected library.", flush=True)
+    if args.backend == "granite" and not args.model:
+        parser.error("Granite requires --model /path/to/installed/multilingual-checkpoint; no automatic download")
+    print(f"Loading explicitly selected {args.backend} backend on {args.device}.", flush=True)
     transcriber = make_transcriber(args.backend, model, args.device)
+    if args.backend == "granite":
+        from granite_asr import MODEL_ID
+        model = MODEL_ID
     uvicorn.run(create_app(transcriber, model, args.port, os.environ.get("TEPORA_ASR_KEY", "")), host="127.0.0.1", port=args.port, access_log=False)
 
 if __name__ == "__main__":

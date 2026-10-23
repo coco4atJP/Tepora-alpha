@@ -158,7 +158,8 @@ impl VoiceOperations {
             let boundary=format!("----tepora-{}",Uuid::new_v4().simple());
             let mut body=format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.wav\"\r\nContent-Type: audio/wav\r\n\r\n").into_bytes();body.extend_from_slice(&audio);
             let language=if profile["protocol"]=="openai-transcribe"{"languages[]"}else{"language"};
-            for (key,value) in [("model",json_codec::sql_text(profile["model"].as_str().unwrap_or(""))),("response_format","json".into()),(language,"ja".into())]{
+            let locale=if profile["model"]=="nvidia/nemotron-3.5-asr-streaming-0.6b"{"ja-JP"}else{"ja"};
+            for (key,value) in [("model",json_codec::sql_text(profile["model"].as_str().unwrap_or(""))),("response_format","json".into()),(language,locale.into())]{
                 body.extend_from_slice(format!("\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}").as_bytes());
             }
             body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());

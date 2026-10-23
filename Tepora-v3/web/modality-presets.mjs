@@ -2,7 +2,9 @@
  * starts a service, authenticates an account or changes a saved route.
  */
 export const MODALITY_PRESETS=Object.freeze([
- {id:'stt-qwen',role:'stt',name:'Qwen3-ASR 0.6B · 日本語・新世代',protocol:'openai-transcriptions',baseUrl:'http://127.0.0.1:8012/v1',model:'Qwen/Qwen3-ASR-0.6B',domain:'device',note:'専用 qwen-asr adapter と取得済みモデルが必要。CPUの速度は未計測。'},
+ {id:'stt-granite',role:'stt',name:'Granite Speech 5.0 470M · 10/21日本語版',protocol:'openai-transcriptions',baseUrl:'http://127.0.0.1:8012/v1',model:'ibm-granite/granite-speech-5.0-470m-turboctc',domain:'device',note:'取得済み10/21多言語checkpoint＋Transformers>=5.16専用adapterが必要。公開revision SHAは未取得。既知の旧英語版・異なるCTC headを拒否。録音停止後にCTC認識、streamingではありません。実機精度・速度は未検証。'},
+ {id:'stt-nemotron',role:'stt',name:'Nemotron 3.5 0.6B · 録音後認識',protocol:'openai-transcriptions',baseUrl:'http://127.0.0.1:8013/v1',model:'nvidia/nemotron-3.5-asr-streaming-0.6b',domain:'device',note:'公式NeMo-Speech.cppを取得済みGGUFで手動起動。Q8_0約742MB、OpenMDW1.1。この接続は録音後HTTP認識です。upstreamの真のcache付きWebSocket入力は未接続。'},
+ {id:'stt-qwen',role:'stt',name:'Qwen3-ASR 0.6B · 日本語代替',protocol:'openai-transcriptions',baseUrl:'http://127.0.0.1:8012/v1',model:'Qwen/Qwen3-ASR-0.6B',domain:'device',note:'専用 qwen-asr adapter と取得済みモデルが必要。CPUの速度は未計測。'},
  {id:'stt-whisper',role:'stt',name:'Whisper turbo · CPU互換',protocol:'openai-transcriptions',baseUrl:'http://127.0.0.1:8012/v1',model:'turbo',domain:'device',note:'既存 faster-whisper adapter。CPU int8、MacではMPSを使用しません。'},
  {id:'stt-openai',role:'stt',name:'OpenAI GPT-Transcribe',protocol:'openai-transcribe',baseUrl:'https://api.openai.com/v1',model:'gpt-transcribe',domain:'cloud',apiKeyEnv:'OPENAI_API_KEY',note:'録音を確認後に送信。API契約・認証・利用料が必要。live音声APIとは別です。'},
  {id:'stt-groq',role:'stt',name:'Groq Whisper large-v3-turbo',protocol:'openai-transcriptions',baseUrl:'https://api.groq.com/openai/v1',model:'whisper-large-v3-turbo',domain:'cloud',apiKeyEnv:'GROQ_API_KEY',note:'録音を確認後に送信。API契約・認証が必要。短い録音にも最低課金時間があります。'},

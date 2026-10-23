@@ -22,12 +22,12 @@ test('every suggested model is a valid inert profile; no retired OpenAI audio de
  assert.ok(!MODALITY_PRESETS.some(p=>/^(gpt-4o-|tts-1|whisper-1)/.test(p.model)));
  assert.equal(modalityPreset('tts-qwen').voice,'Ono_Anna');assert.equal(modalityPreset('tts-inworld').voice,'Dennis');
 });
-for(const [preset,field] of [['stt-openai','languages[]'],['stt-groq','language'],['stt-qwen','language']])test(`${preset} sends the correct bounded multipart shape only after admission`,async()=>{
+for(const [preset,field] of [['stt-openai','languages[]'],['stt-groq','language'],['stt-qwen','language'],['stt-granite','language'],['stt-nemotron','language']])test(`${preset} sends the correct bounded multipart shape only after admission`,async()=>{
  const f=fixture(),p=f.install(preset);
  await assert.rejects(f.caps.transcribe(wav(),{profileIdentity:'stale',consent:true}),/変わりました/);assert.equal(f.calls.length,0);
  if(p.domain!=='device'){await assert.rejects(f.caps.transcribe(wav(),{profileIdentity:p.identity}),/確認/);assert.equal(f.calls.length,0);}
  const result=await f.caps.transcribe(wav(),{profileIdentity:p.identity,consent:true});assert.equal(result.text,'合成の認識結果');
- const call=f.calls[0];assert.equal(call.url,p.baseUrl+'/audio/transcriptions');assert.equal(call.init.body.get(field),'ja');
+ const call=f.calls[0];assert.equal(call.url,p.baseUrl+'/audio/transcriptions');assert.equal(call.init.body.get(field),preset==='stt-nemotron'?'ja-JP':'ja');
  assert.equal(call.init.body.has(field==='language'?'languages[]':'language'),false);assert.equal(call.init.body.get('response_format'),'json');
  assert.equal(call.init.body.get('model'),p.model);assert.equal(call.init.body.get('file').size,48);
 });

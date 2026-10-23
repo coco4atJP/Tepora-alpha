@@ -21,7 +21,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  <div class="provider-list">${config.profiles.map(p=>`<article><div><strong>${escape(p.name)}</strong><small>${names[p.role]} · ${escape(p.domain)} · ${p.keyPresent?'キー設定済み・認証未確認':'キー未設定／不要'}</small></div><div>${btn('ability-edit','編集','','text-button',`data-id="${p.id}"`)}${btn('ability-key','認証','','text-button',`data-id="${p.id}"`)}</div></article>`).join('')}</div>
  <p class="small-text">確率や類似度は、事実・権限・仕事の完成を保証しません。生成・読み上げは明示的に頼んだときだけ。外部画像生成・動画生成は費用が発生する場合があります。</p>`,'abilities');}
  function editor(role='decision',id=null){selected=id;const current=config.profiles.find(p=>p.id===id),preset=Object.values(presets).find(p=>protocols[p.protocol][0]===role)||presets.laya;
-  const recommended={stt:'stt-qwen',tts:'tts-moss',embedding:'embedding-qwen'}[role];
+  const recommended={stt:'stt-granite',tts:'tts-moss',embedding:'embedding-qwen'}[role];
   const p=current||{voice:'alloy',...(recommended?presets[recommended]:preset),id:'',enabled:true,maxParallel:1,timeoutMs:120000};
   openSheet('能力の接続先',`<form id="ability-form"><label>ひな形<select id="ability-preset"><option value="">カスタム設定</option>${opts(Object.entries(presets).map(([k,p])=>[k,p.name]),'')}</select></label>
   <p class="small-text" id="ability-preset-note">${escape(MODALITY_PRESETS.find(x=>x.model===p.model)?.note||'実接続の認証・モデル導入・利用可能なvoiceは未確認です。')}</p><div class="form-grid">${field('接続ID','id',p.id)}${field('名前','name',p.name)}<label>API形式<select name="protocol">${opts(Object.entries(protocols).map(([v,a])=>[v,a[1]]),p.protocol)}</select></label><label>信頼範囲<select name="domain">${opts([['device','このPC'],['lan','指定LAN機'],['cloud','クラウド']],p.domain)}</select></label></div>

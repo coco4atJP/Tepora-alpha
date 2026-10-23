@@ -284,3 +284,17 @@ test('modality STT: Node/native pin the same recipient, frame Japanese hints and
   await c.close();
  }
 });
+
+
+test('Nemotron recorded HTTP: Node/native send locale ja-JP without opening a realtime session',async t=>{
+ const f=await fixture(t);
+ for(const native of [false,true]){
+  const c=await f.start(native),settings=await f.configureAsr(c);
+  const before=await c.json('/api/capabilities');const raw={id:'nemotron',name:'Synthetic Nemotron',protocol:'openai-transcriptions',baseUrl:new URL(settings.asrUrl).origin+'/v1',domain:'device',model:'nvidia/nemotron-3.5-asr-streaming-0.6b',enabled:true};
+  const cfg=await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles:[raw],routes:{stt:raw.id}}});
+  const wav=Buffer.alloc(48);wav.write('RIFF');wav.write('WAVE',8);
+  const response=await c.request('/api/voice/transcribe','POST',wav,{'Content-Type':'audio/wav','X-Tepora-Audio-Profile':cfg.profiles[0].identity});assert.equal(response.status,200,await response.text());
+  await c.close();
+ }
+ assert.equal(f.records.length,2);for(const record of f.records){assert.equal(record.url,'/v1/audio/transcriptions');assert.match(record.raw.toString(),/name="language"\r\n\r\nja-JP\r\n/);}
+});

@@ -119,6 +119,11 @@ not impersonate other clients or treat a coding-only plan as unlimited general-p
 Official OpenCode Go's required coding/session-header integration and other subscription OAuth
 flows are not implemented.
 
+New recorded-input settings suggest multilingual Granite Speech 5.0 470M; Qwen stays available.
+Nemotron 3.5 has a recorded HTTP preset; its realtime WebSocket is not connected here.
+The Granite public revision pin remains blocked by a metadata-read HTTP403;
+local setup and real model acceptance are still required.
+
 Current STT/TTS/embedding candidates, explicit cloud consent, local adapter prerequisites and
 unverified runtime paths are documented in [Modality models](docs/MODALITY-MODELS.md).
 Presets do not install models, authenticate accounts or migrate existing indexes.
