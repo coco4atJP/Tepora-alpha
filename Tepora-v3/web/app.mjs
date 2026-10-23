@@ -13,6 +13,7 @@ import {RealtimeVoiceCapture} from './realtime-voice.mjs';
 import {jobStatus,needsPerson} from './status.mjs';
 import {describeApproval} from './approval-format.mjs';
 import {renderMarkdown} from './markdown.mjs';
+import {reconcileTranscript,dialogueTimestamp,createFramePainter} from './transcript.mjs';
 import {companionMood} from './avatar/pose.mjs';
 import {AVATAR_BODIES,AVATAR_PALETTES} from './avatar/model.mjs';
 import {createAvatar,avatarAssetUrl} from './avatar/stage.mjs';
@@ -40,6 +41,8 @@ const noticedRoutes=new Set();
 let voice=null,voiceBusy=false,voiceAnchor=null,pendingSpeech='',displayHistory=[],refreshTimer,toastTimer;
 let weatherData=null,newsData=null,lastVisibleKey='',pendingArtifactJobId=null;
 let voiceEpoch=0,attachmentEpoch=0,submitEpoch=0,dialogueRenderKey='';
+let dialogueUnread=false;
+const livePainter=createFramePainter(()=>{paintLive();showRequestStatus();});
 let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendingRelay=null,liveReply='';
 // Home monitor and companion presentation. None of this changes permissions or work.
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
@@ -51,6 +54,7 @@ let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFul
 // The conversation column is opened on demand; on the home stage the message box sits under the character.
 let talkOpen=false;try{talkOpen=localStorage.getItem('tepora-talk-open')==='1';}catch{talkOpen=false;}
 let reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
+globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change',e=>{reducedMotion=e.matches;});
 const wideScreen=globalThis.matchMedia?.('(min-width: 900px)');
 const stageHost=document.createElement('div');stageHost.className='character-host';
 const deckHost=document.createElement('div');deckHost.className='deck';
@@ -145,7 +149,10 @@ function shell(){
     <h1 id="character-name">Tepora</h1>
     ${toolbtn('talk-close','会話を閉じる','close','id="talk-close" data-narrow="hide"')}
    </header>
-   <div id="dialogue-transcript" class="transcript" role="log" aria-label="会話履歴" tabindex="0"></div>
+   <div class="transcript-region">
+    <div id="dialogue-transcript" class="transcript" role="log" aria-label="会話履歴" tabindex="0"></div>
+    <button type="button" id="dialogue-latest" class="transcript-latest" data-action="dialogue-latest" aria-controls="dialogue-transcript" hidden>最新の会話へ ↓</button>
+   </div>
    <div id="dialogue-announcer" class="visually-hidden" aria-live="polite"></div>
    <section class="input-region" aria-label="メッセージを書く">
     <div id="reply" class="reply" hidden></div>
@@ -170,6 +177,7 @@ function shell(){
  <button type="button" class="talk-rail" id="talk-rail" data-action="talk-open" hidden>${icon('chat')}<span>会話</span></button>
  </div>`;
  registerForms(app);
+ $('#dialogue-transcript').addEventListener('scroll',updateDialogueScroll,{passive:true});
  toastEl?.addEventListener?.('click',()=>{clearTimeout(toastTimer);toastEl.classList.remove('show');});
  document.body.classList.toggle('preview',previewMode);
  const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;fitComposer();if(view==='home')paintSpeech();};
@@ -809,48 +817,72 @@ function showDialogue(){
  const host=$('#dialogue-transcript');if(!host)return;
  const name=characterName(state.dialogue);$('#character-name').textContent=sharedView?'会話は非公開':name;$('#agent-selector').textContent=sharedView?'個人表示で会話できます':`${name}と会話中。Enterで送信、Shift+Enterで改行。`;
  $('#composer-input').placeholder=`${name}に話しかける`;$('#composer-input').setAttribute('aria-label',`${name}へのメッセージ`);
- const key=JSON.stringify([sharedView,state.dialogue,state.jobs.map(j=>[j.id,j.title,j.status,j.revision,j.pendingQuestionId])]);
+ const jobIds=new Set((state.dialogue?.messages||[]).filter(m=>['worker-report','worker-question'].includes(m.kind)).map(m=>m.jobId));
+ const key=JSON.stringify([sharedView,state.dialogue,state.jobs.filter(j=>jobIds.has(j.id)).map(j=>[j.id,j.title,j.status,j.revision,j.pendingQuestionId,j.personaSnapshot?.worker?.name]),Boolean(state.capabilities?.routes?.tts)]);
  if(key===dialogueRenderKey)return;dialogueRenderKey=key;
- const follow=host.scrollHeight-host.scrollTop-host.clientHeight<80,active=document.activeElement,keep=active&&host.contains?.(active)?{action:active.dataset?.action,id:active.dataset?.id}:null;
- if(sharedView){host.innerHTML='<p class="empty-copy">共有表示では会話・仕事の内容を表示しません。</p>';return;}
+ const follow=host.scrollHeight-host.scrollTop-host.clientHeight<80,active=document.activeElement,keep=active&&host.contains?.(active)?{action:active.dataset?.action,id:active.dataset?.id,messageId:active.closest?.('[data-message-id]')?.dataset.messageId}:null;
+ if(sharedView){livePainter.cancel();reconcileTranscript(host,[{id:'private',key:'private',html:()=>'<p class="empty-copy">共有表示では会話・仕事の内容を表示しません。</p>'}]);dialogueUnread=false;updateDialogueScroll();return;}
  const messages=state.dialogue?.messages||[];
  // A later message about the same job supersedes its quiet start/progress line.
  const latestForJob=new Map();for(const m of messages)if(m.jobId&&['worker-report','worker-question'].includes(m.kind))latestForJob.set(m.jobId,m.id);
  const lastReplyId=[...messages].reverse().find(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind))?.id;
- let day='',lastAt=0;
- host.innerHTML=messages.map(m=>{
+ let day='',lastAt=0;const rows=[];
+ messages.forEach(m=>{
   const p=dialogueMessagePresentation(m,state.dialogue,state.jobs);
-  // Progress and waiting notices give way to the next message about the same job; results stay.
-  if(m.kind==='worker-report'&&!['review','completed','failed','blocked','cancelled'].includes(m.status)&&latestForJob.get(m.jobId)!==m.id)return '';
-  const at=new Date(m.at||Date.now()),valid=!Number.isNaN(at.getTime()),stamp=valid?at.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'',label=valid?at.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'}):'';
-  // A date or a time appears only where the conversation paused; otherwise it is on hover.
-  const t=valid?at.getTime():lastAt,paused=lastAt&&t-lastAt>=30*60e3;
+  if(m.kind==='worker-report'&&!['review','completed','failed','blocked','cancelled'].includes(m.status)&&latestForJob.get(m.jobId)!==m.id)return;
+  const {time,stamp,label}=dialogueTimestamp(m.at),t=time??lastAt,paused=lastAt&&t-lastAt>=30*60e3;
   const divider=label!==day?`<p class="day-divider"><span>${escape(label)} ${escape(stamp)}</span></p>`:paused?`<p class="time-divider">${escape(stamp)}</p>`:'';day=label;lastAt=t;
-  if(p.compact)return `${divider}<p class="msg-activity" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><i class="dot dot-active"></i><span>${escape(p.source.replace(/^(.*)からの報告 · /,'$1が「'))}」を${m.status==='queued'?'引き受けました':'進めています'}</span></p>`;
-  if(m.role==='user')return `${divider}<article class="msg msg-user" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><span class="visually-hidden">あなた: </span><div class="msg-bubble md">${renderMarkdown(p.content,{headings:'text'})}</div></article>`;
-  if(!p.source)return `${divider}<article class="msg msg-character" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><span class="visually-hidden">${escape(p.speaker)}: </span><div class="msg-bubble md">${renderMarkdown(p.content,{headings:'text'})}</div>${m.id===lastReplyId&&state.capabilities?.routes?.tts?`<div class="msg-actions">${btn('reply-speak','読み上げる','volume','text-button')}</div>`:''}</article>`;
-  const job=state.jobs.find(j=>j.id===m.jobId);
+  if(divider)rows.push({id:`divider:${m.id}`,key:divider,html:()=>divider});
+  const job=p.source?state.jobs.find(j=>j.id===m.jobId):null,speak=m.id===lastReplyId&&Boolean(state.capabilities?.routes?.tts);
+  const rowKey=JSON.stringify([m,p,job?.title,speak]);
+  const add=html=>rows.push({id:`message:${m.id}`,key:rowKey,html,arrive:follow&&Boolean(lastSeenMessage)&&m.id!==lastSeenMessage&&m===messages.at(-1)});
+  if(p.compact)return add(()=>`<p class="msg-activity" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><i class="dot dot-active"></i><span>${escape(p.source.replace(/^(.*)からの報告 · /,'$1が「'))}」を${m.status==='queued'?'引き受けました':'進めています'}</span></p>`);
+  if(m.role==='user')return add(()=>`<article class="msg msg-user" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><span class="visually-hidden">あなた: </span><div class="msg-bubble md">${renderMarkdown(p.content,{headings:'text'})}</div></article>`);
+  if(!p.source)return add(()=>`<article class="msg msg-character" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><span class="visually-hidden">${escape(p.speaker)}: </span><div class="msg-bubble md">${renderMarkdown(p.content,{headings:'text'})}</div>${speak?`<div class="msg-actions">${btn('reply-speak','読み上げる','volume','text-button')}</div>`:''}</article>`);
   const action=p.canReply?btn('reply-worker-question','回答する','','button small',`data-id="${escape(m.id)}"`):
    p.parked||m.status==='waiting_approval'?btn('inbox','あなたの番を見る','','text-button',''):m.jobId?btn('task','開く','','text-button',`data-id="${escape(m.jobId)}" aria-label="${escape(job?.title||'仕事')}を開く"`):'';
-  return `${divider}<article class="msg msg-worker tone-${escape(p.tone)}${m.kind==='worker-question'?' is-question':''}" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><header><span class="visually-hidden">${escape(p.speaker)} · ${escape(p.source)}: </span><span class="msg-job">${escape(job?.title||p.source)}</span>${p.status?`<span class="msg-state">${escape(p.status)}</span>`:''}</header>
-   <div class="msg-quote worker-quotation md" aria-label="作業担当からの引用">${renderMarkdown(p.content,{headings:'text'})}</div>${p.questionState&&!p.canReply?`<p class="msg-note">${escape(p.questionState)}</p>`:''}${action?`<div class="msg-actions">${action}</div>`:''}</article>`;
- }).join('')+`<article class="msg msg-character is-live" id="dialogue-live" aria-hidden="true" ${liveReply?'':'hidden'}><div class="msg-bubble md"></div></article>`||`<p class="dialogue-welcome">${escape(name)}に、なんでも話しかけてください。</p>`;
- paintLive();
+  return add(()=>`<article class="msg msg-worker tone-${escape(p.tone)}${m.kind==='worker-question'?' is-question':''}" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><header><span class="visually-hidden">${escape(p.speaker)} · ${escape(p.source)}: </span><span class="msg-job">${escape(job?.title||p.source)}</span>${p.status?`<span class="msg-state">${escape(p.status)}</span>`:''}</header>
+   <div class="msg-quote worker-quotation md" aria-label="作業担当からの引用">${renderMarkdown(p.content,{headings:'text'})}</div>${p.questionState&&!p.canReply?`<p class="msg-note">${escape(p.questionState)}</p>`:''}${action?`<div class="msg-actions">${action}</div>`:''}</article>`);
+ });
+ if(!rows.length)rows.push({id:'welcome',key:name,html:()=>`<div class="dialogue-welcome"><span class="welcome-kicker">ひと息ついて、話しましょう</span><p>${escape(name)}に、なんでも話しかけてください。</p><small>Enterで送信 · Shift+Enterで改行</small></div>`});
+ rows.push({id:'live',key:'live',html:()=>'<article class="msg msg-character is-live" id="dialogue-live" aria-hidden="true" hidden><div class="msg-bubble md"></div></article>'});
+ reconcileTranscript(host,rows);paintLive();
  const last=messages.at(-1);
  if(last&&last.id!==lastSeenMessage){
   if(lastSeenMessage&&last.role!=='user'){const announcer=$('#dialogue-announcer');if(announcer)announcer.textContent=`${last.role==='assistant'?name:'作業担当'}: ${String(last.content||'').slice(0,240)}`;if(last.role==='assistant'&&!last.kind?.startsWith('worker'))talkUntil=Date.now()+Math.min(5200,Math.max(1400,String(last.content||'').length*55));}
+  if(!follow)dialogueUnread=true;
   lastSeenMessage=last.id;
  }
- if(keep?.action){const again=host.querySelector?.(`[data-action="${keep.action}"]${keep.id?`[data-id="${keep.id}"]`:''}`);again?.focus?.({preventScroll:true});}
+ if(keep?.action&&!active.isConnected){
+  const again=[...host.querySelectorAll('[data-action]')].find(el=>el.dataset.action===keep.action&&(!keep.id||el.dataset.id===keep.id));
+  const row=again||[...host.querySelectorAll('[data-message-id]')].find(el=>el.dataset.messageId===keep.messageId);
+  if(row){if(!again)row.setAttribute('tabindex','-1');row.focus({preventScroll:true});}else host.focus({preventScroll:true});
+ }
  if(follow)host.scrollTop=host.scrollHeight;
- paintMood();
+ updateDialogueScroll();paintMood();
 }
 /** The reply as it streams in: in the conversation column and, on the home stage, as the caption. */
 function paintLive(){
- const el=$('#dialogue-live');
- if(el){el.hidden=!liveReply||sharedView;if(liveReply)el.querySelector('.msg-bubble').innerHTML=renderMarkdown(liveReply.length>4000?liveReply.slice(-4000):liveReply,{headings:'text'});
-  const host=$('#dialogue-transcript');if(host&&liveReply&&host.scrollHeight-host.scrollTop-host.clientHeight<160)host.scrollTop=host.scrollHeight;}
- if(view==='home'&&liveReply&&!sharedView){const speech=$('#speech');if(speech&&!speech.hidden){const body=speech.querySelector('.speech-text');if(body)body.innerHTML=renderMarkdown(liveReply.length>900?'…'+liveReply.slice(-898):liveReply,{headings:'text'});}}
+ livePainter.cancel();
+ const el=$('#dialogue-live'),host=$('#dialogue-transcript');
+ const follow=host&&host.scrollHeight-host.scrollTop-host.clientHeight<80;
+ const welcome=host?.querySelector('.dialogue-welcome');if(welcome)welcome.hidden=Boolean(liveReply);
+ if(el){
+  el.hidden=!liveReply||sharedView;
+  const body=el.querySelector('.msg-bubble'),text=sharedView?'':liveReply.slice(-4000);
+  if(body&&body.dataset.text!==text){body.dataset.text=text;body.innerHTML=text?renderMarkdown(text,{headings:'text'}):'';}
+  if(host&&liveReply&&follow)host.scrollTop=host.scrollHeight;
+ }
+ if(view==='home'&&liveReply&&!sharedView){const speech=$('#speech');if(speech&&!speech.hidden){const body=speech.querySelector('.speech-text'),text=liveReply.length>900?'…'+liveReply.slice(-898):liveReply;if(body&&body.dataset.liveText!==text){body.dataset.liveText=text;body.innerHTML=renderMarkdown(text,{headings:'text'});}}}
+ updateDialogueScroll();
+}
+/** Reading earlier messages is deliberate: streaming must not pull the reader down. */
+function updateDialogueScroll(){
+ const host=$('#dialogue-transcript'),button=$('#dialogue-latest');if(!host||!button)return;
+ const bottom=host.scrollHeight-host.scrollTop-host.clientHeight<80;
+ if(bottom)dialogueUnread=false;
+ button.hidden=sharedView||bottom;
+ button.textContent=dialogueUnread?'新しいメッセージ · 最新へ ↓':'最新の会話へ ↓';
 }
 function showReply(){const el=$('#reply');if(el){el.hidden=true;el.replaceChildren();}}
 function acceptDialogue(value){
@@ -1097,6 +1129,7 @@ const actions={
  'voice-autosend':configureVoiceSend,'enable-voice-send-legacy':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
  personas:personaSheet,
  'work-tab':el=>{workTab=el.dataset.tab;render();},
+ 'dialogue-latest':()=>{const host=$('#dialogue-transcript');host?.focus({preventScroll:true});host?.scrollTo({top:host.scrollHeight,behavior:reducedMotion?'auto':'smooth'});},
  proposals:()=>{closePanel();view='workspace';workTab='tasks';render();},
  'skill-details':el=>{const skill=state.skills.find(s=>s.id===el.dataset.id);openSheet(skill.name,`<p>${escape(skill.source==='learned-proposal'?'仕事から提案された手順です。確認して有効化するまで使用しません。':skill.description)}</p><pre>${escape(skill.content||'共有スキルです。実行時に出所とハッシュを照合して読み込みます。')}</pre><p class="small-text">${escape(skill.sourceJobId?'元の仕事: '+skill.sourceJobId:'')}</p>`);},
  view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}clearTimeout(toastTimer);toastEl.classList.remove('show');if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
@@ -1312,7 +1345,7 @@ bridge.on(e=>{
  if(e.type==='network.updated'){state.network=e.data;paintChrome();if(e.data.mode!=='online'||!e.data.internetTools){if(activeDialog?.kind==='media')closeSheet();document.querySelectorAll('#media-player iframe').forEach(x=>x.remove());}if(view==='settings')scheduleRender();return;}
  if(e.type==='dialogue.updated'){acceptDialogue(e.data);paintChrome();if(view==='home')paintSpeech();if(activePanel?.kind==='inbox')paintInbox();return;}
  if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant')liveReply='';showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
- if(e.type==='dialogue.delta'){liveReply=e.data.done?'':e.data.text||'';paintLive();showRequestStatus();return;}
+ if(e.type==='dialogue.delta'){liveReply=e.data.done?'':e.data.text||'';livePainter.schedule();return;}
  if(e.type==='session.updated'&&e.data.kind==='main'){state.dialogue={...state.dialogue,status:e.data.status,note:e.data.note||''};if(e.data.status!=='running')liveReply='';paintLive();showRequestStatus();paintMood();return;}
  if(e.type==='session.removed'){state.jobs=state.jobs.filter(j=>j.id!==e.data.id);scheduleRender();return;}
  if(e.type==='personas.updated'){state.dialogue={...state.dialogue,personas:e.data,session:{...state.dialogue.session,revision:e.data.revision,character:e.data.character}};characterKey='';mountCharacters();showDialogue();return;}

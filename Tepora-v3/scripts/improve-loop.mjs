@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Change -> verify -> evidence. No automatic code mutation or pretend improvement count.
- * --watch rechecks only when source bytes change. --browser adds optional Playwright checks.
+ * --watch rechecks only when source bytes change. --browser adds optional browser checks.
  * A model/provider is never called implicitly; live model evals remain an explicit separate step.
  */
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
@@ -36,6 +36,7 @@ async function verify(before){
   ['worker-contracts',python,['-I','-S','-m','unittest','discover','-s','workers','-p','test_*.py','-v']],
   ['scenario-traceability',process.execPath,['scripts/verify-scenarios.mjs',folder]],['preview-build',process.execPath,['scripts/build-preview.mjs']]];
  if(browser){steps.push(['browser-first-use',python,['tests/browser-first-use.py',root,path.join(folder,'browser')]]);steps.push(['browser-routing',python,['tests/browser-routing.py',root,path.join(folder,'routing-ui')]]);steps.push(['browser-lamp',python,['tests/browser-lamp.py',root,path.join(folder,'lamp')]]);steps.push(['browser-avatar',python,['tests/browser-avatar.py',root,path.join(folder,'avatar')]]);}
+ if(browser)steps.push(['browser-dialogue',process.execPath,['tests/browser-dialogue.mjs']]);
  if(browser)steps.push(['browser-abilities',python,['tests/browser-capabilities.py',root,path.join(folder,'abilities-ui')]]);
  if(browser)steps.push(['browser-ability-components',python,['tests/browser-capability-components.py',root,path.join(folder,'ability-components')]]);
  if(capabilities)steps.push(['capability-live',process.execPath,['scripts/check-capabilities.mjs',path.join(folder,'capability-live')]]);
