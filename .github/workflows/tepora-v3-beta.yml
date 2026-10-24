@@ -56,7 +56,7 @@ jobs:
         # Keep cold browser starts and synchronous SQLite fixtures from starving
         # each other on Windows. Behavioral assertions/deadlines stay unchanged.
         run: node --import ./scripts/ci-diagnostics.mjs --test --test-concurrency=1 --test-timeout=120000
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && runner.os == 'Windows'
         with:
           name: tepora-v3-test-diagnostics-${{ matrix.os }}
@@ -79,14 +79,14 @@ jobs:
       - name: Native bundle startup (macOS)
         if: runner.os == 'macOS'
         run: bash ci/native-smoke.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: tepora-v3-native-smoke-${{ matrix.os }}
           path: Tepora-v3/.qa-native/
           include-hidden-files: true
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tepora-v3-${{ matrix.os }}
           if-no-files-found: error
