@@ -1,5 +1,31 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Installed macOS authentication acceptance (2026-10-28 JST)
+
+The sealed macOS bundle's authentication sources matched the final working-tree sources before installation. The previous application was backed up, the verified bundle replaced `/Applications/Tepora V3 Beta.app`, and the installed copy's signature passed verification. The previous application backup was subsequently deleted at the user's request; application data and the connected account were retained.
+
+In the actual Tauri window, **設定 → AI・通信 → AIを接続する → アカウントでログイン → サービスを選ぶ → 再接続** on an existing disconnected OpenAI registration opened Chrome at `auth.openai.com/sign-in-with-chatgpt/consent`, displaying **Tepora を ChatGPT に接続**. The agent did not operate the provider's Continue/access-approval button. During observation, the application changed to **接続済み**; that connection was retained and the updated application was left running. This confirms the packaged WebView-to-default-browser handoff for this OpenAI flow, beyond the earlier synthetic/ordinary-host checks.
+
+No model was registered or invoked by this acceptance check. Other providers' live account flows, Windows/Linux browser integration, the updated Python browser flows and the full quality suite were not exercised in this acceptance run. The unverified statements in the dated 2026-10-25 sections below describe the evidence available at that time.
+
+## Authentication browser handoff (2026-10-25 JST)
+
+Both Pi SDK login and the preserved ChatGPT flow now open the current authentication URL through the service's OS default-browser launcher. The frontend sends an attempt ID only, opens once after an explicit login start and provides inline retry. Re-entry and view closure cannot replay an automatic launch; the current pending provider stays selected.
+
+The 58 selected Node tests passed, including real SDK/legacy OAuth fixtures, real cookie/CSRF/Origin routing, stale/cancelled/expired/offline refusal, injected launcher failure and macOS/Windows/Linux launcher argument checks. Five installed-Chrome auth checks passed with synthetic attempts: delayed auto-open, retry, live manual-code retention, re-entry/cancel and closure-before-Start completion, plus the preserved ChatGPT UI. No actual credentials or upstream account calls are used by these tests. A separate ordinary-host localhost UI smoke opened a public test URL in macOS's actual default Chrome using an isolated temporary data directory. The macOS app/DMG build and bundled Node/addon signature-load verifier passed. Real provider login/callback acceptance in the packaged WebView and Windows/Linux OS integration remain unverified.
+
+## AI connection flow (2026-10-25 JST)
+
+The AI connection screen starts with account login, API-key and local-AI methods. It separates registration from key/login/test status, groups model setup into three numbered sections and replaces comma-separated fallback IDs with ordered named selectors. Existing role-specific-only routes remain unchanged unless edited. Immediate network changes preserve unsaved route controls; leaving an edited connection form uses the existing discard confirmation.
+
+Local validation passed JavaScript syntax checks, 17 related frontend/controller tests, six offline connection-browser checks and the ten existing layout checks. The connection browser fixture covers disabled preview login/key entry, model-search empty results, registration-to-key handoff, unsaved Back/Cancel, ordered fallback save, preservation of role-only configurations and 320–1440px at 100%/160% text. The UI helper tests separately verify account/billing isolation and vision/device filtering. No real accounts, credentials, external catalog refresh or inference are used. The updated Python flows were syntax checked but not executed because Python Playwright is unavailable. The macOS app/DMG was rebuilt and its signature/runtime verifier passed; real account acceptance and native WebView interaction remain unverified.
+
+## Settings categories and search (2026-10-25 JST)
+
+Settings now shows one of nine categories, with local search across all settings and a category selector on narrow surfaces. Theme/text size, home layout/widgets and idle/photo settings have separate destinations. Dialog Save/Discard behavior, network permissions and tool connection approvals keep their existing contracts.
+
+The offline installed-Chrome layout suite covers category selection and re-entry, shell/header stability, keyword/alias search, empty results, Escape to clear, preserved search/control focus after saving, widget disclosure state and narrow surfaces. Local syntax checks and the 11 related frontend tests passed. The in-app browser also exercised search-to-dialog navigation, clock selections and widget changes, including a 390px viewport at 160% text without horizontal overflow. These checks use synthetic preview data, not real accounts or model calls. The macOS app/DMG was rebuilt and its signature/runtime verifier passed; native WebView interaction and the updated Python browser flows remain unverified.
+
 ## Real-model acceptance benchmark
 
 The selectable matrix also includes MiMo V2.6 Flash and Muse Spark 1.3 Contributor. MiMo uses Chat Completions; Muse uses Responses, including native tool-call replay and nested streamed usage accounting. Their current Go endpoints and SDK round trips are covered by the deterministic regression; their actual API results must be recorded separately.

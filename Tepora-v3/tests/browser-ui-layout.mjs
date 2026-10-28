@@ -55,6 +55,7 @@ try{
    await viewport(width);
    for(const view of ['home','workspace','memory','settings']){
     await nav(view);
+    if(view==='settings')await evaluate('(()=>{uiTest.actions["settings-jump"]({dataset:{id:"home"}});const summary=document.querySelector("[data-action=settings-disclosure][data-id=widgets]");if(!summary.closest("details").open)summary.click();})()');
     const bad=await evaluate('(()=>{const s=document.querySelector("#surface");return [...s.querySelectorAll(".memory-grid,.widget-order")].filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>({class:el.className,width:el.clientWidth,scroll:el.scrollWidth}));})()');
     if(bad.length)overflow.push({width,view,bad});
    }
@@ -104,16 +105,67 @@ try{
   await evaluate('uiTest.closePanel()');assert.equal(await visible('.workbench .approval-card'),true);
   assert.equal(await evaluate('document.querySelector("#panel").hasAttribute("data-kind")'),false);
  });
- await check('settings navigation tracks scrolling, the last section and re-entry at the top',async()=>{
+ await check('settings shows one category, remembers it on re-entry and resets its scroll position',async()=>{
   await viewport(1440);await nav('settings');
   const current=()=>evaluate('document.querySelector(".settings-nav [aria-current=true]")?.dataset.id');
-  await evaluate('document.querySelector("#settings-character").scrollIntoView({block:"start"})');await settle();
+  await evaluate('document.querySelector(".settings-nav [data-id=character]").click()');await settle();
   assert.equal(await current(),'character');
+  assert.deepEqual(await evaluate('[...document.querySelectorAll(".settings-section:not([hidden])")].map(s=>s.dataset.category)'),['character']);
+  assert.equal(await evaluate('document.activeElement.id'),'settings-character-title');
+  await evaluate('document.querySelector(".settings-nav [data-id=home]").click()');await settle();
   await evaluate('document.querySelector("#surface").scrollTop=1e6');await settle();
-  assert.equal(await current(),'data','the last section is current at the bottom');
+  assert.equal(await current(),'home','scrolling must not switch the category');
   await nav('home');await nav('settings');
   assert.equal(await evaluate('document.querySelector("#surface").scrollTop'),0);
-  assert.equal(await current(),'ai','re-entering settings resets the current section with its scroll position');
+  assert.equal(await current(),'home','re-entering settings remembers the chosen category');
+ });
+ await check('settings jumps and keyboard focus keep the shell and header in place',async()=>{
+  const chrome=()=>evaluate('(()=>{const shell=document.querySelector(".shell"),layout=document.querySelector("#layout"),surface=document.querySelector("#surface");return {window:scrollY,shell:shell.scrollTop,layout:layout.scrollTop,headerTop:document.querySelector(".topbar").getBoundingClientRect().top,surfaceBottom:surface.getBoundingClientRect().bottom};})()');
+  for(const [width,talk] of [[1440,false],[1440,true],[1180,true],[390,false]]){
+   await viewport(width);await nav('home');await nav('settings');
+   await evaluate(`uiTest.actions['talk-close']();${talk?"uiTest.actions['talk-open']();":''}`);await settle();
+   const before=await chrome(),ids=await evaluate('[...document.querySelectorAll(".settings-nav a")].map(a=>a.dataset.id)');
+   assert.equal(before.headerTop,0);
+   for(const id of [...ids,...ids.toReversed(),...ids]){
+    await evaluate(`(()=>{const select=document.querySelector('#settings-category-select');if(getComputedStyle(select.parentElement).display!=='none'){select.value='${id}';select.dispatchEvent(new Event('change',{bubbles:true}));}else document.querySelector('.settings-nav [data-id="${id}"]').click();})()`);await settle();
+    assert.equal(await evaluate('document.querySelector("#surface").scrollTop'),0);
+    assert.deepEqual(await evaluate('[...document.querySelectorAll(".settings-section:not([hidden])")].map(s=>s.dataset.category)'),[id]);
+    assert.deepEqual(await chrome(),before,`jump to ${id} at ${width}px, conversation ${talk}`);
+   }
+   await evaluate('document.querySelector("#settings-search").focus({preventScroll:true})');
+   for(let i=0;i<70;i++)await page.key('Tab');
+   assert.deepEqual(await chrome(),before,`Tab traversal at ${width}px, conversation ${talk}`);
+  }
+  await viewport(1440);await nav('home');
+  await evaluate('document.querySelector("[data-action=display]").click()');
+  await wait('document.querySelector("#surface").scrollTop===0&&document.querySelector(".settings-nav [aria-current=true]")?.dataset.id==="home"');
+  const actual=await chrome();assert.equal(actual.shell,0);assert.equal(actual.headerTop,0);assert.equal(actual.surfaceBottom,900);
+ });
+ await check('settings search finds aliases across categories, clears safely and preserves edits and focus',async()=>{
+  await viewport(1440);await nav('settings');
+  const search=async value=>{await evaluate(`(()=>{const input=document.querySelector('#settings-search');input.focus();input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);await settle();};
+  const results=()=>evaluate('[...document.querySelectorAll(".settings-section:not([hidden]) .settings-entry:not([hidden]) .setting-text h3")].map(el=>el.textContent)');
+  await search('マイク');assert.deepEqual(await results(),['マイク・音声入力']);
+  assert.equal(await evaluate('document.activeElement.id'),'settings-search');
+  assert.equal(await evaluate('document.querySelector("#settings-search-status").textContent'),'1件の設定が見つかりました');
+  await search('ｔｈｅｍｅ');assert.deepEqual(await results(),['テーマ']);
+  await evaluate('document.querySelector("[data-action=theme-set][data-value=light]").focus();document.activeElement.click()');
+  await wait('document.body.dataset.theme==="light"');
+  assert.equal(await evaluate('document.querySelector("#settings-search").value'),'ｔｈｅｍｅ');
+  assert.deepEqual(await results(),['テーマ']);
+  assert.equal(await evaluate('document.activeElement.dataset.value'),'light');
+  await search('タイマー');assert.deepEqual(await results(),['ウィジェット']);
+  assert.equal(await evaluate('document.querySelector(".settings-disclosure[data-id=widgets]").open'),true);
+  await search('<script>missing</script>');assert.deepEqual(await results(),[]);
+  assert.equal(await visible('#settings-empty'),true);
+  assert.equal(await evaluate('document.querySelector("#settings-empty-query").textContent'),'<script>missing</script>');
+  await page.key('Escape');await settle();
+  assert.equal(await evaluate('document.querySelector("#settings-search").value'),'');
+  assert.equal(await visible('#settings-empty'),false);
+  await evaluate('document.querySelector(".settings-nav [data-id=home]").click();const summary=document.querySelector(".settings-disclosure[data-id=widgets] summary");if(!summary.closest("details").open)summary.click();document.querySelector("[data-action=widget-toggle][value=focus]").focus()');
+  await page.key('Space');await wait('uiTest.state.display.widgets.includes("focus")');
+  assert.equal(await evaluate('document.querySelector(".settings-disclosure[data-id=widgets]").open'),true,'expanded controls stay expanded after saving');
+  assert.equal(await evaluate('document.activeElement.value'),'focus');
  });
  await check('docked panels fill the layout height even when the home composer takes its own row',async()=>{
   for(const width of [1440,1180]){
@@ -137,6 +189,7 @@ try{
   await evaluate('uiTest.notice("確認用のお知らせ")');assert.equal(await evaluate('document.querySelector("#toast").classList.contains("show")'),true);
   await evaluate('document.querySelector("#toast").click()');assert.equal(await evaluate('document.querySelector("#toast").classList.contains("show")'),false);
   await evaluate('uiTest.notice("移動前のお知らせ")');await nav('settings');assert.equal(await evaluate('document.querySelector("#toast").classList.contains("show")'),false);
+  await evaluate('document.querySelector(".settings-nav [data-id=general]").click()');
   await evaluate('document.querySelector("[data-action=theme-set][data-value=dark]").click()');await wait('document.body.dataset.theme==="dark"');
   await evaluate('uiTest.setAmbient(true)');assert.equal(await evaluate('document.body.classList.contains("is-ambient")'),true);
   await evaluate('uiTest.setAmbient(false,{restore:true})');assert.equal(await evaluate('document.body.dataset.view'), 'settings');

@@ -4,7 +4,7 @@ import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
 import {ProviderAuth} from './provider-auth.mjs';
 import {PiAIService,piProviders} from './pi-ai.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
-import {openInstallerPage} from './platform-links.mjs';
+import {openInstallerPage,openAuthenticationPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
@@ -59,7 +59,7 @@ function configurePersonas(store,raw){
  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
  store.value('dialogue-personas',next);return next;
 }
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={},openAuthBrowser=openAuthenticationPage}={}) {
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth,pi});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
@@ -76,6 +76,10 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map(),pendingInputs=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
  const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
+ async function openAuthPage(req,res,auth){
+  const b=await body(req);invariant(b&&typeof b.id==='string'&&b.id.length<=100&&Object.keys(b).length===1,'現在の認証IDだけを指定してください。');
+  await openAuthBrowser(auth.browserURL(b.id));return json(res,{opened:true});
+ }
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.',enabled:true,source:'builtin',createdAt:new Date().toISOString()});
  /** Files the person attaches are copied into a dated inbox folder the agents can read. */
  async function saveAttachments(ids){
@@ -279,11 +283,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/pi/models/refresh'&&method==='POST'){const b=await body(req);return json(res,await pi.refreshModels(b.provider,b.accountId,b.consent,AbortSignal.timeout(30000)));}
    if(p==='/api/pi/auth'&&method==='GET')return json(res,pi.snapshot());
    if(p==='/api/pi/auth/start'&&method==='POST')return json(res,pi.begin(await body(req)));
+   if(p==='/api/pi/auth/open'&&method==='POST')return await openAuthPage(req,res,pi);
    if(p==='/api/pi/auth/respond'&&method==='POST')return json(res,pi.respond(await body(req)));
    if(p==='/api/pi/auth/cancel'&&method==='POST'){const b=await body(req);return json(res,pi.cancel(b.id));}
    if(p==='/api/pi/auth/disconnect'&&method==='POST'){const b=await body(req);return json(res,await pi.disconnect(b.accountId));}
    if(p==='/api/provider-auth'&&method==='GET')return json(res,providerAuth.snapshot());
    if(p==='/api/provider-auth/start'&&method==='POST')return json(res,await providerAuth.begin(await body(req)));
+   if(p==='/api/provider-auth/open'&&method==='POST')return await openAuthPage(req,res,providerAuth);
    if(p==='/api/provider-auth/cancel'&&method==='POST'){const b=await body(req);return json(res,providerAuth.cancel(b.id));}
    const authAction=p.match(/^\/api\/provider-auth\/(chatgpt-[a-f0-9-]{36})\/(models|disconnect)$/);
    if(authAction&&method==='POST'){const b=await body(req);return json(res,authAction[2]==='models'?await providerAuth.models(authAction[1],{consent:b.consent,signal:AbortSignal.timeout(30000)}):await providerAuth.disconnect(authAction[1]));}

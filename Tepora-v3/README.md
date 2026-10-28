@@ -61,7 +61,7 @@ artifacts open beside it; they do not redirect the composer. There are no contin
 conversation modes to manage. The character can delegate work and keep responding in its separate
 chat lane.
 
-**設定 → キャラクター → 姿を作る** shapes how the character looks (and brings a character you already have; see [AVATAR](docs/AVATAR.md)); **人格と口調** edits how it answers, apart from its look: the character's and worker's names and instructions, and the character's tone, call name and how often it speaks up. Existing jobs keep
+**設定 → キャラクター → 見た目を編集** shapes how the character looks (and brings a character you already have; see [AVATAR](docs/AVATAR.md)); **名前と話し方を編集** edits how it answers, apart from its look: the character's and worker's names and instructions, and the character's tone, call name and how often it speaks up. Existing jobs keep
 their pinned versions. **回答する** targets one worker's exact pending question; ordinary
 chat never silently answers an unrelated worker. Tool approvals remain separate from answers.
 
@@ -73,7 +73,13 @@ injected into either new role; full V2 CHAR/PROF migration is not included.
 
 ## What to do in the UI
 
-**設定 → 声・画像・意味検索 → 能力の接続 → 管理** adds independent decision, embedding, voice, image/edit and video endpoints.
+Settings shows one category at a time and remembers the last category in the current window. **設定を検索** searches across categories, including terms such as マイク, テーマ, MCP and タイマー. Narrow surfaces use a category selector; wider surfaces keep the category navigation beside the content. Changes on the settings page save immediately; forms opened in separate dialogs retain their own Save buttons.
+
+**設定 → AI・通信 → AIを接続する / AIの接続を管理** starts with three methods: account login, an API key, or an AI running on this PC. Registered profiles show their actual authentication/test state. Choose **いつものAI** for normal use; role-specific models and ordered fallback names are optional. Technical IDs, custom endpoints, network controls and legacy connections remain available in disclosures. See [AI connections](docs/PI-AI.md).
+
+Account login opens its active authentication page in the OS default browser. If it fails, use **認証ページを開く** to retry; after login, return to Tepora. The service resolves the pending attempt ID and opens its HTTPS URL, so desktop login does not depend on WebView popup support. Reopening the settings screen never automatically repeats the browser launch.
+
+**設定 → 音声・画像 → 機能ごとの接続を管理** adds independent decision, embedding, voice, image/edit and video endpoints.
 Select an endpoint for each role. There is no need to move the main LLM to the same provider.
 A local embedding/TTS service can run alongside a cloud text model; a local VLM can supply image
 observations to that text model. A lossy observation retains the source image's privacy scope.
@@ -90,11 +96,11 @@ results remain available while you keep talking. A received request ID is not a 
 Remote indexing is opt-in and restricted to confirmed shared memories. Lexical search remains
 available offline or when the optional embedding endpoint fails. Similarity is not truth. The local native-agent candidate also connects semantic index/search and agent memory tools with explicit external consent, lexical fallback and scoped cancellation. It remains an opt-in development host; normal Node launch and JavaScript/CSS are unchanged. See [native scope and verification](native-service/README.md).
 
-**設定 → 仕事の実行 → 道具（MCP）→ まとめて追加 / まとめて接続** accepts `mcpServers` JSON. Review imported
+**設定 → ツール・スキル → 複数のツールをまとめて追加・接続 → まとめて追加 / まとめて接続** accepts `mcpServers` JSON. Review imported
 configuration, then select which connections to start. They are not launched just because they
 were imported. Discovered tools are searched on demand instead of filling every prompt.
 
-**設定 → AIとの接続 → モデルを探す** imports/refreshes optional models.dev metadata and can use its cached JSON
+**設定 → AI・通信 → モデルを探す** imports/refreshes optional models.dev metadata and can use its cached JSON
 offline. It never installs packages from metadata or treats a capability listing as a passed test.
 
 ## Supported API families
@@ -130,7 +136,7 @@ Presets do not install models, authenticate accounts or migrate existing indexes
 
 ## Local floor and optional workers
 
-Use **AIを接続** (top bar) or **設定 → AIとの接続** to detect already running local servers. If Ollama is already installed,
+Use **AIを接続** (top bar) or **設定 → AI・通信** to detect already running local servers. If Ollama is already installed,
 the UI supports confirmed model acquisition, interruption/resume and a safe tool-use probe.
 Automatic OS runtime installation, all model weights and platform drivers are still not bundled.
 

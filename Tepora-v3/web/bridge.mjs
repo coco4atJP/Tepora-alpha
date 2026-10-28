@@ -38,6 +38,18 @@ function decidePreviewApproval(id,allow){
  if(j){Object.assign(j,{status:'completed',parked:false,pendingApprovals:0,approval:null,endedAt:new Date().toISOString(),note:allow?'体験用タスクが完了しました':'書き出しはせずに完了しました',output:allow?'画面サンプル: 本文を仕上げ、承認後に書き出しまで進めました。（サンプルです。実際のファイルは作っていません）':'画面サンプル: 本文は仕上げました。書き出しは許可されなかったので行っていません。'});emitPreview('job.updated',j);}
 }
 async function previewRequest(p,method,b){
+ // Inert catalog samples let the connection screens be inspected; authentication and inference remain blocked.
+ if(p==='/api/pi/providers'&&method==='GET')return {providers:[
+  {id:'openai',name:'OpenAI（画面サンプル）',modelCount:2,apiKeyLogin:true,available:true,note:'表示用の設定例です。実際のモデルや利用資格を示すものではありません。'},
+  {id:'openai-codex',name:'ChatGPT（画面サンプル）',modelCount:2,oauth:{name:'ブラウザでChatGPTにログイン'},available:true,note:'プレビューではログインしません。'},
+  {id:'anthropic',name:'Anthropic（画面サンプル）',modelCount:2,apiKeyLogin:true,available:true,note:'表示用の設定例です。'}
+ ]};
+ if(p==='/api/pi/auth'&&method==='GET')return {version:'画面サンプル',supported:false,accounts:[],pending:null,note:'表示専用のプレビューです。認証情報を入力・送信・保存しません。'};
+ if(p.startsWith('/api/pi/models?')&&method==='GET')return {models:[
+  {id:'preview-chat',name:'会話用モデル（設定例）',api:'openai-completions',protocol:'chat-completions',baseUrl:'https://example.invalid/v1',contextTokens:16000,maxTokens:4096,vision:false,available:true},
+  {id:'preview-vision',name:'画像も読めるモデル（設定例）',api:'openai-completions',protocol:'chat-completions',baseUrl:'https://example.invalid/v1',contextTokens:16000,maxTokens:4096,vision:true,available:true}
+ ]};
+ if(p.startsWith('/api/pi/'))throw Error('プレビューでは実アカウントの認証・モデルの外部取得・AIの呼び出しは行いません。');
  if(p==='/api/agent/approvals'&&method==='GET')return {approvals:structuredClone(previewState.approvals)};
  if(p==='/api/agent/approvals'&&method==='POST')return {results:b.ids.map(id=>{try{decidePreviewApproval(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:e.message};}})};
  {const m=p.match(/^\/api\/agent\/approvals\/([^/]+)$/);if(m&&method==='POST'){decidePreviewApproval(m[1],b.allow===true);return {resolved:true};}}

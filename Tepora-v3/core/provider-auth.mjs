@@ -84,7 +84,8 @@ export class ProviderAuth {
   try{this.vault=readVault(this.file);}catch{this.storageError='認証ファイルを読み込めませんでした。ファイルを保全したまま認証を停止しています。';this.vault={schema:1,hostId:'',accounts:{}};}
   this.onNetwork=p=>{if(p.mode!=='online')this.cancel();};network.listeners?.add(this.onNetwork);
  }
- snapshot(){return {supported:!this.storageError,note:this.storageError||'ChatGPTプランの利用枠です。従量課金APIへの自動切替はしません。',accounts:Object.values(this.vault.accounts).map(publicAccount),pending:this.pending?{id:this.pending.id,status:this.pending.status,accountId:this.pending.accountId||null,error:this.pending.error||null,expiresAt:this.pending.expiresAt}:null};}
+ snapshot(){return {supported:!this.storageError,note:this.storageError||'ChatGPTプランの利用枠です。従量課金APIへの自動切替はしません。',accounts:Object.values(this.vault.accounts).map(publicAccount),pending:this.pending?{id:this.pending.id,status:this.pending.status,accountId:this.pending.accountId||null,error:this.pending.error||null,expiresAt:this.pending.expiresAt,canOpenBrowser:this.pending.status==='pending'&&this.clock()<this.pending.expiresAt&&!!this.pending.authorizationUrl}:null};}
+ browserURL(id){this.available();const p=this.pending;require(p?.id===id&&p.status==='pending'&&!p.cancel.signal.aborted&&this.clock()<p.expiresAt&&p.authorizationUrl,'認証の状態が変わりました。ログインをやり直してください。',409);return p.authorizationUrl;}
  status(id){return this.vault.accounts[id]?publicAccount(this.vault.accounts[id]):{id,connected:false,error:'ChatGPTのアカウントを接続してください。'};}
  emit(){if(!this.closed&&!this.store.closed)this.store.broadcast?.('provider-auth.updated',this.snapshot());}
  persist(next=this.vault){require(!this.storageError,'認証ファイルを保全するため変更できません。');atomicVault(this.file,next);this.vault=next;}
@@ -123,11 +124,11 @@ export class ProviderAuth {
   const params={client_id:p.clientId||'dynamic_agent_client',ext_agent_host_id:this.vault.hostId,response_type:'code',redirect_uri:p.redirectUri,scope:SCOPES,resource:CHATGPT_RESOURCE,state:p.state,nonce:p.nonce,code_challenge_method:'S256',code_challenge:createHash('sha256').update(p.verifier).digest('base64url')};
   if(!p.clientId)params.agent_name_hint='Tepora';
   // ID-token hints deliberately stay out of browser JS and URLs returned to the UI.
-  this.emit();return {id:p.id,authorizationUrl:AUTHORIZE+'?'+new URLSearchParams(params),expiresAt:p.expiresAt};
+  p.authorizationUrl=AUTHORIZE+'?'+new URLSearchParams(params);this.emit();return {id:p.id,authorizationUrl:p.authorizationUrl,expiresAt:p.expiresAt};
  }
  finish(p,status,error=null){
   if(!['pending','exchanging'].includes(p.status))return;p.status=status;p.error=error;clearTimeout(p.timer);p.cancel.abort();p.server?.close();p.server?.closeIdleConnections();
-  delete p.state;delete p.nonce;delete p.verifier;this.emit();
+  delete p.state;delete p.nonce;delete p.verifier;delete p.authorizationUrl;this.emit();
  }
  cancel(id){const p=this.pending;if(p&&(!id||p.id===id))this.finish(p,'cancelled','ログインを取り消しました。');return this.snapshot();}
  async callback(p,req,res){

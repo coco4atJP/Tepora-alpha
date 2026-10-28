@@ -1,5 +1,27 @@
 # Tepora V3 changelog
 
+## Authentication opens in the default browser (beta.11)
+
+- Open a user-started Pi SDK or preserved ChatGPT login once in the OS default browser, with inline failure feedback and explicit retry
+- Resolve only the active service-owned HTTPS authentication URL from an attempt ID behind existing cookie/CSRF checks; keep the WebView confined to its sidecar origin
+- Preserve manual/secret input while polling, retain the pending service selection and avoid automatic relaunch on settings re-entry or after view closure
+- Cover launcher arguments, HTTP admission and both auth screens with synthetic tests; verify a non-secret test URL opens in the actual macOS default browser
+
+## Clearer AI connection setup (beta.11)
+
+- Start with account, API-key or local-AI choices; show registered AI/authentication/test state before advanced controls
+- Group service, model and display name into numbered sections; retain custom endpoints and legacy connections in disclosures
+- Select ordered fallback AIs by name while preserving role, device, account and billing constraints
+- Protect unsaved Back navigation and keep route edits during immediate network changes
+- Add inert preview catalogs with login/key entry disabled; verify the UI without real accounts or inference
+
+## Settings navigation and search (beta.11)
+
+- Show one settings category at a time; split display, home, idle/photo, AI/network and tool/skill settings by purpose
+- Add local search across categories, clear/empty states and keyboard focus management; retain search and expanded controls after changes save
+- Label clock controls separately, shorten widget names and explain immediate saves versus dialog Save buttons
+- Keep category navigation available on wide surfaces and use a category selector on narrow surfaces; retain shell-scroll regression coverage
+
 ## Updated recorded ASR candidates (beta.11)
 
 - Suggest the Japanese-capable 2026-10-21 Granite Speech 5.0 470M TurboCTC for new recorded-input profiles; retain existing Qwen configurations

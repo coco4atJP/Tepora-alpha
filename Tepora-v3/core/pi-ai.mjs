@@ -60,6 +60,12 @@ export class PiAIService{
   this.onNetwork=()=>{for(const j of this.jobs)if(!network.permitted(j.data.profile?.domain||'cloud','model'))j.abort();};network.listeners.add(this.onNetwork);
  }
  snapshot(){const p=this.pending;return {supported:!this.storageError,version:PI_VERSION,note:this.storageError||'OAuthとAPIキー、異なる登録アカウントへの自動切替はしません。',accounts:Object.values(this.vault.accounts).map(publicAccount),pending:p?{id:p.id,provider:p.provider,accountId:p.accountId,status:p.status,prompt:p.prompt||null,event:p.event||null,error:p.error||null}:null};}
+ browserURL(id){
+  const p=this.pending;invariant(!this.closed&&!this.storageError&&this.network.permitted('cloud','model'),'オンラインで認証を開始してください。',403);
+  invariant(p?.id===id&&p.status==='pending'&&!p.cancel.signal.aborted,'認証の状態が変わりました。ログインをやり直してください。',409);
+  const url=p.event?.type==='auth_url'?p.event.url:p.event?.type==='device_code'?p.event.verificationUri:null;
+  const safe=safeLink(url);invariant(safe,'ブラウザーで開く認証URLがまだありません。',409);return safe;
+ }
  status(id){const a=this.vault.accounts[id];return a?publicAccount(a):{connected:false,error:'pi-aiへログインしてください。'};}
  persist(){invariant(!this.storageError,'認証ファイルを保全するため変更できません。');invariant(Buffer.byteLength(JSON.stringify(this.vault))<4_000_000,'pi-ai保存データが大きすぎます。');atomicVault(this.file,this.vault);}
  changed(){if(!this.closed)this.store.broadcast?.('pi.updated',{version:PI_VERSION});}

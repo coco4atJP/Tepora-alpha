@@ -31,7 +31,10 @@ try:
   avatar=lambda:api('/api/avatar')['body']
   def settle(ms=900):page.wait_for_timeout(ms)
   def studio():
-   page.locator('.nav [data-view=settings]').click();page.get_by_role('button',name='姿を作る',exact=True).first.click();page.locator('#avatar-sheet').wait_for();settle(500)
+   page.locator('.nav [data-view=settings]').click()
+   if page.locator('#settings-category-select').is_visible():page.locator('#settings-category-select').select_option('character')
+   else:page.locator('.settings-nav [data-id=character]').click()
+   page.get_by_role('button',name='姿を作る',exact=True).first.click();page.locator('#avatar-sheet').wait_for();settle(500)
   def home():
    if page.locator('.modal-backdrop').count():page.keyboard.press('Escape');page.locator('.modal-backdrop').wait_for(state='detached')
    page.locator('.nav [data-view=home]').click();settle(600)
@@ -92,7 +95,7 @@ try:
   # --- the persona (words) and the avatar (looks) are saved apart
   page.keyboard.press('Escape');page.locator('.modal-backdrop').wait_for(state='detached')
   look=avatar()['revision']
-  page.locator('.nav [data-view=settings]').click();page.get_by_role('button',name='人格と口調を編集',exact=True).click();page.locator('#personas-form').wait_for()
+  page.locator('.nav [data-view=settings]').click();page.locator('.settings-nav [data-id=character]').click();page.get_by_role('button',name='人格と口調を編集',exact=True).click();page.locator('#personas-form').wait_for()
   page.locator('[name=voiceTone]').select_option('casual');page.locator('[name=voiceCallName]').fill('ミカ')
   page.get_by_role('button',name='人格を保存する',exact=True).click();page.locator('#personas-form').wait_for(state='detached')
   personas=api('/api/dialogue/personas')['body']

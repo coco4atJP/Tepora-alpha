@@ -16,13 +16,15 @@ with sync_playwright() as p:
  page.screenshot(path=str(out/'01-home.png'))
  def providers():
   page.get_by_role('button',name='設定',exact=True).click()
+  page.locator('.settings-nav [data-id=ai]').click()
   page.locator('[data-action=providers-launch]').first.click()
-  page.get_by_role('dialog',name='知能と通信の使い分け').wait_for()
+  page.get_by_role('dialog',name='AIの接続').wait_for()
+  page.locator('.connection-network summary').click()
  def shared():
   page.get_by_role('button',name='画面の表示',exact=True).click()
   page.get_by_role('button',name='共有表示（個人の内容を隠す）',exact=True).click()
  providers()
- assert 'ローカルの継続先を追加' in page.locator('.offline-floor').inner_text()
+ assert 'インターネットなしで使いたいとき' in page.locator('.offline-floor').inner_text()
  for enabled in [True,False]:
   page.locator('#internet-tools').set_checked(enabled)
   page.get_by_role('button',name='閉じる',exact=True).click()
@@ -31,8 +33,10 @@ with sync_playwright() as p:
   assert page.locator('#internet-tools').is_checked()==enabled
  checks.append('Settings and provider dialog both show the effective network permission after enabling and disabling it')
  def add(preset,id,name,model,vision=False,lan=False):
-  page.get_by_role('button',name='ローカル / カスタム接続',exact=True).click()
+  if page.locator('.connection-add').count():page.locator('.connection-add summary').click()
+  page.get_by_role('button',name='URLを指定して接続',exact=True).click()
   page.locator('#provider-preset').select_option(preset)
+  page.locator('#provider-form > .connection-advanced > summary').click()
   page.locator('#provider-form [name=id]').fill(id)
   page.locator('#provider-form [name=name]').fill(name)
   page.locator('#provider-form [name=model]').fill(model)
@@ -44,20 +48,26 @@ with sync_playwright() as p:
    page.locator('[name=pinnedAddress]').fill('192.168.1.20')
    page.locator('[name=allowPlainHttp]').check()
   page.get_by_role('button',name='登録する',exact=True).click()
-  page.get_by_role('dialog',name='知能と通信の使い分け').wait_for()
+  page.get_by_role('dialog',name='AIの接続').wait_for()
  add('ollama','local-backup','このPCの継続先（設定例）','local-model-example')
  add('lmstudio','local-vision','画像を読むローカルVLM（設定例）','vision-model-example',vision=True)
  add('openai','cloud-main','クラウドの主モデル（設定例）','cloud-model-example')
  add('vllm','lan-inference','指定したLAN推論機（設定例）','lan-model-example',lan=True)
  assert page.locator('.provider-list article').count()==4
  assert page.locator('select[name=vision] option[value=cloud-main]').count()==0
+ page.locator('.connection-role-options > summary').click()
+ def fallback(role,ids):
+  page.locator(f'[data-fallback-role={role}]').locator('..').locator('summary').click()
+  for id in ids:
+   page.locator(f'[data-action=route-fallback-add][data-role={role}]').click()
+   page.locator(f'[data-fallback-role={role}] li:last-child select').select_option(id)
  page.locator('select[name=main]').select_option('cloud-main')
- page.locator('input[name=main-fallbacks]').fill('local-backup')
+ fallback('main',['local-backup'])
  page.locator('select[name=work]').select_option('cloud-main')
- page.locator('input[name=work-fallbacks]').fill('lan-inference, local-backup')
+ fallback('work',['lan-inference','local-backup'])
  page.locator('select[name=vision]').select_option('local-vision')
  page.locator('select[name=dictation]').select_option('local-backup')
- page.get_by_role('button',name='この経路を使う',exact=True).click()
+ page.get_by_role('button',name='使うAIを保存',exact=True).click()
  page.wait_for_function("document.querySelector('select[name=main]')?.value==='cloud-main'")
  assert page.locator('input[name=work-fallbacks]').input_value()=='lan-inference, local-backup'
  assert '確認済み' not in page.locator('.offline-floor').inner_text()
@@ -65,6 +75,7 @@ with sync_playwright() as p:
  page.screenshot(path=str(out/'02-providers.png'))
  page.locator('#route-form').scroll_into_view_if_needed()
  page.screenshot(path=str(out/'07-role-routing.png'))
+ page.locator('.connection-network summary').click()
  page.locator('.network-options').scroll_into_view_if_needed()
  page.get_by_role('dialog').get_by_role('button',name='完全オフライン',exact=True).click()
  page.wait_for_function("document.querySelector('[data-action=net-mode][data-value=offline]')?.getAttribute('aria-pressed')==='true'")
@@ -76,10 +87,9 @@ with sync_playwright() as p:
  checks.append('mode switches are explicit; offline scope and exact-LAN scope remain visible')
  # Credentials are not accepted or persisted by the preview.
  page.locator('[data-action=provider-key][data-id=cloud-main]').click()
- page.locator('[name=key]').fill('test-only-never-persist')
- page.get_by_role('button',name='この接続先だけに設定',exact=True).click()
- page.wait_for_function("document.querySelector('#toast').textContent.includes('プレビュー')")
- assert page.get_by_role('dialog',name='この接続先の認証').is_visible()
+ assert page.locator('[name=key]').is_disabled()
+ assert page.get_by_role('button',name='この接続先だけに設定',exact=True).is_disabled()
+ assert page.get_by_role('dialog',name='APIキーを設定').is_visible()
  page.keyboard.press('Escape')
  providers()
  assert page.locator('select[name=main]').input_value()=='cloud-main'
@@ -100,6 +110,7 @@ with sync_playwright() as p:
  assert 'selected-image.png' in page.locator('#input-files').inner_text()
  checks.append('explicit image attachment remains unsent; shared display hides filename and draft')
  page.get_by_role('button',name='設定',exact=True).click()
+ page.locator('.settings-nav [data-id=work]').click()
  page.locator('[data-action=computer-launch]').click()
  page.locator('#computer-form').wait_for()
  page.locator('#computer-form [name=enabled]').check()

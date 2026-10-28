@@ -31,3 +31,19 @@ export function editableProvider(p){return Object.fromEntries([
  'maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort',
  'thinkingBudget','sampling','server','cache','sessionHeader','authMode','accountId','engine','piProvider'
 ].filter(k=>p[k]!==undefined).map(k=>[k,p[k]]));}
+
+/** Presentation filters; the service still validates every saved route and recipient boundary. */
+export function providerRouteChoices(profiles,role){return profiles.filter(p=>p.enabled!==false&&(role!=='vision'||p.capabilities?.vision===true)&&(role!=='dictation'||p.domain==='device'));}
+export function providerFallbackChoices(profiles,role,primaryId){
+ const primary=profiles.find(p=>p.id===primaryId);if(!primary)return [];
+ const group=p=>p.authMode?.startsWith('pi-')?`${p.authMode}:${p.accountId}`:p.authMode==='chatgpt'?`chatgpt:${p.accountId}`:'api-key';
+ return providerRouteChoices(profiles,role).filter(p=>p.id!==primaryId&&group(p)===group(primary));
+}
+export function providerConnectionStatus(p){
+ if(p.enabled===false)return {label:'無効',tone:'idle'};
+ if((p.authMode==='chatgpt'||p.authMode?.startsWith('pi-'))&&!p.authStatus?.connected)return {label:'再ログインが必要',tone:'attention'};
+ if(p.domain==='cloud'&&p.keyPresent===false)return {label:'APIキー未設定',tone:'attention'};
+ if(p.probe?.ok===true)return {label:'接続テスト済み',tone:'ok'};
+ if(p.probe?.ok===false)return {label:'接続を確認してください',tone:'attention'};
+ return {label:'接続テストはまだです',tone:'idle'};
+}

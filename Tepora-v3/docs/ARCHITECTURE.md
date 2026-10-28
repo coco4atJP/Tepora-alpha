@@ -146,6 +146,8 @@ On ホーム the conversation column collapses to its message box, placed under 
 
 Tauri still bundles a Node runtime, the compiled Rust core addon and V3 sources. It opens only the sidecar loopback origin and retains tray/background behavior. The standalone native-service binary needs no Node executable after its frontend bundle is built, but it is not the packaged desktop sidecar. Optional Python speech/decision workers remain separate services.
 
+Authentication pages use `web/auth-browser.mjs` from both account settings controllers. A user-started attempt opens once, with manual retry; revisiting settings does not repeat it. The cookie/CSRF-protected `/api/pi/auth/open` and `/api/provider-auth/open` accept only an active attempt ID. The owning auth service supplies its pending URL to `core/platform-links.mjs`, which validates an external HTTPS target and invokes `open`, `rundll32` or `xdg-open` without a shell. Cancellation, expiry and restricted network modes withdraw admission. External browser navigation remains outside the WebView and Tepora's HTTP transport; the WebView navigation allowlist and Tauri permissions are unchanged.
+
 Root npm/Task commands and CI target V3. [QA](QA.md) and [STATUS](STATUS.md) contain historical and current evidence; the dated [migration record](RUST-MIGRATION.md) identifies exactly which native slice was exercised. Local deterministic provider fixtures verify mechanics, not real model quality or a paid account. Windows/macOS packaging, installation, native WebView behavior and real hardware/model acceptance remain separate gates. Complete V2 migration and the remaining native effects are unfinished.
 
 ## Process and capability checkpoint
