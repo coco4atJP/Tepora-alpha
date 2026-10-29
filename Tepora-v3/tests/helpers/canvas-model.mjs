@@ -6,10 +6,17 @@ const text=m=>typeof m?.content==='string'?m.content:(m?.content||[]).filter(p=>
 /** Everything the model was told since its last reply, oldest first. */
 const pending=body=>{const out=[];for(let i=body.messages.length-1;i>0;i--){const m=body.messages[i];if(m.role==='assistant')break;out.unshift(m);}return out;};
 export function canvasModel({seen=[]}={}){
+ // Like a careful real model, it reads the canvas (guide, HTML, selection) before drawing: the tool refuses otherwise.
+ const intent={};
+ const act=(who,call)=>{intent[who]=call;return {calls:[{name:'canvas',args:{action:'read'}}]};};
  return body=>{
   const system=text(body.messages[0]),main=/chief of staff/.test(system),fresh=pending(body),tool=fresh.findLast(m=>m.role==='tool');
   const said=fresh.filter(m=>m.role==='user').map(text).join('\n');
   seen.push({session:main?'main':'worker',context:said,tools:(body.tools||[]).map(t=>t.function.name)});
+  const who=main?'main':'worker';
+  if(tool&&intent[who]&&/^(Drawing guide|Not drawn yet)/.test(text(tool))){const call=intent[who];intent[who]=null;
+   if(call.args.action==='patch'&&call.selected===undefined){const id=/Selected by the user: "([^"]+)"/.exec(text(tool))?.[1];if(id&&/赤く/.test(call.why))call.args={...call.args,summary:`${id}を赤く`,ops:[{op:'set',id,attrs:{fill:'#e5322d'}}]};}
+   return {calls:[{name:'canvas',args:call.args}]};}
   if(tool){
    const r=text(tool);
    if(main&&/^Drew v/m.test(r))return {content:'夜空を飛ぶロケットを描きました。気になるところをクリックして「これ」と言ってください。'};
@@ -17,12 +24,12 @@ export function canvasModel({seen=[]}={}){
    if(main)return {content:'仕事として回路図を頼みました。キャンバスに描いていきます。'};
    return {content:'LEDの回路図をキャンバスに描きました。'};
   }
-  if(!main)return {calls:[{name:'canvas',args:{action:'create',summary:'LED回路図',html:CANVAS_CIRCUIT}}]};
+  if(!main)return act(who,{args:{action:'create',summary:'LED回路図',html:CANVAS_CIRCUIT}});
   if(/report from|報告/.test(said)&&!/描いて|赤く|星/.test(said.split('\n').at(-1)))return {content:'回路図ができています。'};
   if(/回路/.test(said))return {calls:[{name:'sessions_spawn',args:{task:'Draw a simple circuit diagram that lights an LED (9V battery, 330Ω resistor, LED) on the shared canvas.',title:'LED回路図'}}]};
-  if(/ロケット/.test(said))return {calls:[{name:'canvas',args:{action:'create',summary:'夜空を飛ぶロケット',html:CANVAS_ROCKET}}]};
-  if(/赤く/.test(said)){const id=/selected "([^"]+)"/.exec(said)?.[1]||'flame';return {calls:[{name:'canvas',args:{action:'patch',summary:`${id}を赤く`,ops:[{op:'set',id,attrs:{fill:'#e5322d'}}]}}]};}
-  if(/星/.test(said))return {calls:[{name:'canvas',args:{action:'patch',summary:'星を増やす',ops:[{op:'add',parent:'stars',html:'<circle cx="250" cy="150" r="3"/><circle cx="540" cy="60" r="2.6"/><circle cx="300" cy="500" r="2.4"/><circle cx="740" cy="330" r="3"/><circle cx="60" cy="260" r="2.6"/>'},{op:'set',id:'stars',attrs:{fill:'#fff6c8'}}]}}]};
+  if(/ロケット/.test(said))return act(who,{args:{action:'create',summary:'夜空を飛ぶロケット',html:CANVAS_ROCKET}});
+  if(/赤く/.test(said)){const id=/selected "([^"]+)"/.exec(said)?.[1];return act(who,{why:said,selected:id,args:{action:'patch',summary:`${id||'flame'}を赤く`,ops:[{op:'set',id:id||'flame',attrs:{fill:'#e5322d'}}]}});}
+  if(/星/.test(said))return act(who,{args:{action:'patch',summary:'星を増やす',ops:[{op:'add',parent:'stars',html:'<circle cx="250" cy="150" r="3"/><circle cx="540" cy="60" r="2.6"/><circle cx="300" cy="500" r="2.4"/><circle cx="740" cy="330" r="3"/><circle cx="60" cy="260" r="2.6"/>'},{op:'set',id:'stars',attrs:{fill:'#fff6c8'}}]}});
   return {content:'はい。'};
  };
 }

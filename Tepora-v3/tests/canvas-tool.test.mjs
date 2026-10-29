@@ -19,6 +19,11 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,timeout=8000){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out');await wait(15);}}
 const isMain=body=>body.messages[0].content.includes('chief of staff');
 const replies=events=>events.filter(e=>e.type==='agent.reply').map(e=>e.data.text);
+// A first draw without a read is refused with the guide; a well-behaved model simply repeats the call.
+const refusedRetry=body=>{const m=body.messages,t=m.at(-1),txt=typeof t?.content==='string'?t.content:JSON.stringify(t?.content||'');
+ if(t?.role!=='tool'||!/^Not drawn yet/.test(txt))return null;
+ const a=m.findLast(x=>x.role==='assistant'&&x.tool_calls?.length),c=a.tool_calls.find(c=>c.id===t.tool_call_id)||a.tool_calls[0];
+ return {calls:[{name:c.function.name,args:JSON.parse(c.function.arguments)}]};};
 const toolNames=body=>(body.tools||[]).map(t=>t.function.name);
 const ROCKET='<svg data-id="scene" viewBox="0 0 800 600" width="100%" height="100%"><rect data-id="bg" width="800" height="600" fill="#0b1030"/><g data-id="rocket"><path data-id="body" d="M400 120 L440 360 L360 360 Z" fill="#eee"/><circle data-id="window" cx="400" cy="250" r="22" fill="#4ab"/></g><g data-id="flame"><path d="M380 360 L400 440 L420 360 Z" fill="#f80"/></g></svg>';
 async function tempStore(t){const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-canvas-'));const store=new Store(dir);t.after(async()=>{store.close();await rm(dir,{recursive:true,force:true});});return {dir,store};}
@@ -80,6 +85,18 @@ test('what the user selects or removes becomes one context note, newest selectio
  board.close();
 });
 
+test('a session that draws before reading is refused once and handed the guide instead',async t=>{
+ const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0}),tool=canvasTool(board),ctx={session:{id:'s9',kind:'main'}};
+ const first=await tool.run({action:'create',html:ROCKET,summary:'ロケット'},ctx);
+ assert.equal(first.data.refused,true);assert.match(first.text,/^Not drawn yet: read the canvas first/);assert.match(first.text,/Drawing guide/);
+ assert.equal(board.snapshot().version,0,'nothing is drawn without the guide');
+ const again=await tool.run({action:'create',html:ROCKET,summary:'ロケット'},ctx);
+ assert.match(again.text,/^Drew v1/);
+ const other=await tool.run({action:'patch',ops:[{op:'set',id:'bg',attrs:{fill:'#000'}}]},{session:{id:'w2',kind:'worker'}});
+ assert.equal(other.data.refused,true,'each session reads for itself');assert.match(other.text,/Canvas v1/);
+ board.close();
+});
+
 test('an agent edit of the selected element clears the selection, marks it edited and rides along in the next note',async t=>{
  const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0,settleMs:10_000}),tool=canvasTool(board),notes=[];
  board.onUserEvents=text=>notes.push(text);
@@ -88,6 +105,7 @@ test('an agent edit of the selected element clears the selection, marks it edite
  board.select('rocket');assert.match(board.flush(),/selected "rocket"/);notes.length=0;
  const other=await board.patch({ops:[{op:'set',id:'bg',attrs:{fill:'#000'}}],summary:'背景',by:agent});
  assert.equal(other.edited,null);assert.equal(board.summary().selection.id,'rocket','editing something else keeps the selection');
+ await tool.run({action:'read'},ctx);
  const r=await tool.run({action:'patch',ops:[{op:'set',id:'window',style:{fill:'#e02020'}}],summary:'窓を赤く'},ctx);
  assert.equal(r.data.edited,'rocket','an edit inside the selected group counts');
  assert.match(r.text,/edited the user's selection "rocket"; it is now cleared/);
@@ -121,6 +139,7 @@ test('the canvas tool is gated by the board like computer use: disabled means no
 
 test('the conversation draws with the canvas tool itself, patches it, and the user\'s selection reaches its next turn',async t=>{
  const f=await agentFixture(t,body=>{
+  const again=refusedRetry(body);if(again)return again;
   const tools=toolResults(body),user=String(last(body,'user')?.content||'');
   if(!isMain(body))return {content:'unused'};
   assert.ok(toolNames(body).includes('canvas'),'the conversation is offered the canvas');
@@ -152,6 +171,7 @@ test('the conversation draws with the canvas tool itself, patches it, and the us
 test('a work agent draws on the same shared canvas, and the user\'s later edit reaches it as context',async t=>{
  let workerTurns=0;
  const f=await agentFixture(t,body=>{
+  const again=refusedRetry(body);if(again)return again;
   const tools=toolResults(body);
   if(isMain(body)){
    const user=String(last(body,'user')?.content||'');
@@ -179,6 +199,7 @@ test('a work agent draws on the same shared canvas, and the user\'s later edit r
 
 test('policy rules apply to the canvas tool like any other: deny blocks the drawing',async t=>{
  const f=await agentFixture(t,body=>{
+  const again=refusedRetry(body);if(again)return again;
   const tools=toolResults(body);
   if(!tools.length)return {calls:[{name:'canvas',args:{action:'create',html:ROCKET,summary:'ロケット'}}]};
   return {content:/rules do not allow canvas/.test(tools.at(-1).content)?'描けませんでした。':'描きました。'};

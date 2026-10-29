@@ -51,7 +51,9 @@ canvas(action, ...)
 ```
 結果は短い文（`v3 を作りました（4件中4件適用）` など）と `data:{version,caption}`。`read` の結果は ephemeral（古い read は畳まれる）。
 
-**コンパクト化**: 毎ターン送るのはツール説明（約 230 字）とスキーマ、会話向けの一行（`Draw visuals yourself with canvas, not via agents.`）だけ。媒体ごとの描き方（絵・回路・スライド・UI・グラフ）、op の書式、レイアウトの約束は `CANVAS_GUIDE` として `read` の先頭で返す（説明文に「描く前に read」と書く）。read は ephemeral なのでガイドが文脈に溜まらない。会話リクエストの増分は1,490 字 / 推定約 470 トークン → **631 字 / 約 200 トークン**（tepora-demo/measure-prompt.mjs、推定は Tepora の 3.16 字/トークン）。
+**コンパクト化**: 毎ターン送るのはツール説明（約 270 字）とスキーマ、会話向けの一行（`Draw visuals yourself with canvas, not via agents.`）だけ。媒体ごとの描き方（絵・回路・スライド・UI・グラフ）、op の書式、レイアウトの約束は `CANVAS_GUIDE` として `read` の先頭で返す（説明文に「描く前に read」と書く）。read は ephemeral なのでガイドが文脈に溜まらない。会話リクエストの増分は1,490 字 / 推定約 470 トークン → **673 字 / 推定約 213 トークン**（tepora-demo/measure-prompt.mjs、推定は Tepora の 3.16 字/トークン）。実モデル（OpenCode Go の deepseek-v4.1-flash）の prompt_tokens では **395 → 170 トークン**（description の拒否文追加前に計測）。
+
+**read 前の描画は一度だけ拒否**: 実モデルは「read first」を飛ばして create し、data-id の無い・枠に収まらない絵を描いた（選択できない）。そこでセッションごとに read 済みかを覚え、未読の create/patch は描かずに「Not drawn yet: read the canvas first」とガイド＋現状を返す（同じ呼び出しをやり直せば通る）。revert は対象外。ストリームは run 開始時に始まるので、拒否時にライブ表示は出ない。
 
 **選択と編集済み**: エージェントの patch が選択中の要素（その中身、その中への add、それを包む replace を含む）を変えたら、選択を外し、ボードの `edited:{id,version}` を立てる（UI は「編集済み」バッジと要素の一瞬のハイライト）。patch の結果に一文で伝え、さらに次の文脈ノートに `their selection "flame" was edited by 会話 in v3, so it is no longer selected` を載せる（このイベント単独では誰も起こさず、次のノートに相乗りする）。別の要素の編集では選択は残る。
 

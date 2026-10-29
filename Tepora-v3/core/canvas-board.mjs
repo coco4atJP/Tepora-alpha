@@ -176,7 +176,7 @@ function createCuts(html){
  return [...new Set(out)];
 }
 
-const CANVAS_TOOL_DESCRIPTION=`Shared live canvas the user sees and can select in. Use it unasked when a picture, diagram, chart or slide beats words. read first: guide, HTML, selection. create{html,summary}, patch{ops,summary}, revert{version}.`;
+const CANVAS_TOOL_DESCRIPTION=`Shared live canvas the user sees and can select in. Use it unasked when a picture, diagram, chart or slide beats words. Always read first (guide, HTML, selection); drawing before a read is refused. create{html,summary}, patch{ops,summary}, revert{version}.`;
 
 /** The full drawing guide: returned by `read` (on demand) so it is not paid on every turn. */
 export const CANVAS_GUIDE=`Drawing guide
@@ -200,6 +200,15 @@ export function canvasTool(board){
  const by=ctx=>({kind:'agent',sessionId:ctx.session?.id||null,sessionKind:ctx.session?.kind||null,title:ctx.session?.kind==='main'?'会話':ctx.session?.title||'仕事'});
  const failures=results=>results.map((r,i)=>r.ok?null:`op ${i+1}: ${r.error}`).filter(Boolean);
  const pending=()=>{const t=board.takeUserEvents({keepEdits:true});return t?`\n\n${t}`:'';};
+ // Sessions that have seen the guide. The guide lives only in `read`, so a first draw without it is refused
+ // (real models skip "read first" and then draw unselectable, unframed pictures).
+ const readers=new Set(),reader=ctx=>ctx.session?.id||'anonymous';
+ const readText=()=>{
+  const s=board.snapshot(),sel=board.load().selection,text=board.takeUserEvents();
+  if(!s.version)return {text:`${CANVAS_GUIDE}\n\nThe canvas is empty: use create for the first version.${text?`\n\n${text}`:''}`,data:{version:0}};
+  const log=s.versions.slice(-8).map(v=>`v${v.n} ${v.caption} (${v.by?.kind==='user'?'user':v.by?.title||'agent'})`).join('; ');
+  return {text:`${CANVAS_GUIDE}\n\nCanvas v${s.version} "${s.caption}". Log: ${log}.${sel?`\nSelected by the user: "${sel.id}" ${sel.snippet}`:''}${text?`\n\n${text}`:''}\n\nHTML:\n${s.html.slice(0,CANVAS_LIMITS.output)}${s.html.length>CANVAS_LIMITS.output?'\n…(truncated)':''}`,data:{version:s.version,selection:sel?.id||null}};
+ };
  return {
   name:'canvas',group:'core',available:()=>board.available(),
   description:CANVAS_TOOL_DESCRIPTION,
@@ -213,11 +222,10 @@ export function canvasTool(board){
   summarize:a=>a.action==='create'?`キャンバスに描いています${a.summary?`: ${a.summary}`:''}`:a.action==='patch'?`キャンバスを手直ししています${a.summary?`: ${a.summary}`:''}`:a.action==='revert'?`キャンバスを v${a.version} に戻しています`:'キャンバスを見ています',
   ephemeral:true,ephemeralKey:a=>a.action==='read'?'canvas:read':null,
   async run(a,ctx){
-   if(a.action==='read'){
-    const s=board.snapshot(),sel=board.load().selection,text=board.takeUserEvents();
-    if(!s.version)return {text:`${CANVAS_GUIDE}\n\nThe canvas is empty: use create for the first version.${text?`\n\n${text}`:''}`,data:{version:0}};
-    const log=s.versions.slice(-8).map(v=>`v${v.n} ${v.caption} (${v.by?.kind==='user'?'user':v.by?.title||'agent'})`).join('; ');
-    return {text:`${CANVAS_GUIDE}\n\nCanvas v${s.version} "${s.caption}". Log: ${log}.${sel?`\nSelected by the user: "${sel.id}" ${sel.snippet}`:''}${text?`\n\n${text}`:''}\n\nHTML:\n${s.html.slice(0,CANVAS_LIMITS.output)}${s.html.length>CANVAS_LIMITS.output?'\n…(truncated)':''}`,data:{version:s.version,selection:sel?.id||null}};
+   if(a.action==='read'){readers.add(reader(ctx));return readText();}
+   if(a.action!=='revert'&&!readers.has(reader(ctx))){
+    readers.add(reader(ctx));const r=readText();
+    return {text:`Not drawn yet: read the canvas first. Here is the guide and the current canvas; now call ${a.action} again following it.\n\n${r.text}`,data:{...r.data,refused:true}};
    }
    if(a.action==='create'){
     const r=await board.create({html:a.html,summary:a.summary,by:by(ctx),signal:ctx.signal});
