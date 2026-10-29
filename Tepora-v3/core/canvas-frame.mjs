@@ -7,7 +7,7 @@ export function canvasFrameCsp(nonce,origin){
 }
 
 const CANVAS_FRAME_RUNTIME=`(()=>{
- const root=document.getElementById('lc-root');let shown=new Set();
+ const root=document.getElementById('lc-root');let shown=new Set(),flashed=null;
  addEventListener('message',e=>{
   if(e.source!==parent)return;const d=e.data;
   if(!d||d.__lc!==1||d.type!=='render'||typeof d.html!=='string')return;
@@ -20,6 +20,13 @@ const CANVAS_FRAME_RUNTIME=`(()=>{
   shown=ids;root.dataset.empty=String(!d.html.trim());
   const sel=typeof d.selected==='string'?d.selected:null;root.dataset.selectable=String(d.version!=null);
   if(sel)for(const el of root.querySelectorAll('[data-id]'))if(el.getAttribute('data-id')===sel){el.setAttribute('data-lc-selected','');break;}
+  // Pictures sit on the app's own ground (letterbox included); other HTML keeps the paper so its text stays legible.
+  root.dataset.kind=root.firstElementChild?.localName==='svg'&&root.children.length===1?'svg':'html';
+  const ground=typeof d.ground==='string'&&/^#[0-9a-f]{3,8}$|^rgba?\([\d.,\s%]+\)$/i.test(d.ground)?d.ground:'';
+  document.body.style.background=root.dataset.kind==='svg'?ground:'';
+  // What an agent just edited for the user flashes once, so the eye finds the change.
+  const ed=typeof d.edited==='string'?d.edited:null,key=ed&&d.version+'\u0000'+ed;
+  if(ed&&key!==flashed){flashed=key;for(const el of root.querySelectorAll('[data-id]'))if(el.getAttribute('data-id')===ed){el.setAttribute('data-lc-edited','');setTimeout(()=>el.removeAttribute('data-lc-edited'),1600);break;}}
   parent.postMessage({__lc:1,type:'rendered',version:d.version??null},'*');
  });
  // A click names the nearest piece with a data-id: that is what "this" means to the agent.
@@ -39,7 +46,9 @@ export function canvasFrameDocument(nonce){
 .lc-grow{animation:lc-grow .42s cubic-bezier(.2,.8,.2,1) both;transform-box:fill-box;transform-origin:center}
 @keyframes lc-grow{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
 #lc-root[data-selectable="true"] [data-id]{cursor:pointer}
-[data-lc-selected]{outline:3px solid #e8762b;outline-offset:3px;filter:drop-shadow(0 0 3px #e8762b) drop-shadow(0 0 1px #e8762b)}
-@media (prefers-reduced-motion:reduce){.lc-grow{animation:none}}</style></head>
+[data-lc-selected]{outline:2px solid #e2a12a;outline-offset:3px;filter:drop-shadow(0 0 2px #e2a12a) drop-shadow(0 0 1px #e2a12a)}
+[data-lc-edited]{animation:lc-edited 1.5s ease-out both}
+@keyframes lc-edited{0%{filter:drop-shadow(0 0 0 #d4583a)}25%{filter:drop-shadow(0 0 6px #d4583a) drop-shadow(0 0 2px #d4583a)}100%{filter:drop-shadow(0 0 0 rgba(212,88,58,0))}}
+@media (prefers-reduced-motion:reduce){.lc-grow,[data-lc-edited]{animation:none}[data-lc-edited]{outline:2px dashed #d4583a;outline-offset:3px}}</style></head>
 <body><div id="lc-root" data-empty="true"></div><script nonce="${nonce}">${CANVAS_FRAME_RUNTIME}</script></body></html>`;
 }

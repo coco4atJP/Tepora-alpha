@@ -5,14 +5,18 @@ import {canvasApplyOps} from './canvas-engine.mjs';
  * and the composer talks to the conversation, so there is one canvas and one way to ask for things.
  */
 export function createCanvasView({request,say,escape,icon,preview=false,onError=()=>{},onStop=()=>{},lastReply=()=>''}){
- let board={version:0,caption:'',html:'',versions:[],selection:null,live:null},live=null,root=null,frame=null,ready=false,queued=0,lastShown=null,loading=null,sending=false,error='';
+ let board={version:0,caption:'',html:'',versions:[],selection:null,edited:null,live:null},live=null,root=null,frame=null,ready=false,queued=0,lastShown=null,loading=null,sending=false,error='',themeWatch=null,notice=null,noticeKey=null,noticeTimer=0;
+ const EDITED_MS=8000;
  const q=s=>root?.querySelector(s);
  const shown=()=>live?live.html:board.html;
  const post=()=>{
   queued=0;if(!frame||!ready)return;
-  const html=shown(),selected=live?null:board.selection?.id||null,version=live?null:board.version||null,key=`${version}\u0000${selected}\u0000${html}`;if(key===lastShown)return;lastShown=key;
-  frame.contentWindow?.postMessage({__lc:1,type:'render',html,animate:true,selected,version},'*');
+  const html=shown(),selected=live?null:board.selection?.id||null,version=live?null:board.version||null,edited=live?null:editedNow()?.id||null;
+  const ground=root?getComputedStyle(root).getPropertyValue('--surface-2').trim():'',key=[version,selected,edited,ground,html].join('\u0000');if(key===lastShown)return;lastShown=key;
+  frame.contentWindow?.postMessage({__lc:1,type:'render',html,animate:true,selected,version,edited,ground},'*');
  };
+ /** The agent's last edit of the user's selection, while it is still the current version. */
+ const editedNow=()=>board.edited&&board.edited.version===board.version?board.edited:null;
  const schedule=()=>{if(!queued)queued=requestAnimationFrame(post);};
  const refresh=()=>{
   if(preview)return Promise.resolve();
@@ -28,7 +32,8 @@ export function createCanvasView({request,say,escape,icon,preview=false,onError=
  };
  const who=by=>by?.kind==='user'?'あなた':by?.title||'エージェント';
  const logHTML=()=>{
-  const items=board.versions.slice(-6).map(v=>`<li class="canvas-msg is-version${v.by?.kind==='user'?' is-user-edit':''}"><b>v${v.n}</b> ${escape(v.caption)}<span class="canvas-tool">${escape(who(v.by))}</span></li>`);
+  const ed=editedNow();
+  const items=board.versions.slice(-6).map(v=>`<li class="canvas-msg is-version${v.by?.kind==='user'?' is-user-edit':''}"><b>v${v.n}</b> <span class="canvas-caption">${escape(v.caption)}</span><span class="canvas-tool">${escape(who(v.by))}</span>${ed&&ed.version===v.n?`<span class="canvas-badge">${icon('check')}編集済み</span>`:''}</li>`);
   const reply=lastReply();if(reply&&!live)items.push(`<li class="canvas-msg is-assistant">${escape(reply)}</li>`);
   if(live)items.push(`<li class="canvas-msg is-assistant is-live">${escape(who(live.by))}が${live.action==='create'?'描いています':'手直ししています'}${live.caption?`<span class="canvas-tool">${escape(live.caption)}</span>`:''}</li>`);
   return items.join('')||'<li class="canvas-empty">話しかけると、会話や仕事のエージェントがここに描きます。例: 「夜空を飛ぶロケットを描いて」「LEDを光らせる回路図」。作品をクリックすると、その部分を選んで「これ」と指せます。</li>';
@@ -40,6 +45,11 @@ export function createCanvasView({request,say,escape,icon,preview=false,onError=
   root.classList.toggle('is-live',!!live);
   const sel=q('.canvas-selection'),id=board.selection?.id;
   if(sel){sel.hidden=!id||!!live;if(id)q('.canvas-selection-id').textContent=id;}
+  // After an agent edits what the user pointed at, the selection is gone and a short status says it was done.
+  const ed=editedNow(),key=ed&&`${ed.version}:${ed.id}`;
+  if(key&&noticeKey!==key&&!live){noticeKey=key;notice={key,id:ed.id};clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{notice=null;paint();},EDITED_MS);}
+  if(notice&&(!ed||notice.key!==key||id))notice=null;
+  const st=q('.canvas-edited');if(st){st.hidden=!notice||!!id||!!live;if(notice)q('.canvas-edited-id').textContent=notice.id;}
   q('[data-canvas-action="undo"]').disabled=!!live||board.versions.length<2;
   const stop=q('[data-canvas-action="stop"]');if(stop)stop.hidden=!live;
   q('[data-canvas-action="send"]').disabled=sending;
@@ -59,8 +69,9 @@ export function createCanvasView({request,say,escape,icon,preview=false,onError=
   remove:()=>{const id=board.selection?.id;if(id)act('/api/canvas/edit',{action:'remove',id});},
   deselect:()=>select(null),expand:()=>expand()};
  const onClick=e=>{const el=e.target.closest('[data-canvas-action]');if(el&&root.contains(el)){e.preventDefault();actions[el.dataset.canvasAction]?.();}};
- const onKey=e=>{if(e.key==='Escape'&&root?.classList.contains('is-expanded')){expand(false);return;}if(e.target.id==='canvas-input'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}};
- const selectionHTML=`<p class="canvas-selection" hidden><span>選択中: <b class="canvas-selection-id"></b></span><button type="button" class="text-button" data-canvas-action="remove">消す</button><button type="button" class="text-button" data-canvas-action="deselect">選択をやめる</button></p>`;
+ const onKey=e=>{if(e.key==='Escape'&&root?.classList.contains('is-expanded')){expand(false);return;}if(e.key==='Escape'&&board.selection&&e.target.id!=='canvas-input'){select(null);return;}if(e.target.id==='canvas-input'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}};
+ const selectionHTML=`<p class="canvas-selection" role="status" hidden><span>選択中 <b class="canvas-selection-id"></b><small>「これ」で指せます</small></span><button type="button" class="canvas-chip-button" data-canvas-action="remove" title="選んだ部分を消す">${icon('trash')}<span>消す</span></button><button type="button" class="icon-button canvas-chip-close" data-canvas-action="deselect" aria-label="選択をやめる" title="選択をやめる（Esc）">${icon('close')}</button></p>
+ <p class="canvas-edited" role="status" hidden>${icon('check')}<span><b class="canvas-edited-id"></b> を編集しました · 選択を外しました</span></p>`;
  return {
   /** layout 'page' fills a view; 'card' is a compact panel (frame, latest activity, one-line composer). */
   html({layout='page',title='キャンバス',expandable=false}={}){
@@ -106,9 +117,12 @@ export function createCanvasView({request,say,escape,icon,preview=false,onError=
   mount(host){
    this.unmount();root=host.querySelector('#canvas-view');if(!root)return;
    frame=root.querySelector('.canvas-frame');ready=false;lastShown=null;
-   root.addEventListener('click',onClick);root.addEventListener('keydown',onKey);addEventListener('message',onMessage);paint();refresh();
+   root.addEventListener('click',onClick);root.addEventListener('keydown',onKey);addEventListener('message',onMessage);
+   // Theme or avatar palette changes recolour the picture's ground.
+   themeWatch=new MutationObserver(()=>schedule());themeWatch.observe(document.body,{attributes:true,attributeFilter:['data-theme','class']});
+   paint();refresh();
   },
-  unmount(){if(root){expand(false);root.removeEventListener('click',onClick);root.removeEventListener('keydown',onKey);}removeEventListener('message',onMessage);root=null;frame=null;ready=false;},
+  unmount(){themeWatch?.disconnect();themeWatch=null;clearTimeout(noticeTimer);if(root){expand(false);root.removeEventListener('click',onClick);root.removeEventListener('keydown',onKey);}removeEventListener('message',onMessage);root=null;frame=null;ready=false;},
   /** Board snapshot from bootstrap. */
   accept(snapshot){if(snapshot&&typeof snapshot==='object'){board={...board,...snapshot};if(!snapshot.live)live=null;paint();}},
   /** canvas.updated / canvas.stream from the event stream. */
