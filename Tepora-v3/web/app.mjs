@@ -6,6 +6,7 @@ import {escape,icon,btn,toolbtn,statuses,setArtifactFrame,field,toggle,modal,reg
 import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS,STAGE_LAYOUTS,CLOCK_STYLES,CLOCK_SIZES,MONITOR_SCENES,monitorConfig} from './display-model.mjs';
 import {VoiceDraft} from './draft.mjs';
 import {createFocusTimer} from './focus-timer.mjs';
+import {createCanvasView} from './canvas.mjs';
 import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
 import {TranscriptionRequest} from './transcription.mjs';
@@ -46,6 +47,7 @@ let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendin
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
 const focusTimer=createFocusTimer(),stageStudioCache=new WeakMap();
+const canvasView=createCanvasView({stream:(p,value,onEvent,options)=>bridge.stream(p,value,onEvent,options),escape,icon,preview:previewMode,onError:e=>notice(e.message,'error')});
 let pinnedBoard=null,focusCardKey='';
 // Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
 let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
@@ -120,6 +122,7 @@ function shell(){
    <button type="button" data-action="view" data-view="home">${icon('home')}<span>ホーム</span></button>
    <button type="button" class="nav-talk" data-action="view" data-view="talk">${icon('chat')}<span>会話</span></button>
    <button type="button" data-action="view" data-view="workspace">${icon('work')}<span>仕事</span></button>
+   <button type="button" data-action="view" data-view="canvas">${icon('image')}<span>キャンバス</span></button>
    <button type="button" data-action="view" data-view="memory">${icon('memory')}<span>記憶</span></button>
    <button type="button" data-action="view" data-view="settings">${icon('settings')}<span>設定</span></button>
   </nav>
@@ -406,7 +409,7 @@ function setAmbient(on,{restore=false}={}){
  setPresence(on||document.hidden?'away':'present');paintChrome();paintHome();paintMood();
 }
 function drift(){const stage=$('#stage');if(!stage)return;stage.style.setProperty('--drift-x',`${Math.round(Math.random()*16-8)}px`);stage.style.setProperty('--drift-y',`${Math.round(Math.random()*12-6)}px`);}
-function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'));}
+function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'))&&view!=='canvas';}
 function setPresence(next){if(next===presence)return;presence=next;if(!previewMode)bridge.request('/api/presence','POST',{state:next}).catch(()=>{});}
 
 /* ---------- Characters ---------- */
@@ -749,10 +752,15 @@ function render(){
  if(view==='talk'&&!narrow())view='home';
  applyTheme();paintChrome();
  const surface=$('#surface'),target=sharedView&&view!=='home'?'home':view;
+ if(target!=='canvas'&&canvasView.mounted())canvasView.unmount();
  if(target==='home'){
   if(renderedView!=='home'||!$('#stage',surface)){surface.innerHTML=homeHTML();attachStage();}
   paintHome();
  }else if(target==='talk'){surface.replaceChildren();}
+ else if(target==='canvas'){
+  // Mounted once per visit so the frame (and the artifact in it) survives live repaints.
+  if(renderedView!=='canvas'||!canvasView.mounted()){surface.innerHTML=canvasView.html();canvasView.mount(surface);}
+ }
  else{
   const focus=captureFocus(surface),scroll=renderedView===target?captureScroll(surface):{surface:0,list:0,bench:0},oldFrame=$('#artifact-preview iframe');
   if(!(target==='workspace'&&renderedView==='workspace'&&patchWork(oldFrame))){
