@@ -52,7 +52,8 @@ export function createCanvasView({stream,escape,icon,preview=false,onError=()=>{
   <p class="canvas-error" role="alert" hidden></p>
   <div class="canvas-compose">
    <label class="visually-hidden" for="canvas-input">キャンバスへの依頼</label>
-   <textarea id="canvas-input" rows="3" maxlength="4000" placeholder="例: 夜空を飛ぶロケットを描いて（Enterで送信、Shift+Enterで改行）"></textarea>
+   <textarea id="canvas-input" rows="3" maxlength="4000" placeholder="例: 夜空を飛ぶロケットを描いて"></textarea>
+   <p class="canvas-hint">Enterで送信 · Shift+Enterで改行</p>
    <div class="canvas-row">
     <button type="button" class="text-button" data-canvas-action="undo">${icon('undo')}<span>ひとつ戻す</span></button>
     <button type="button" class="button" data-canvas-action="send">${icon('send')}<span>送る</span></button>
