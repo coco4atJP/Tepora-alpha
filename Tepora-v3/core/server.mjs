@@ -10,6 +10,7 @@ import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
 import {validateCanvasTurn,runCanvasTurn} from './canvas.mjs';
 import {canvasFrameDocument,canvasFrameCsp} from './canvas-frame.mjs';
+import {CanvasBoard} from './canvas-board.mjs';
 import {SpeechStream} from './speech-stream.mjs';
 import {Avatar,AvatarAssets,MAX_ASSET_BYTES} from './avatar.mjs';
 import {PhotoFrame,MAX_PHOTO_BYTES} from './photo-frame.mjs';
@@ -61,23 +62,24 @@ function configurePersonas(store,raw){
  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
  store.value('dialogue-personas',next);return next;
 }
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},canvasOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth,pi});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
  const semantic=new SemanticMemory(store,capabilities),toolHub=new ToolHub(store,network,toolHubOptions);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry,...computerOptions});
+ const canvas=new CanvasBoard(store,canvasOptions);
  // The work folder is ~/Tepora only for the real data folder. Tests and alternative data folders (TEPORA_DATA_DIR)
  // keep their work inside that folder, so they never write into the user's home.
  const isolated=!!process.env.TEPORA_DATA_DIR||path.resolve(dir)!==path.resolve(dataDir());
- const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
+ const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,canvas,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
  const ui=new AgentUIModel(store,agent);
  await agent.tools.loadPlugins().catch(()=>{});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
  const setup=new SetupManager(store,{registry,busy:()=>agent.runs.size>0},{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions});
  const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map(),pendingInputs=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
- const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
+ const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),canvas:canvas.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.',enabled:true,source:'builtin',createdAt:new Date().toISOString()});
  /** Files the person attaches are copied into a dated inbox folder the agents can read. */
  async function saveAttachments(ids){
@@ -313,6 +315,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
    if(p==='/api/runtime/discover' && method==='POST')return json(res,await Promise.all(PROVIDERS.map(async x=>{try{return {...x,available:true,models:await new Runtime({baseUrl:x.url,allowCloud:false},'',network.fetch({purpose:'model'})).models()};}catch{return {...x,available:false,models:[]};}})));
+   // The shared canvas (the agents' `canvas` tool writes it; these routes are the user's own hands).
+   if(p==='/api/canvas'&&method==='GET')return json(res,canvas.snapshot());
+   if(p==='/api/canvas'&&method==='PATCH'){const b=await body(req);return json(res,canvas.configure(b));}
+   if(p==='/api/canvas/select'&&method==='POST'){const b=await body(req);return json(res,canvas.select(b.id??null,{version:b.version}));}
+   if(p==='/api/canvas/edit'&&method==='POST'){const b=await body(req);invariant(b&&typeof b==='object','Invalid canvas edit');return json(res,canvas.edit({action:b.action,id:b.id,version:b.version}));}
    if(p==='/api/canvas/turn'&&method==='POST'){
     const input=validateCanvasTurn(await body(req));
     invariant(registry.hasRoute('work'),'先にモデルを登録してください。',409);
