@@ -1,6 +1,5 @@
 import {canvasApplyOps,canvasNormalizeOp,canvasDescribeOps} from '../web/canvas-engine.mjs';
 import {CanvasParser} from './canvas-dom.mjs';
-import {CANVAS_LIMITS} from './canvas.mjs';
 import {invariant} from './policy.mjs';
 
 /** The shared canvas: one artifact that the character, work agents and the user all see and change.
@@ -8,6 +7,7 @@ import {invariant} from './policy.mjs';
  * append-only version log (who made each version), live progress is broadcast for the UI, and what the user does
  * on it directly (select, remove, undo) is handed back to the agents as context.
  */
+export const CANVAS_LIMITS=Object.freeze({html:200000,versions:30,ops:400,output:16000});
 const BOARD='main';
 const DEFAULT_CONFIG={enabled:true};
 const PERSIST_BYTES=2_000_000;

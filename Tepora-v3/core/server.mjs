@@ -8,7 +8,6 @@ import {openInstallerPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
-import {validateCanvasTurn,runCanvasTurn} from './canvas.mjs';
 import {canvasFrameDocument,canvasFrameCsp} from './canvas-frame.mjs';
 import {CanvasBoard} from './canvas-board.mjs';
 import {SpeechStream} from './speech-stream.mjs';
@@ -320,20 +319,6 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/canvas'&&method==='PATCH'){const b=await body(req);return json(res,canvas.configure(b));}
    if(p==='/api/canvas/select'&&method==='POST'){const b=await body(req);return json(res,canvas.select(b.id??null,{version:b.version}));}
    if(p==='/api/canvas/edit'&&method==='POST'){const b=await body(req);invariant(b&&typeof b==='object','Invalid canvas edit');return json(res,canvas.edit({action:b.action,id:b.id,version:b.version}));}
-   if(p==='/api/canvas/turn'&&method==='POST'){
-    const input=validateCanvasTurn(await body(req));
-    invariant(registry.hasRoute('work'),'先にモデルを登録してください。',409);
-    invariant(!probes.has('canvas'),'キャンバスは前の依頼を処理中です。',429);
-    const cancel=new AbortController();probes.set('canvas',cancel);
-    const abort=()=>{if(!res.writableEnded)cancel.abort(new Error('Canvas request closed'));};res.once('close',abort);
-    // Events stream as NDJSON so the canvas grows while the model is still writing.
-    res.writeHead(200,{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store'});
-    const emit=event=>{if(!res.writableEnded)res.write(JSON.stringify(event)+'\n');};
-    try{await runCanvasTurn((role,messages,options)=>registry.invoke(role,messages,options),input,{signal:cancel.signal,emit});}
-    catch(error){emit({type:'error',error:safeError(error)});}
-    finally{probes.delete('canvas');res.off('close',abort);}
-    return res.end();
-   }
    if(p==='/api/voice/edit'&&method==='POST'){
     const b=await body(req);invariant(store.settings.dictationEditing===true,'Local dictation editing is not enabled',403);
     invariant(!probes.has('dictation'),'Another draft edit is running',429);const cancel=new AbortController();probes.set('dictation',cancel);

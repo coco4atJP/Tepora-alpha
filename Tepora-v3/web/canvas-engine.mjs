@@ -1,4 +1,4 @@
-/** Canvas engine: pure functions for the conversational canvas (ported from live-canvas's patch/version engine).
+/** Canvas engine: pure patch functions shared by the shared-canvas board (server) and the live view (web).
  * DOM work uses an inert DOMParser document, so model markup never runs in the app page.
  * Every top-level name starts with `canvas` because the web bundle shares one scope.
  */
@@ -99,52 +99,4 @@ export function canvasApplyOps(html,ops,Parser){
 export function canvasDescribeOps(ops){
  const c={set:0,add:0,remove:0,replace:0};for(const o of ops){const n=canvasNormalizeOp(o);if(n)c[n.op]++;}
  return [c.add&&`${c.add}件追加`,c.set&&`${c.set}件変更`,c.replace&&`${c.replace}件置換`,c.remove&&`${c.remove}件削除`].filter(Boolean).join(' / ')||'変更なし';
-}
-
-/* Append-only version log: numbered from 1, never mutated or removed. */
-export function canvasAppendVersion(log,v,now=Date.now()){return [...log,{html:v.html,caption:v.caption,source:v.source,...(v.from?{from:v.from}:{}),n:log.length+1,createdAt:now}];}
-export function canvasRestoreVersion(log,n,caption,source='restore'){const v=log[n-1];if(!v)throw new Error(`version ${n} not found`);return canvasAppendVersion(log,{html:v.html,caption:caption??`v${n} を復元`,source,from:n});}
-export const canvasLatest=log=>log[log.length-1];
-
-/** Canvas state: the version log, the shown html, and the turn in flight. Streamed server events fold into it. */
-export function canvasInitialState(){return {versions:[],shown:'',messages:[],turn:null,error:''};}
-export function canvasStartTurn(state,text){return {...state,error:'',messages:[...state.messages,{role:'user',text}],turn:{mode:null,reply:'',tool:null,summary:'',html:'',ops:[],base:canvasLatest(state.versions)?.html??''}};}
-
-/** Folds one server event into the state. `apply(html, ops)` runs the patch engine (injected for tests). */
-export function canvasReduce(state,event,apply=canvasApplyOps){
- const turn=state.turn;if(!turn)return state;
- switch(event.type){
-  case 'turn':return {...state,turn:{...turn,mode:event.mode}};
-  case 'reset':return {...state,shown:turn.base,turn:{...turn,reply:'',tool:null,summary:'',html:'',ops:[]}};
-  case 'reply':return {...state,turn:{...turn,reply:turn.reply+event.delta}};
-  case 'tool.start':return {...state,turn:{...turn,tool:event.name,summary:event.summary||''}};
-  case 'tool.html':{const html=turn.html+event.delta;return {...state,shown:html,turn:{...turn,html}};}
-  case 'tool.op':{const ops=[...turn.ops,event.op];return {...state,shown:apply(turn.base,ops).html,turn:{...turn,ops}};}
-  case 'tool.end':{
-   const create=event.name==='create_artifact',html=create?event.args.html:apply(turn.base,event.args.ops).html;
-   const caption=(event.args.summary||'').trim()||(create?'新しい作品':canvasDescribeOps(event.args.ops));
-   if(!create&&html===turn.base)return {...state,shown:html,turn:{...turn,tool:null}};
-   return {...state,shown:html,versions:canvasAppendVersion(state.versions,{html,caption,source:create?'create':'patch'}),turn:{...turn,tool:null}};
-  }
-  case 'error':return {...state,error:event.error||'キャンバスの更新に失敗しました。'};
-  case 'done':return canvasFinishTurn(state);
-  default:return state;
- }
-}
-/** Ends the turn: keeps the spoken reply, and shows the latest saved version (dropping any unfinished draft). */
-export function canvasFinishTurn(state,error=''){
- const turn=state.turn;if(!turn)return state;
- const reply=turn.reply.trim(),messages=reply?[...state.messages,{role:'assistant',text:reply}]:state.messages;
- return {...state,messages,turn:null,shown:canvasLatest(state.versions)?.html??'',error:error||state.error};
-}
-/** Undo appends a copy of the previous version; restore appends a copy of any earlier one. Nothing is erased. */
-export function canvasRevert(state,n=state.versions.length-1){
- if(state.turn||!Number.isSafeInteger(n)||n<1||n>=state.versions.length)return state;
- const versions=canvasRestoreVersion(state.versions,n,`v${n} に戻す`,'revert');
- return {...state,versions,shown:canvasLatest(versions).html};
-}
-/** What the server needs for the next turn. */
-export function canvasTurnBody(state,text){
- const v=canvasLatest(state.versions);
- return {text,artifact:v?{html:v.html,version:v.n}:null,history:state.messages.slice(-12),versions:state.versions.slice(-30).map(x=>({n:x.n,caption:x.caption}))};
 }
