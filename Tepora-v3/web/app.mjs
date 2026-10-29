@@ -473,15 +473,15 @@ function paintMood(){
 /* ---------- Work ---------- */
 function focusJob(){return state.jobs.find(j=>j.id===state.companion?.focusJobId);}
 function focusedArtifacts(){return companionArtifacts(state.artifacts,state.companion?.focusJobId);}
-let workCanvas=false;
-/** The canvas is a standing entry at the top of the work list; its bench is the canvas itself. */
-function canvasRow(){return `<section class="job-group"><h2>キャンバス</h2><button type="button" class="job-row canvas-job${workCanvas?' is-focused':''}" data-action="canvas-open" aria-pressed="${workCanvas}"><span class="job-title">${icon('image')}話しかけて描く</span><span class="job-state">${canvasView.busy()?'描いています…':'いつでも使えます'}</span></button></section>`;}
 function taskRows(){
  const jobs=workJobs().slice(0,120),focusId=workCanvas?null:state.companion?.focusJobId;
  const row=j=>{const s=jobStatus(j);return `<button type="button" class="job-row${j.id===focusId?' is-focused':''}" data-action="focus-task" data-id="${escape(j.id)}" aria-pressed="${j.id===focusId}"><span class="job-title">${escape(j.title)}</span><span class="job-state tone-${s.tone}">${escape(s.note||s.label)}</span></button>`;};
  const groups=[['あなたの番',jobs.filter(j=>needsPerson(j))],['進行中',jobs.filter(j=>!needsPerson(j)&&['queued','running'].includes(j.status))],['そのほか',jobs.filter(j=>!needsPerson(j)&&!['queued','running'].includes(j.status))]];
  return canvasRow()+groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
 }
+let workCanvas=false;
+/** The canvas is a standing entry at the top of the work list; its bench is the canvas itself. */
+function canvasRow(){return `<section class="job-group"><h2>キャンバス</h2><button type="button" class="job-row canvas-job${workCanvas?' is-focused':''}" data-action="canvas-open" aria-pressed="${workCanvas}"><span class="job-title">${icon('image')}話しかけて描く</span><span class="job-state">${canvasView.busy()?'描いています…':'いつでも使えます'}</span></button></section>`;}
 /** Resolves which artifact and version the bench shows; null when the job has none. */
 function currentArtifact(){
  const artifacts=focusedArtifacts(),latest=artifacts.find(a=>a.id===selectedArtifact)||artifacts[0];
