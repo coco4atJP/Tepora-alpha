@@ -10,8 +10,8 @@ export function createCanvasView({request,say,escape,icon,preview=false,onError=
  const shown=()=>live?live.html:board.html;
  const post=()=>{
   queued=0;if(!frame||!ready)return;
-  const html=shown(),selected=live?null:board.selection?.id||null,key=html+'\u0000'+selected;if(key===lastShown)return;lastShown=key;
-  frame.contentWindow?.postMessage({__lc:1,type:'render',html,animate:true,selected,version:live?null:board.version||null},'*');
+  const html=shown(),selected=live?null:board.selection?.id||null,version=live?null:board.version||null,key=`${version}\u0000${selected}\u0000${html}`;if(key===lastShown)return;lastShown=key;
+  frame.contentWindow?.postMessage({__lc:1,type:'render',html,animate:true,selected,version},'*');
  };
  const schedule=()=>{if(!queued)queued=requestAnimationFrame(post);};
  const refresh=()=>{

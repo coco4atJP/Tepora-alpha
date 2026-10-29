@@ -488,7 +488,9 @@ let workCanvas=false;
 let canvasPeek=null,canvasPeekTimer=0;
 function canvasActivity(d){
  const onScreen=canvasView.mounted();
- if(view==='workspace'&&!onScreen&&(d.kind==='start'||d.kind==='end'||d.kind==='abort'))scheduleRender();
+ if(view==='workspace'&&(d.kind==='start'||d.kind==='end'||d.kind==='abort')){
+  // The work list carries the canvas row's state; refresh only the list when the canvas frame is on screen.
+  const list=onScreen&&$('#surface .job-list');if(list)setTimeout(()=>{list.innerHTML=taskRows();},d.kind==='end'?400:0);else if(!onScreen)scheduleRender();}
  if(onScreen||sharedView||d.kind==='abort'){canvasPeek?.classList.remove('show');return;}
  if(d.kind!=='start'&&d.kind!=='end')return;
  if(!canvasPeek){canvasPeek=document.createElement('button');canvasPeek.type='button';canvasPeek.id='canvas-peek';canvasPeek.addEventListener('click',()=>{canvasPeek.classList.remove('show');safe(actions['canvas-open'])();});document.body.append(canvasPeek);}
