@@ -106,7 +106,7 @@ test('the web bundle includes the canvas modules before the app',async()=>{
  const {browserBundle,BUNDLE_ORDER}=await import('../core/frontend.mjs');
  assert.ok(BUNDLE_ORDER.indexOf('canvas-engine')<BUNDLE_ORDER.indexOf('canvas')&&BUNDLE_ORDER.indexOf('canvas')<BUNDLE_ORDER.indexOf('app'));
  const bundle=await browserBundle(path.join(import.meta.dirname,'..','web'));
- assert.match(bundle,/function createCanvasView\(/);assert.match(bundle,/function canvasApplyOps\(/);assert.match(bundle,/data-view="canvas"/);
+ assert.match(bundle,/function createCanvasView\(/);assert.match(bundle,/function canvasApplyOps\(/);assert.match(bundle,/data-action="canvas-open"/);
 });
 
 async function fixture(t,{configure=true}={}){

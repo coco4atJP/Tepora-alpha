@@ -122,7 +122,6 @@ function shell(){
    <button type="button" data-action="view" data-view="home">${icon('home')}<span>ホーム</span></button>
    <button type="button" class="nav-talk" data-action="view" data-view="talk">${icon('chat')}<span>会話</span></button>
    <button type="button" data-action="view" data-view="workspace">${icon('work')}<span>仕事</span></button>
-   <button type="button" data-action="view" data-view="canvas">${icon('image')}<span>キャンバス</span></button>
    <button type="button" data-action="view" data-view="memory">${icon('memory')}<span>記憶</span></button>
    <button type="button" data-action="view" data-view="settings">${icon('settings')}<span>設定</span></button>
   </nav>
@@ -409,7 +408,7 @@ function setAmbient(on,{restore=false}={}){
  setPresence(on||document.hidden?'away':'present');paintChrome();paintHome();paintMood();
 }
 function drift(){const stage=$('#stage');if(!stage)return;stage.style.setProperty('--drift-x',`${Math.round(Math.random()*16-8)}px`);stage.style.setProperty('--drift-y',`${Math.round(Math.random()*12-6)}px`);}
-function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'))&&view!=='canvas';}
+function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'))&&!canvasView.busy()&&document.activeElement?.id!=='canvas-input';}
 function setPresence(next){if(next===presence)return;presence=next;if(!previewMode)bridge.request('/api/presence','POST',{state:next}).catch(()=>{});}
 
 /* ---------- Characters ---------- */
@@ -474,11 +473,14 @@ function paintMood(){
 /* ---------- Work ---------- */
 function focusJob(){return state.jobs.find(j=>j.id===state.companion?.focusJobId);}
 function focusedArtifacts(){return companionArtifacts(state.artifacts,state.companion?.focusJobId);}
+let workCanvas=false;
+/** The canvas is a standing entry at the top of the work list; its bench is the canvas itself. */
+function canvasRow(){return `<section class="job-group"><h2>キャンバス</h2><button type="button" class="job-row canvas-job${workCanvas?' is-focused':''}" data-action="canvas-open" aria-pressed="${workCanvas}"><span class="job-title">${icon('image')}話しかけて描く</span><span class="job-state">${canvasView.busy()?'描いています…':'いつでも使えます'}</span></button></section>`;}
 function taskRows(){
- const jobs=workJobs().slice(0,120),focusId=state.companion?.focusJobId;
+ const jobs=workJobs().slice(0,120),focusId=workCanvas?null:state.companion?.focusJobId;
  const row=j=>{const s=jobStatus(j);return `<button type="button" class="job-row${j.id===focusId?' is-focused':''}" data-action="focus-task" data-id="${escape(j.id)}" aria-pressed="${j.id===focusId}"><span class="job-title">${escape(j.title)}</span><span class="job-state tone-${s.tone}">${escape(s.note||s.label)}</span></button>`;};
  const groups=[['あなたの番',jobs.filter(j=>needsPerson(j))],['進行中',jobs.filter(j=>!needsPerson(j)&&['queued','running'].includes(j.status))],['そのほか',jobs.filter(j=>!needsPerson(j)&&!['queued','running'].includes(j.status))]];
- return groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
+ return canvasRow()+groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
 }
 /** Resolves which artifact and version the bench shows; null when the job has none. */
 function currentArtifact(){
@@ -535,7 +537,7 @@ function workView(){
  const focus=focusJob(),artifacts=focusedArtifacts(),jobs=workJobs();
  return `<section class="page work-page">${workHead()}
  <div class="work-grid"><aside class="job-list" aria-label="仕事の一覧">${taskRows()}</aside>
- <section class="workbench" aria-label="選んだ仕事" data-job="${escape(focus?.id||'')}">${focus?workbench(focus,artifacts):`<div class="bench-empty is-large">${jobs.length?'<p>仕事を選ぶと、ここに成果物が出ます。</p>':`<h2>まだ仕事はありません</h2><p>会話で頼むと、ここに届きます。</p>${previewMode?btn('demo','画面サンプルを試す','play','button secondary'):''}`}</div>`}</section></div></section>`;
+ <section class="workbench${workCanvas?' is-canvas':''}" aria-label="選んだ仕事" data-job="${workCanvas?'canvas':escape(focus?.id||'')}">${workCanvas?canvasView.html({layout:'card',expandable:true}):focus?workbench(focus,artifacts):`<div class="bench-empty is-large">${jobs.length?'<p>仕事を選ぶと、ここに成果物が出ます。</p>':`<h2>まだ仕事はありません</h2><p>会話で頼むと、ここに届きます。</p>${previewMode?btn('demo','画面サンプルを試す','play','button secondary'):''}`}</div>`}</section></div></section>`;
 }
 function workTabs(){return `<div class="tabs" role="group" aria-label="仕事の種類">${[['tasks','仕事'],['made','つくったもの']].map(([key,label])=>`<button type="button" data-action="work-tab" data-tab="${key}" aria-pressed="${workTab===key}">${label}</button>`).join('')}</div>`;}
 function todoHTML(job){
@@ -752,7 +754,8 @@ function render(){
  if(view==='talk'&&!narrow())view='home';
  applyTheme();paintChrome();
  const surface=$('#surface'),target=sharedView&&view!=='home'?'home':view;
- if(target!=='canvas'&&canvasView.mounted())canvasView.unmount();
+ const keepCanvas=target==='workspace'&&workTab==='tasks'&&workCanvas;
+ if(!keepCanvas&&canvasView.mounted())canvasView.unmount();
  if(target==='home'){
   if(renderedView!=='home'||!$('#stage',surface)){surface.innerHTML=homeHTML();attachStage();}
   paintHome();
@@ -763,11 +766,14 @@ function render(){
  }
  else{
   const focus=captureFocus(surface),scroll=renderedView===target?captureScroll(surface):{surface:0,list:0,bench:0},oldFrame=$('#artifact-preview iframe');
-  if(!(target==='workspace'&&renderedView==='workspace'&&patchWork(oldFrame))){
+  // The canvas frame must not be detached by live repaints: refresh only the list beside it.
+  if(keepCanvas&&canvasView.mounted()&&$('#canvas-view',surface)){$('.job-list',surface).innerHTML=taskRows();}
+  else if(!(target==='workspace'&&renderedView==='workspace'&&patchWork(oldFrame))){
    surface.innerHTML=target==='workspace'?workView():target==='memory'?memoryView():settingsView();
    registerForms(surface);
    const preview=$('#artifact-preview');
    if(preview&&pinnedArtifact)setArtifactFrame(preview,pinnedArtifact);
+   if(keepCanvas&&$('#canvas-view',surface))canvasView.mount($('.workbench',surface));
   }
   restoreScroll(surface,scroll);restoreFocus(surface,focus);
   if(target==='settings')paintSettingsNav();
@@ -1113,7 +1119,7 @@ const actions={
  'providers-launch':()=>providerSettings().open(),'computer-launch':()=>providerSettings().computer(),
  attach:attachFiles,'detach-file':detachFile,
  'retry-request':()=>submitDialogue(false,true),
- 'focus-task':el=>navigateFocus(el.dataset.id),'return-focus':()=>navigateFocus(null,{returning:true}),
+ 'focus-task':el=>{workCanvas=false;navigateFocus(el.dataset.id);},'canvas-open':()=>{workCanvas=true;workTab='tasks';view='workspace';render();},'return-focus':()=>navigateFocus(null,{returning:true}),
  'open-work':async el=>{closePanel();await navigateFocus(el.dataset.id);},
  'voice-autosend':configureVoiceSend,'enable-voice-send-legacy':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
  personas:personaSheet,
