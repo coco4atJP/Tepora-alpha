@@ -52,3 +52,13 @@ export function canvasFrameDocument(nonce){
 @media (prefers-reduced-motion:reduce){.lc-grow,[data-lc-edited]{animation:none}[data-lc-edited]{outline:2px dashed #d4583a;outline-offset:3px}}</style></head>
 <body><div id="lc-root" data-empty="true"></div><script nonce="${nonce}">${CANVAS_FRAME_RUNTIME}</script></body></html>`;
 }
+
+/** A still of one canvas version for an agent to look at. Same paper and sizing as the live frame, but no
+ * runtime at all: the CSP allows no script and no network, and anything that could navigate is removed. */
+export function canvasSnapshotDocument(html){
+ const body=String(html).replace(/<script\b[\s\S]*?<\/script>/gi,'').replace(/<(meta|base|link|iframe|frame|object|embed|portal)\b[^>]*>/gi,'');
+ return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:">
+<style>html,body{margin:0;width:100%;min-height:100%;background:#fffdf8;color:#2f2924;font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP',system-ui,sans-serif}
+#lc-root{width:100%;min-height:100vh}#lc-root>svg:first-child{display:block;width:100%;height:100vh}</style></head>
+<body><div id="lc-root">${body}</div></body></html>`;
+}

@@ -12,7 +12,7 @@ import {agentFixture} from './helpers/agent-fixture.mjs';
 import {scriptedModel} from './helpers/scripted-model.mjs';
 import {canvasModel} from './helpers/canvas-model.mjs';
 import {startServer} from '../core/server.mjs';
-import {canvasFrameDocument} from '../core/canvas-frame.mjs';
+import {canvasFrameDocument,canvasSnapshotDocument} from '../core/canvas-frame.mjs';
 import {randomUUID} from 'node:crypto';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -244,6 +244,29 @@ test('through the service: a spoken request draws on the shared board, a click a
  await until(async()=>(await get()).version===4);
  assert.match(seen.findLast(x=>/星をもっと/.test(x.context)).context,/removed "window"/);
  const off=await request('/api/canvas','PATCH',{enabled:false});assert.equal((await off.json()).enabled,false);
+});
+
+test('read with image:true returns a picture; a session that has the guide gets just the picture',async t=>{
+ const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0}),shots=[];
+ const tool=canvasTool(board,{snapshot:async html=>{shots.push(html);return {mime:'image/jpeg',base64:'AAAA',width:800,height:600};}}),ctx={session:{id:'w1',kind:'worker'}};
+ assert.ok(!(await tool.run({action:'read',image:true},ctx)).images,'an empty canvas has nothing to picture');
+ await board.create({html:ROCKET,summary:'ロケット',by:{kind:'agent'}});
+ const plain=await tool.run({action:'read'},ctx);assert.ok(!plain.images,'a plain read stays text-only');
+ const look=await tool.run({action:'read',image:true},ctx);
+ assert.equal(look.text,'Canvas v1 "ロケット" as the user sees it.');assert.deepEqual(look.images,[{mime:'image/jpeg',base64:'AAAA',width:800,height:600,name:'canvas'}]);
+ assert.equal(shots.at(-1),ROCKET);
+ const first=await tool.run({action:'read',image:true},{session:{id:'w2'}});
+ assert.match(first.text,/^Drawing guide[\s\S]*HTML:\n<svg/);assert.equal(first.images.length,1);
+ const none=await canvasTool(board).run({action:'read',image:true},ctx);assert.match(none.text,/No picture: no browser/);assert.ok(!none.images);
+ const failed=await canvasTool(board,{snapshot:async()=>{throw new Error('browser did not start');}}).run({action:'read',image:true},ctx);
+ assert.match(failed.text,/No picture: browser did not start/);
+ board.close();
+});
+
+test('the canvas picture is offline and inert: no script, no navigation, no network',()=>{
+ const doc=canvasSnapshotDocument('<svg data-id="a"></svg><script>alert(1)</script><meta http-equiv="refresh" content="0;url=https://x.test"><iframe src="https://x.test"></iframe><p onclick="x()">t</p>');
+ assert.match(doc,/content="default-src 'none'; style-src 'unsafe-inline'; img-src data:/);
+ assert.doesNotMatch(doc,/<script|refresh|<iframe/);assert.match(doc,/<svg data-id="a">/);
 });
 
 test('the canvas frame lets a click name the nearest data-id and marks the selection',()=>{

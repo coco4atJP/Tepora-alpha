@@ -98,7 +98,7 @@ export class AgentRuntime{
   if(computer){computer.decisions||=this.decisions;computer.workRoot=()=>this.workRoot;this.tools.register(computerTool(computer));this.computerInfo=()=>computer.info();}
   // The shared canvas is a capability like computer use: one tool for the character and work agents alike. What the
   // user does on it directly reaches the conversation (and the agent that drew last) as context, without waking them.
-  if(canvas){this.canvas=canvas;this.tools.register(canvasTool(canvas));canvas.onUserEvents=(text,lastAgent)=>this.canvasNotice(text,lastAgent);}
+  if(canvas){this.canvas=canvas;this.tools.register(canvasTool(canvas,{snapshot:computer?(html,o)=>computer.picture(html,o):null}));canvas.onUserEvents=(text,lastAgent)=>this.canvasNotice(text,lastAgent);}
   // Memory search is by meaning when an embedding model is connected (local only unless the user allows more),
   // and by keywords otherwise. New memories are indexed in the background.
   this.memory={

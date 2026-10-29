@@ -44,6 +44,7 @@
 ```
 canvas(action, ...)
 - read                       → 描画ガイド（全文）、現在の版 n、見出し、HTML、版一覧、ユーザーの選択と直近の直接操作
+- read    {image:true}       → 上に加えて今の作品の画像（ガイドを既に読んだセッションには版名と画像だけ）
 - create  {html, summary}    → 新しい作品（初回、全く別の案、別媒体での作り直し）
 - patch   {ops, summary}
           ops: set{id,attrs?,style?,text?} / add{parent,html,before?} / remove{id} / replace{id,html}
@@ -58,6 +59,8 @@ canvas(action, ...)
 **他セッションの版は戻さない**: 実測で、会話セッションが仕事エージェントの回路図を「ロケットを上書きした事故」とみなして revert した。ガイドの revert 行に「ユーザーが頼んだときだけ。仕事や他セッションの版は意図したもの」と追記（毎ターンの説明文は増えない）。
 
 **選択と編集済み**: エージェントの patch が選択中の要素（その中身、その中への add、それを包む replace を含む）を変えたら、選択を外し、ボードの `edited:{id,version}` を立てる（UI は「編集済み」バッジと要素の一瞬のハイライト）。patch の結果に一文で伝え、さらに次の文脈ノートに `their selection "flame" was edited by 会話 in v3, so it is no longer selected` を載せる（このイベント単独では誰も起こさず、次のノートに相乗りする）。別の要素の編集では選択は残る。
+
+**画像で自己確認（read{image:true}）**: computer use のスクリーンショットと同じ `images` で結果に画像を添える（ループ・文脈・視覚非対応モデルでの扱いもそのまま）。描画は computer use と同じブラウザ（Chrome/Edge/Chromium、新規依存なし）の使い捨てタブで、`Page.setDocumentContent` に `canvasSnapshotDocument(html)` を流す。この文書はスクリプトなし（CSP `default-src 'none'`、script/meta/iframe 等を除去）、`Network.setBlockedURLs` で全 URL 遮断、横 800px・高さは内容に合わせ 600〜1800px、JPEG 品質 60。computer use の有効/無効には依存せずブラウザの有無だけで動き、無ければ「No picture」の一文で文字の read に戻る。既定は文字だけで、画像は頼まれたときだけ（800×600 の絵で実測約 300 入力トークン）。
 
 ## 4. 「生で描く」ことについて
 プロバイダーのツール引数は現状 Rust 復号器がまとめて返すため、トークン単位では流れない。最小スライスでは、ツールの実行時に作品を要素単位（create）/ op 単位（patch）で `canvas.stream` として順に流し、画面上で育っていく様子を見せる（合計 1〜2 秒程度、中断可能）。本当の引数ストリーミングは native-core の復号器に tool 引数の差分イベントを足す必要があり、後回し。
@@ -74,7 +77,6 @@ canvas(action, ...)
 
 ## 7. 後回し
 - 本当のツール引数ストリーミング（Rust 復号器）
-- `screenshot`（computer の `render` を使えば可能。視覚モデルで自己確認する時）
 - 複数ボード（作品ごと・仕事ごと）と、仕事一覧での作品の切り替え
 - native-service（Rust ホスト）への canvas 移植（computer も未移植）
 - export/import への `canvas` 種別の追加、テキストの直接編集、ドラッグ移動などの豊かな直接操作

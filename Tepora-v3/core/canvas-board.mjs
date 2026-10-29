@@ -176,7 +176,7 @@ function createCuts(html){
  return [...new Set(out)];
 }
 
-const CANVAS_TOOL_DESCRIPTION=`Shared live canvas the user sees and can select in. Use it unasked when a picture, diagram, chart or slide beats words. Always read first (guide, HTML, selection); drawing before a read is refused. create{html,summary}, patch{ops,summary}, revert{version}.`;
+const CANVAS_TOOL_DESCRIPTION=`Shared live canvas the user sees and can select in. Use it unasked when a picture, diagram, chart or slide beats words. Read first (guide, HTML, selection); drawing unread is refused. read{image:true} adds a picture to check your work. create{html,summary}, patch{ops,summary}, revert{version}.`;
 
 /** The full drawing guide: returned by `read` (on demand) so it is not paid on every turn. */
 export const CANVAS_GUIDE=`Drawing guide
@@ -196,7 +196,7 @@ Media (choose and mix freely):
 - UI / diagram / chart: <div data-id="app"> with semantic HTML and <style data-id="app-style">; nodes, cards and buttons get ids. Charts are inline SVG with axes, one <rect data-id="bar-1"> per bar, value labels and a title.
 After drawing, tell the user in one short sentence what you made; never paste the HTML into the reply.`;
 
-export function canvasTool(board){
+export function canvasTool(board,{snapshot=null}={}){
  const by=ctx=>({kind:'agent',sessionId:ctx.session?.id||null,sessionKind:ctx.session?.kind||null,title:ctx.session?.kind==='main'?'会話':ctx.session?.title||'仕事'});
  const failures=results=>results.map((r,i)=>r.ok?null:`op ${i+1}: ${r.error}`).filter(Boolean);
  const pending=()=>{const t=board.takeUserEvents({keepEdits:true});return t?`\n\n${t}`:'';};
@@ -217,12 +217,23 @@ export function canvasTool(board){
    html:{type:'string'},
    ops:{type:'array',items:{type:'object'}},
    summary:{type:'string'},
-   version:{type:'integer'}
+   version:{type:'integer'},
+   image:{type:'boolean'}
   }},
   summarize:a=>a.action==='create'?`キャンバスに描いています${a.summary?`: ${a.summary}`:''}`:a.action==='patch'?`キャンバスを手直ししています${a.summary?`: ${a.summary}`:''}`:a.action==='revert'?`キャンバスを v${a.version} に戻しています`:'キャンバスを見ています',
   ephemeral:true,ephemeralKey:a=>a.action==='read'?'canvas:read':null,
   async run(a,ctx){
-   if(a.action==='read'){readers.add(reader(ctx));return readText();}
+   if(a.action==='read'){
+    const seen=readers.has(reader(ctx));readers.add(reader(ctx));
+    if(!a.image)return readText();
+    const v=board.latest();
+    // A session that already has the guide gets just the picture: a self-check costs an image, not the guide again.
+    const r=seen&&v?{text:`Canvas v${v.n} "${v.caption}" as the user sees it.${pending()}`,data:{version:v.n}}:readText();
+    if(!v)return r;
+    if(!snapshot)return {...r,text:`${r.text}\n\n(No picture: no browser on this computer.)`};
+    try{return {...r,images:[{...await snapshot(v.html,{signal:ctx.signal}),name:'canvas'}]};}
+    catch(e){ctx.signal?.throwIfAborted();return {...r,text:`${r.text}\n\n(No picture: ${e.message})`};}
+   }
    if(a.action!=='revert'&&!readers.has(reader(ctx))){
     readers.add(reader(ctx));const r=readText();
     return {text:`Not drawn yet: read the canvas first. Here is the guide and the current canvas; now call ${a.action} again following it.\n\n${r.text}`,data:{...r.data,refused:true}};
