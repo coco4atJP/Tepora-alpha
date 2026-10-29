@@ -8,6 +8,8 @@ import {openInstallerPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
+import {validateCanvasTurn,runCanvasTurn} from './canvas.mjs';
+import {canvasFrameDocument,canvasFrameCsp} from './canvas-frame.mjs';
 import {SpeechStream} from './speech-stream.mjs';
 import {Avatar,AvatarAssets,MAX_ASSET_BYTES} from './avatar.mjs';
 import {PhotoFrame,MAX_PHOTO_BYTES} from './photo-frame.mjs';
@@ -121,6 +123,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     res.setHeader('Content-Security-Policy',`default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com; frame-ancestors ${origin}`);
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     return res.end(`<!doctype html><meta charset="utf-8"><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;overflow:hidden;background:#120c0a}</style><iframe title="YouTube player" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen src="https://www.youtube-nocookie.com/embed/${id}?autoplay=0&amp;playsinline=1&amp;rel=0"></iframe>`);
+   }
+   if(p==='/canvas/frame' && method==='GET'){
+    const nonce=randomBytes(18).toString('base64url');res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy',canvasFrameCsp(nonce,origin));
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});return res.end(canvasFrameDocument(nonce));
    }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');if(!network.permitted('cloud','web'))throw new NetworkBlocked('インターネットを使う道具を許可してください。');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
    if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
@@ -306,6 +313,20 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
    if(p==='/api/runtime/discover' && method==='POST')return json(res,await Promise.all(PROVIDERS.map(async x=>{try{return {...x,available:true,models:await new Runtime({baseUrl:x.url,allowCloud:false},'',network.fetch({purpose:'model'})).models()};}catch{return {...x,available:false,models:[]};}})));
+   if(p==='/api/canvas/turn'&&method==='POST'){
+    const input=validateCanvasTurn(await body(req));
+    invariant(registry.hasRoute('work'),'先にモデルを登録してください。',409);
+    invariant(!probes.has('canvas'),'キャンバスは前の依頼を処理中です。',429);
+    const cancel=new AbortController();probes.set('canvas',cancel);
+    const abort=()=>{if(!res.writableEnded)cancel.abort(new Error('Canvas request closed'));};res.once('close',abort);
+    // Events stream as NDJSON so the canvas grows while the model is still writing.
+    res.writeHead(200,{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store'});
+    const emit=event=>{if(!res.writableEnded)res.write(JSON.stringify(event)+'\n');};
+    try{await runCanvasTurn((role,messages,options)=>registry.invoke(role,messages,options),input,{signal:cancel.signal,emit});}
+    catch(error){emit({type:'error',error:safeError(error)});}
+    finally{probes.delete('canvas');res.off('close',abort);}
+    return res.end();
+   }
    if(p==='/api/voice/edit'&&method==='POST'){
     const b=await body(req);invariant(store.settings.dictationEditing===true,'Local dictation editing is not enabled',403);
     invariant(!probes.has('dictation'),'Another draft edit is running',429);const cancel=new AbortController();probes.set('dictation',cancel);
