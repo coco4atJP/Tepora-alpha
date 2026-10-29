@@ -47,7 +47,11 @@ let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendin
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
 const focusTimer=createFocusTimer(),stageStudioCache=new WeakMap();
-const canvasView=createCanvasView({stream:(p,value,onEvent,options)=>bridge.stream(p,value,onEvent,options),escape,icon,preview:previewMode,onError:e=>notice(e.message,'error')});
+const canvasView=createCanvasView({request:(p,method,value)=>bridge.request(p,method,value),escape,icon,preview:previewMode,onError:e=>notice(e.message,'error'),
+ // The canvas composer is the conversation's composer: one channel, so "これ" refers to the selection in the same thread.
+ say:text=>bridge.request('/api/agent/input','POST',{requestId:requestId(),text,source:'text',attachmentIds:[]}),
+ onStop:by=>by?.sessionId&&bridge.request(`/api/agent/sessions/${encodeURIComponent(by.sessionId)}/stop`,'POST',{}),
+ lastReply:()=>{const m=state?.dialogue?.messages?.findLast?.(x=>x.role==='assistant');return m?String(m.content||m.text||'').slice(0,240):'';}});
 let pinnedBoard=null,focusCardKey='';
 // Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
 let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
@@ -480,6 +484,19 @@ function taskRows(){
  return canvasRow()+groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
 }
 let workCanvas=false;
+/** While an agent draws and the canvas is not on screen, a peek offers to open it; the drawing never steals the view. */
+let canvasPeek=null,canvasPeekTimer=0;
+function canvasActivity(d){
+ const onScreen=canvasView.mounted();
+ if(view==='workspace'&&!onScreen&&(d.kind==='start'||d.kind==='end'||d.kind==='abort'))scheduleRender();
+ if(onScreen||sharedView||d.kind==='abort'){canvasPeek?.classList.remove('show');return;}
+ if(d.kind!=='start'&&d.kind!=='end')return;
+ if(!canvasPeek){canvasPeek=document.createElement('button');canvasPeek.type='button';canvasPeek.id='canvas-peek';canvasPeek.addEventListener('click',()=>{canvasPeek.classList.remove('show');safe(actions['canvas-open'])();});document.body.append(canvasPeek);}
+ const live=canvasView.live(),who=d.by?.title||live?.by?.title||'エージェント';
+ const text=d.kind==='start'?`${who}がキャンバスに${d.action==='create'?'描いています':'手を入れています'}${d.caption?`: ${d.caption}`:''}`:'キャンバスが更新されました';
+ canvasPeek.innerHTML=`${icon('image')}<span>${escape(text)}</span><b>見る</b>`;canvasPeek.classList.add('show');
+ clearTimeout(canvasPeekTimer);if(d.kind==='end')canvasPeekTimer=setTimeout(()=>canvasPeek?.classList.remove('show'),12000);
+}
 /** The canvas is a standing entry at the top of the work list; its bench is the canvas itself. */
 function canvasRow(){return `<section class="job-group"><h2>キャンバス</h2><button type="button" class="job-row canvas-job${workCanvas?' is-focused':''}" data-action="canvas-open" aria-pressed="${workCanvas}"><span class="job-title">${icon('image')}話しかけて描く</span><span class="job-state">${canvasView.busy()?'描いています…':'いつでも使えます'}</span></button></section>`;}
 /** Resolves which artifact and version the bench shows; null when the job has none. */
@@ -1337,9 +1354,10 @@ bridge.on(e=>{
  if(e.type==='route.selected'&&e.data.reason!=='selected'){const key=e.data.jobId+':'+e.data.profileId;if(!noticedRoutes.has(key)){noticedRoutes.add(key);if(noticedRoutes.size>100)noticedRoutes.delete(noticedRoutes.values().next().value);notice(`実行先: ${e.data.profileId} (${e.data.domain}) の経路で処理を続けます。`);}return;}
  if(e.type==='providers.updated'){state.providers=e.data;paintChrome();return;}
  if(e.type==='computer.updated'){state.computer=e.data;return;}
+ if(e.type==='canvas.updated'||e.type==='canvas.stream'){canvasView.event(e.type,e.data);if(e.type==='canvas.stream')canvasActivity(e.data);return;}
  if(e.type==='network.updated'){state.network=e.data;paintChrome();if(e.data.mode!=='online'||!e.data.internetTools){if(activeDialog?.kind==='media')closeSheet();document.querySelectorAll('#media-player iframe').forEach(x=>x.remove());}if(view==='settings')scheduleRender();return;}
  if(e.type==='dialogue.updated'){acceptDialogue(e.data);paintChrome();if(view==='home')paintSpeech();if(activePanel?.kind==='inbox')paintInbox();return;}
- if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant')liveReply='';showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
+ if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant'){liveReply='';canvasView.repaint();}showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
  if(e.type==='dialogue.delta'){liveReply=e.data.done?'':e.data.text||'';paintLive();showRequestStatus();return;}
  if(e.type==='session.updated'&&e.data.kind==='main'){state.dialogue={...state.dialogue,status:e.data.status,note:e.data.note||''};if(e.data.status!=='running')liveReply='';paintLive();showRequestStatus();paintMood();return;}
  if(e.type==='session.removed'){state.jobs=state.jobs.filter(j=>j.id!==e.data.id);scheduleRender();return;}
@@ -1347,7 +1365,7 @@ bridge.on(e=>{
  if(e.type==='agent.settings'){state.agent={...state.agent,settings:e.data};if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='approval.updated'&&!previewMode)return;
  if(e.type==='companion.updated'){acceptCompanion(e.data);return;}
- if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
+ if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;if(e.data.canvas)canvasView.accept(e.data.canvas);state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
  if(e.type==='transport.status'){online=e.data.online;showRequestStatus();paintChrome();if(!online)notice('接続を復旧しています。仕事の状態はサービスに保存されています。');return;}
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
@@ -1378,6 +1396,7 @@ bridge.on(e=>{
 try{
  state=await bridge.init();state.companion={revision:0,focusJobId:null,returnStack:[]};state.dialogue||=await bridge.request('/api/agent/dialogue');
  state.display||=structuredClone(DISPLAY_DEFAULT);state.jobs||=[];state.artifacts||=[];state.routines=[];state.plans=[];state.schedules||=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
+ if(state.canvas)canvasView.accept(state.canvas);
  globalThis.__TEPORA_LIVE__=!previewMode;lastSeenMessage=state.dialogue?.messages?.at(-1)?.id||'';
  shell();setInterval(()=>{tick();paintMood();},1000);
  document.documentElement.style.setProperty('--seal-hold',`${SEAL_HOLD_MS}ms`);
