@@ -40,11 +40,30 @@ export function createCanvasView({stream,escape,icon,preview=false,onError=()=>{
   catch(error){state=canvasFinishTurn(state,error.name==='AbortError'?'止めました。':error.message);if(error.name!=='AbortError')onError(error);}
   finally{controller=null;paint();q('#canvas-input')?.focus();}
  };
- const actions={send,stop:()=>controller?.abort(),undo:()=>{state=canvasRevert(state);paint();}};
+ const expand=(on=!root?.classList.contains('is-expanded'))=>{if(!root)return;root.classList.toggle('is-expanded',on);document.body.classList.toggle('canvas-expanded',on);
+  const b=q('[data-canvas-action="expand"]');if(b){b.setAttribute('aria-pressed',String(on));b.title=on?'元の大きさに戻す':'大きく表示';b.setAttribute('aria-label',b.title);}};
+ const actions={send,stop:()=>controller?.abort(),undo:()=>{state=canvasRevert(state);paint();},expand:()=>expand()};
  const onClick=e=>{const el=e.target.closest('[data-canvas-action]');if(el&&root.contains(el)){e.preventDefault();actions[el.dataset.canvasAction]?.();}};
- const onKey=e=>{if(e.target.id==='canvas-input'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}};
+ const onKey=e=>{if(e.key==='Escape'&&root?.classList.contains('is-expanded')){expand(false);return;}if(e.target.id==='canvas-input'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}};
  return {
-  html(){
+  /** layout 'page' fills a view; 'card' is a compact panel (frame, latest exchange, one-line composer) for a widget or the workbench. */
+  html({layout='page',title='キャンバス',expandable=false}={}){
+   const frameHTML=preview?'<p class="canvas-preview-note">プレビュー表示ではキャンバスを動かせません。Teporaを起動して開いてください。</p>':'<iframe class="canvas-frame" title="キャンバスの作品" sandbox="allow-scripts" referrerpolicy="no-referrer" src="/canvas/frame"></iframe>';
+   if(layout==='card')return `<section id="canvas-view" class="canvas-view is-card" aria-labelledby="canvas-title">
+ <header class="canvas-card-head"><h2 id="canvas-title">${escape(title)}</h2><p class="canvas-version"></p>
+  <div class="canvas-card-tools"><button type="button" class="icon-button" data-canvas-action="undo" aria-label="ひとつ戻す" title="ひとつ戻す">${icon('undo')}</button>${expandable?`<button type="button" class="icon-button" data-canvas-action="expand" aria-pressed="false" aria-label="大きく表示" title="大きく表示">${icon('expand')}</button>`:''}</div></header>
+ <div class="canvas-stage">${frameHTML}</div>
+ <div class="canvas-side">
+  <ol class="canvas-log" aria-live="polite"></ol>
+  <p class="canvas-error" role="alert" hidden></p>
+  <div class="canvas-compose is-inline">
+   <label class="visually-hidden" for="canvas-input">キャンバスへの依頼</label>
+   <textarea id="canvas-input" rows="1" maxlength="4000" placeholder="例: 夜空を飛ぶロケットを描いて"></textarea>
+   <button type="button" class="button" data-canvas-action="send" aria-label="送る" title="送る">${icon('send')}</button>
+   <button type="button" class="button secondary" data-canvas-action="stop" aria-label="止める" title="止める" hidden>${icon('stop')}</button>
+  </div>
+ </div>
+</section>`;
    return `<section id="canvas-view" class="canvas-view" aria-labelledby="canvas-title">
  <div class="canvas-side">
   <header class="canvas-head"><h1 id="canvas-title">キャンバス</h1><p>話しかけて、一枚の作品を一緒に育てます。</p></header>
@@ -63,7 +82,7 @@ export function createCanvasView({stream,escape,icon,preview=false,onError=()=>{
  </div>
  <div class="canvas-stage">
   <p class="canvas-version"></p>
-  ${preview?'<p class="canvas-preview-note">プレビュー表示ではキャンバスを動かせません。Teporaを起動して開いてください。</p>':'<iframe class="canvas-frame" title="キャンバスの作品" sandbox="allow-scripts" referrerpolicy="no-referrer" src="/canvas/frame"></iframe>'}
+  ${frameHTML}
  </div>
 </section>`;
   },
@@ -72,7 +91,7 @@ export function createCanvasView({stream,escape,icon,preview=false,onError=()=>{
    frame=root.querySelector('.canvas-frame');ready=false;lastShown=null;
    root.addEventListener('click',onClick);root.addEventListener('keydown',onKey);addEventListener('message',onMessage);paint();
   },
-  unmount(){if(root){root.removeEventListener('click',onClick);root.removeEventListener('keydown',onKey);}removeEventListener('message',onMessage);root=null;frame=null;ready=false;},
+  unmount(){if(root){expand(false);root.removeEventListener('click',onClick);root.removeEventListener('keydown',onKey);}removeEventListener('message',onMessage);root=null;frame=null;ready=false;},
   mounted:()=>!!root&&root.isConnected,
   busy:()=>!!state.turn,
   stop:()=>controller?.abort()
