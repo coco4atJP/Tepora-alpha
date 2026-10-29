@@ -47,6 +47,7 @@ const FIELDS: &[&str] = &[
     "server",
     "cache",
     "sessionHeader",
+    "thinking",
 ];
 
 fn require(ok: bool, message: impl Into<String>) -> Result<(), ApiError> {
@@ -225,6 +226,15 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
         !truth(&raw["sessionHeader"]) || matches(r"^x-[a-z0-9-]{1,60}$", s(raw, "sessionHeader")),
         "Invalid session header name",
     )?;
+    require(
+        !truth(&raw["thinking"]) || s(raw, "thinking") == "off",
+        "Invalid thinking mode",
+    )?;
+    require(
+        s(raw, "thinking") != "off"
+            || (!truth(&raw["reasoningEffort"]) && !truth(&raw["thinkingBudget"])),
+        "思考オフは推論の強さや思考予算と同時に指定できません。",
+    )?;
     let auth_mode = if truth(&raw["authMode"]) { s(raw,"authMode") } else { "api-key" };
     require(["api-key","chatgpt"].contains(&auth_mode), "Invalid authentication mode")?;
     if auth_mode == "chatgpt" {
@@ -261,6 +271,9 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
     });
     if truth(&raw["reasoningEffort"]) {
         p["reasoningEffort"] = raw["reasoningEffort"].clone();
+    }
+    if s(raw, "thinking") == "off" {
+        p["thinking"] = json!("off");
     }
     if auth_mode=="chatgpt" { p["authMode"]=json!("chatgpt"); p["accountId"]=raw["accountId"].clone(); }
     p["identity"] = json!(digest(&p)?);

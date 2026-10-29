@@ -6,6 +6,7 @@ import {escape,icon,btn,toolbtn,statuses,setArtifactFrame,field,toggle,modal,reg
 import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS,STAGE_LAYOUTS,CLOCK_STYLES,CLOCK_SIZES,MONITOR_SCENES,monitorConfig} from './display-model.mjs';
 import {VoiceDraft} from './draft.mjs';
 import {createFocusTimer} from './focus-timer.mjs';
+import {createCanvasView} from './canvas.mjs';
 import {companionArtifacts} from './companion-state.mjs';
 import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
 import {TranscriptionRequest} from './transcription.mjs';
@@ -47,6 +48,11 @@ let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendin
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
 const focusTimer=createFocusTimer(),stageStudioCache=new WeakMap();
+const canvasView=createCanvasView({request:(p,method,value)=>bridge.request(p,method,value),escape,icon,preview:previewMode,onError:e=>notice(e.message,'error'),
+ // The canvas composer is the conversation's composer: one channel, so "これ" refers to the selection in the same thread.
+ say:text=>bridge.request('/api/agent/input','POST',{requestId:requestId(),text,source:'text',attachmentIds:[]}),
+ onStop:by=>by?.sessionId&&bridge.request(`/api/agent/sessions/${encodeURIComponent(by.sessionId)}/stop`,'POST',{}),
+ lastReply:()=>{const m=state?.dialogue?.messages?.findLast?.(x=>x.role==='assistant');return m?String(m.content||m.text||'').slice(0,240):'';}});
 let pinnedBoard=null,focusCardKey='';
 // Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
 let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
@@ -406,7 +412,7 @@ function setAmbient(on,{restore=false}={}){
  setPresence(on||document.hidden?'away':'present');paintChrome();paintHome();paintMood();
 }
 function drift(){const stage=$('#stage');if(!stage)return;stage.style.setProperty('--drift-x',`${Math.round(Math.random()*16-8)}px`);stage.style.setProperty('--drift-y',`${Math.round(Math.random()*12-6)}px`);}
-function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'));}
+function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'))&&!canvasView.busy()&&document.activeElement?.id!=='canvas-input';}
 function setPresence(next){if(next===presence)return;presence=next;if(!previewMode)bridge.request('/api/presence','POST',{state:next}).catch(()=>{});}
 
 /* ---------- Characters ---------- */
@@ -472,11 +478,29 @@ function paintMood(){
 function focusJob(){return state.jobs.find(j=>j.id===state.companion?.focusJobId);}
 function focusedArtifacts(){return companionArtifacts(state.artifacts,state.companion?.focusJobId);}
 function taskRows(){
- const jobs=workJobs().slice(0,120),focusId=state.companion?.focusJobId;
+ const jobs=workJobs().slice(0,120),focusId=workCanvas?null:state.companion?.focusJobId;
  const row=j=>{const s=jobStatus(j);return `<button type="button" class="job-row${j.id===focusId?' is-focused':''}" data-action="focus-task" data-id="${escape(j.id)}" aria-pressed="${j.id===focusId}"><span class="job-title">${escape(j.title)}</span><span class="job-state tone-${s.tone}">${escape(s.note||s.label)}</span></button>`;};
  const groups=[['あなたの番',jobs.filter(j=>needsPerson(j))],['進行中',jobs.filter(j=>!needsPerson(j)&&['queued','running'].includes(j.status))],['そのほか',jobs.filter(j=>!needsPerson(j)&&!['queued','running'].includes(j.status))]];
- return groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
+ return canvasRow()+groups.filter(([,list])=>list.length).map(([label,list])=>`<section class="job-group"><h2>${label}</h2>${list.map(row).join('')}</section>`).join('');
 }
+let workCanvas=false;
+/** While an agent draws and the canvas is not on screen, a peek offers to open it; the drawing never steals the view. */
+let canvasPeek=null,canvasPeekTimer=0;
+function canvasActivity(d){
+ const onScreen=canvasView.mounted();
+ if(view==='workspace'&&(d.kind==='start'||d.kind==='end'||d.kind==='abort')){
+  // The work list carries the canvas row's state; refresh only the list when the canvas frame is on screen.
+  const list=onScreen&&$('#surface .job-list');if(list)setTimeout(()=>{list.innerHTML=taskRows();},d.kind==='end'?400:0);else if(!onScreen)scheduleRender();}
+ if(onScreen||sharedView||d.kind==='abort'){canvasPeek?.classList.remove('show');return;}
+ if(d.kind!=='start'&&d.kind!=='end')return;
+ if(!canvasPeek){canvasPeek=document.createElement('button');canvasPeek.type='button';canvasPeek.id='canvas-peek';canvasPeek.addEventListener('click',()=>{canvasPeek.classList.remove('show');safe(actions['canvas-open'])();});document.body.append(canvasPeek);}
+ const live=canvasView.live(),who=d.by?.title||live?.by?.title||'エージェント';
+ const text=d.kind==='start'?`${who}がキャンバスに${d.action==='create'?'描いています':'手を入れています'}${d.caption?`: ${d.caption}`:''}`:'キャンバスが更新されました';
+ canvasPeek.innerHTML=`${icon('image')}<span>${escape(text)}</span><b>見る</b>`;canvasPeek.classList.add('show');
+ clearTimeout(canvasPeekTimer);if(d.kind==='end')canvasPeekTimer=setTimeout(()=>canvasPeek?.classList.remove('show'),12000);
+}
+/** The canvas is a standing entry at the top of the work list; its bench is the canvas itself. */
+function canvasRow(){return `<section class="job-group"><h2>キャンバス</h2><button type="button" class="job-row canvas-job${workCanvas?' is-focused':''}" data-action="canvas-open" aria-pressed="${workCanvas}"><span class="job-title">${icon('image')}話しかけて描く</span><span class="job-state">${canvasView.busy()?'描いています…':'いつでも使えます'}</span></button></section>`;}
 /** Resolves which artifact and version the bench shows; null when the job has none. */
 function currentArtifact(){
  const artifacts=focusedArtifacts(),latest=artifacts.find(a=>a.id===selectedArtifact)||artifacts[0];
@@ -532,7 +556,7 @@ function workView(){
  const focus=focusJob(),artifacts=focusedArtifacts(),jobs=workJobs();
  return `<section class="page work-page">${workHead()}
  <div class="work-grid"><aside class="job-list" aria-label="仕事の一覧">${taskRows()}</aside>
- <section class="workbench" aria-label="選んだ仕事" data-job="${escape(focus?.id||'')}">${focus?workbench(focus,artifacts):`<div class="bench-empty is-large">${jobs.length?'<p>仕事を選ぶと、ここに成果物が出ます。</p>':`<h2>まだ仕事はありません</h2><p>会話で頼むと、ここに届きます。</p>${previewMode?btn('demo','画面サンプルを試す','play','button secondary'):''}`}</div>`}</section></div></section>`;
+ <section class="workbench${workCanvas?' is-canvas':''}" aria-label="選んだ仕事" data-job="${workCanvas?'canvas':escape(focus?.id||'')}">${workCanvas?canvasView.html({layout:'card',expandable:true}):focus?workbench(focus,artifacts):`<div class="bench-empty is-large">${jobs.length?'<p>仕事を選ぶと、ここに成果物が出ます。</p>':`<h2>まだ仕事はありません</h2><p>会話で頼むと、ここに届きます。</p>${previewMode?btn('demo','画面サンプルを試す','play','button secondary'):''}`}</div>`}</section></div></section>`;
 }
 function workTabs(){return `<div class="tabs" role="group" aria-label="仕事の種類">${[['tasks','仕事'],['made','つくったもの']].map(([key,label])=>`<button type="button" data-action="work-tab" data-tab="${key}" aria-pressed="${workTab===key}">${label}</button>`).join('')}</div>`;}
 function todoHTML(job){
@@ -785,17 +809,26 @@ function render(){
  if(view==='talk'&&!narrow())view='home';
  applyTheme();paintChrome();
  const surface=$('#surface'),target=sharedView&&view!=='home'?'home':view;
+ const keepCanvas=target==='workspace'&&workTab==='tasks'&&workCanvas;
+ if(!keepCanvas&&canvasView.mounted())canvasView.unmount();
  if(target==='home'){
   if(renderedView!=='home'||!$('#stage',surface)){surface.innerHTML=homeHTML();attachStage();}
   paintHome();
  }else if(target==='talk'){surface.replaceChildren();}
+ else if(target==='canvas'){
+  // Mounted once per visit so the frame (and the artifact in it) survives live repaints.
+  if(renderedView!=='canvas'||!canvasView.mounted()){surface.innerHTML=canvasView.html();canvasView.mount(surface);}
+ }
  else{
   const focus=captureFocus(surface),scroll=renderedView===target?captureScroll(surface):{surface:0,list:0,bench:0},oldFrame=$('#artifact-preview iframe');
-  if(!(target==='workspace'&&renderedView==='workspace'&&patchWork(oldFrame))){
+  // The canvas frame must not be detached by live repaints: refresh only the list beside it.
+  if(keepCanvas&&canvasView.mounted()&&$('#canvas-view',surface)){$('.job-list',surface).innerHTML=taskRows();}
+  else if(!(target==='workspace'&&renderedView==='workspace'&&patchWork(oldFrame))){
    surface.innerHTML=target==='workspace'?workView():target==='memory'?memoryView():settingsView();
    registerForms(surface);
    const preview=$('#artifact-preview');
    if(preview&&pinnedArtifact)setArtifactFrame(preview,pinnedArtifact);
+   if(keepCanvas&&$('#canvas-view',surface))canvasView.mount($('.workbench',surface));
   }
   if(target==='settings')filterSettings();
   restoreScroll(surface,scroll);restoreFocus(surface,focus);
@@ -1146,7 +1179,7 @@ const actions={
  'providers-launch':()=>providerSettings().open(),'computer-launch':()=>providerSettings().computer(),
  attach:attachFiles,'detach-file':detachFile,
  'retry-request':()=>submitDialogue(false,true),
- 'focus-task':el=>navigateFocus(el.dataset.id),'return-focus':()=>navigateFocus(null,{returning:true}),
+ 'focus-task':el=>{workCanvas=false;navigateFocus(el.dataset.id);},'canvas-open':()=>{workCanvas=true;workTab='tasks';view='workspace';render();},'return-focus':()=>navigateFocus(null,{returning:true}),
  'open-work':async el=>{closePanel();await navigateFocus(el.dataset.id);},
  'voice-autosend':configureVoiceSend,'enable-voice-send-legacy':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
  personas:personaSheet,
@@ -1374,9 +1407,10 @@ bridge.on(e=>{
  if(e.type==='route.selected'&&e.data.reason!=='selected'){const key=e.data.jobId+':'+e.data.profileId;if(!noticedRoutes.has(key)){noticedRoutes.add(key);if(noticedRoutes.size>100)noticedRoutes.delete(noticedRoutes.values().next().value);notice(`実行先: ${e.data.profileId} (${e.data.domain}) の経路で処理を続けます。`);}return;}
  if(e.type==='providers.updated'){state.providers=e.data;paintChrome();return;}
  if(e.type==='computer.updated'){state.computer=e.data;return;}
+ if(e.type==='canvas.updated'||e.type==='canvas.stream'){canvasView.event(e.type,e.data);if(e.type==='canvas.stream')canvasActivity(e.data);return;}
  if(e.type==='network.updated'){state.network=e.data;paintChrome();if(e.data.mode!=='online'||!e.data.internetTools){if(activeDialog?.kind==='media')closeSheet();document.querySelectorAll('#media-player iframe').forEach(x=>x.remove());}if(view==='settings')scheduleRender();return;}
  if(e.type==='dialogue.updated'){acceptDialogue(e.data);paintChrome();if(view==='home')paintSpeech();if(activePanel?.kind==='inbox')paintInbox();return;}
- if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant')liveReply='';showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
+ if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant'){liveReply='';canvasView.repaint();}showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
  if(e.type==='dialogue.delta'){liveReply=e.data.done?'':e.data.text||'';paintLive();showRequestStatus();return;}
  if(e.type==='session.updated'&&e.data.kind==='main'){state.dialogue={...state.dialogue,status:e.data.status,note:e.data.note||''};if(e.data.status!=='running')liveReply='';paintLive();showRequestStatus();paintMood();return;}
  if(e.type==='session.removed'){state.jobs=state.jobs.filter(j=>j.id!==e.data.id);scheduleRender();return;}
@@ -1384,7 +1418,7 @@ bridge.on(e=>{
  if(e.type==='agent.settings'){state.agent={...state.agent,settings:e.data};if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='approval.updated'&&!previewMode)return;
  if(e.type==='companion.updated'){acceptCompanion(e.data);return;}
- if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
+ if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;if(e.data.canvas)canvasView.accept(e.data.canvas);state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
  if(e.type==='transport.status'){online=e.data.online;showRequestStatus();paintChrome();if(!online)notice('接続を復旧しています。仕事の状態はサービスに保存されています。');return;}
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
@@ -1415,6 +1449,7 @@ bridge.on(e=>{
 try{
  state=await bridge.init();state.companion={revision:0,focusJobId:null,returnStack:[]};state.dialogue||=await bridge.request('/api/agent/dialogue');
  state.display||=structuredClone(DISPLAY_DEFAULT);state.jobs||=[];state.artifacts||=[];state.routines=[];state.plans=[];state.schedules||=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
+ if(state.canvas)canvasView.accept(state.canvas);
  globalThis.__TEPORA_LIVE__=!previewMode;lastSeenMessage=state.dialogue?.messages?.at(-1)?.id||'';
  shell();setInterval(()=>{tick();paintMood();},1000);
  document.documentElement.style.setProperty('--seal-hold',`${SEAL_HOLD_MS}ms`);

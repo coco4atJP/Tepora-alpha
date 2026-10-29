@@ -21,6 +21,7 @@ import {Decisions} from './decisions.mjs';
 import {reflectTool} from './metacog.mjs';
 import {Dreamer} from './dream.mjs';
 import {computerTool} from '../computer/index.mjs';
+import {canvasTool} from '../canvas-board.mjs';
 import {mediaTool} from '../tools/media.mjs';
 import {renderTodo} from '../tools/agent.mjs';
 import {sandboxConfig,SANDBOX_DEFAULT} from '../sandbox.mjs';
@@ -81,7 +82,7 @@ export function missingFiles(s,report,inputs=[],tools=[]){
 /** Owns every agent session: the resident main session (the character, an orchestrator) and any number
  * of asynchronous workers. Sessions talk through inboxes; nothing fails permanently — failures wait and retry. */
 export class AgentRuntime{
- constructor(store,{registry,network,toolHub=null,capabilities=null,computer=null,media=null,semantic=null,workRoot,pluginDir=null,clock=()=>Date.now(),autoStart=true}={}){
+ constructor(store,{registry,network,toolHub=null,capabilities=null,computer=null,canvas=null,media=null,semantic=null,workRoot,pluginDir=null,clock=()=>Date.now(),autoStart=true}={}){
   Object.assign(this,{store,registry,network,toolHub,capabilities,computer,media,semantic,clock});
   this.sessions=new SessionStore(store);this.assembler=new ContextAssembler(this.sessions);this.calibration=new TokenCalibration(store);
   this.compactor=new Compactor({sessions:this.sessions,assembler:this.assembler,registry,emit:(type,data)=>this.store.emit('agent.'+type,data)});
@@ -95,6 +96,9 @@ export class AgentRuntime{
   this.tools.registerAll([...execTools({processes:this.processes,settings:()=>this.settings()}),...fsTools(),...this.web.tools(),...agentTools(this),scheduleTool(this.scheduler),reflectTool(this.sessions)]);
   if(media&&capabilities)this.tools.register(mediaTool({media,capabilities}));
   if(computer){computer.decisions||=this.decisions;computer.workRoot=()=>this.workRoot;this.tools.register(computerTool(computer));this.computerInfo=()=>computer.info();}
+  // The shared canvas is a capability like computer use: one tool for the character and work agents alike. What the
+  // user does on it directly reaches the conversation (and the agent that drew last) as context, without waking them.
+  if(canvas){this.canvas=canvas;this.tools.register(canvasTool(canvas,{snapshot:computer?(html,o)=>computer.picture(html,o):null}));canvas.onUserEvents=(text,lastAgent)=>this.canvasNotice(text,lastAgent);}
   // Memory search is by meaning when an embedding model is connected (local only unless the user allows more),
   // and by keywords otherwise. New memories are indexed in the background.
   this.memory={
@@ -153,7 +157,7 @@ export class AgentRuntime{
   return String(answer.content||'').trim();
  }
  excludedTools(session){
-  const out=[];for(const n of ['computer','media'])if(!this.tools.has(n)||this.tools.get(n).available?.()===false)out.push(n);
+  const out=[];for(const n of ['computer','canvas','media'])if(!this.tools.has(n)||this.tools.get(n).available?.()===false)out.push(n);
   if((session.depth||0)>=this.settings().maxDepth)out.push('sessions_spawn');
   return out;
  }
@@ -196,6 +200,8 @@ export class AgentRuntime{
  /** Queue input for a session. followup/steer wake it; notify is context only. */
  send(id,{text,from='user',kind='message',mode='followup',source='',images,meta={}}){
   const s=this.sessions.get(id);invariant(s,'Session not found',404);invariant(typeof text==='string'&&text.trim(),'message is required');
+  // A selection made just before speaking ("これを赤くして") must arrive before the words that refer to it.
+  if(from==='user'&&mode!=='notify'&&this.canvas)this.canvas.flush();
   const after=this.sessions.seq(id)-1;
   this.sessions.enqueue(id,{text,from,kind,mode,images,header:stampHeader(new Date(this.clock()),source||(from==='user'?'user':from)),...meta});
   if(mode==='notify'&&!this.runs.has(id)&&['idle','done','stopped'].includes(s.status))this.deliver(id,{followups:false});
@@ -205,6 +211,14 @@ export class AgentRuntime{
    this.wake(id,{from});
   }
   return {queued:true,after};
+ }
+ /** Hands the user's direct canvas actions to the conversation and to the agent that drew last, as context only. */
+ canvasNotice(text,lastAgent){
+  const main=this.main(),ids=[main.id];
+  const last=lastAgent&&lastAgent!==main.id?this.sessions.get(lastAgent):null;
+  if(last&&!['done','stopped'].includes(last.status))ids.push(last.id);
+  for(const id of ids)this.send(id,{text,from:'canvas',kind:'notice',mode:'notify',source:'canvas (the user, directly)'});
+  return ids;
  }
  deliver(id,{followups=true}={}){
   const {entries,delivered}=this.sessions.claim(id,{followups});
@@ -419,7 +433,7 @@ export class AgentRuntime{
   const run=this.runs.get(id);if(run?.leaseKind==='idleCompaction')await run.promise;
  }
  async close(){
-  this.nativeRuntime.dispatch({type:'close'});
+  this.canvas?.close();this.nativeRuntime.dispatch({type:'close'});
   await this.nativeRuntime.drain();
   await Promise.allSettled([...this.runs.values()].map(r=>r.promise));
  }

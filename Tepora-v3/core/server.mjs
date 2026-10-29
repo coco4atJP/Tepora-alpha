@@ -8,6 +8,8 @@ import {openInstallerPage,openAuthenticationPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
+import {canvasFrameDocument,canvasFrameCsp} from './canvas-frame.mjs';
+import {CanvasBoard} from './canvas-board.mjs';
 import {SpeechStream} from './speech-stream.mjs';
 import {Avatar,AvatarAssets,MAX_ASSET_BYTES} from './avatar.mjs';
 import {PhotoFrame,MAX_PHOTO_BYTES} from './photo-frame.mjs';
@@ -59,23 +61,24 @@ function configurePersonas(store,raw){
  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
  store.value('dialogue-personas',next);return next;
 }
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={},openAuthBrowser=openAuthenticationPage}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},canvasOptions={},mediaOptions={},toolHubOptions={},agentOptions={},openAuthBrowser=openAuthenticationPage}={}) {
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth,pi});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
  const semantic=new SemanticMemory(store,capabilities),toolHub=new ToolHub(store,network,toolHubOptions);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry,...computerOptions});
+ const canvas=new CanvasBoard(store,canvasOptions);
  // The work folder is ~/Tepora only for the real data folder. Tests and alternative data folders (TEPORA_DATA_DIR)
  // keep their work inside that folder, so they never write into the user's home.
  const isolated=!!process.env.TEPORA_DATA_DIR||path.resolve(dir)!==path.resolve(dataDir());
- const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
+ const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,canvas,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
  const ui=new AgentUIModel(store,agent);
  await agent.tools.loadPlugins().catch(()=>{});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
  const setup=new SetupManager(store,{registry,busy:()=>agent.runs.size>0},{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions});
  const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map(),pendingInputs=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
- const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
+ const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),canvas:canvas.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
  async function openAuthPage(req,res,auth){
   const b=await body(req);invariant(b&&typeof b.id==='string'&&b.id.length<=100&&Object.keys(b).length===1,'現在の認証IDだけを指定してください。');
   await openAuthBrowser(auth.browserURL(b.id));return json(res,{opened:true});
@@ -125,6 +128,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     res.setHeader('Content-Security-Policy',`default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com; frame-ancestors ${origin}`);
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     return res.end(`<!doctype html><meta charset="utf-8"><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;overflow:hidden;background:#120c0a}</style><iframe title="YouTube player" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen src="https://www.youtube-nocookie.com/embed/${id}?autoplay=0&amp;playsinline=1&amp;rel=0"></iframe>`);
+   }
+   if(p==='/canvas/frame' && method==='GET'){
+    const nonce=randomBytes(18).toString('base64url');res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy',canvasFrameCsp(nonce,origin));
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});return res.end(canvasFrameDocument(nonce));
    }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');if(!network.permitted('cloud','web'))throw new NetworkBlocked('インターネットを使う道具を許可してください。');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
    if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
@@ -312,6 +320,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
    if(p==='/api/runtime/discover' && method==='POST')return json(res,await Promise.all(PROVIDERS.map(async x=>{try{return {...x,available:true,models:await new Runtime({baseUrl:x.url,allowCloud:false},'',network.fetch({purpose:'model'})).models()};}catch{return {...x,available:false,models:[]};}})));
+   // The shared canvas (the agents' `canvas` tool writes it; these routes are the user's own hands).
+   if(p==='/api/canvas'&&method==='GET')return json(res,canvas.snapshot());
+   if(p==='/api/canvas'&&method==='PATCH'){const b=await body(req);return json(res,canvas.configure(b));}
+   if(p==='/api/canvas/select'&&method==='POST'){const b=await body(req);return json(res,canvas.select(b.id??null,{version:b.version}));}
+   if(p==='/api/canvas/edit'&&method==='POST'){const b=await body(req);invariant(b&&typeof b==='object','Invalid canvas edit');return json(res,canvas.edit({action:b.action,id:b.id,version:b.version}));}
    if(p==='/api/voice/edit'&&method==='POST'){
     const b=await body(req);invariant(store.settings.dictationEditing===true,'Local dictation editing is not enabled',403);
     invariant(!probes.has('dictation'),'Another draft edit is running',429);const cancel=new AbortController();probes.set('dictation',cancel);

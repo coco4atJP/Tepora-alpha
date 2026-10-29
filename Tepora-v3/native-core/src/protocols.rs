@@ -48,6 +48,10 @@ fn front(value: &mut Value, keys: &[&str]) {
     ordered.extend(std::mem::take(original));
     *original = ordered;
 }
+/// `thinking: "off"` on a profile asks the provider to answer without a reasoning phase.
+fn thinking_off(profile: &Value) -> bool {
+    get(profile, "thinking") == "off"
+}
 fn put(body: &mut Value, key: &str, value: &Value, drop: &[Value]) {
     if !value.is_null() && !drop.iter().any(|v| v.as_str() == Some(key)) {
         body[key] = value.clone();
@@ -335,6 +339,10 @@ pub fn encode_request(
                 get(profile, "reasoningEffort"),
                 drop,
             );
+        }
+        if thinking_off(profile) {
+            // DeepSeek, Kimi, GLM and OpenCode Go read this; a server that rejects it gets it dropped on retry.
+            put(&mut body, "thinking", &json!({"type":"disabled"}), drop);
         }
         front(&mut body, &["model"]);
         return Ok(body);
@@ -640,6 +648,9 @@ pub fn encode_request(
     if let Some(p) = sampling.get("top_p") {
         config["topP"] = p.clone();
     }
+    if thinking_off(profile) && !drop.iter().any(|v| v == "thinkingConfig") {
+        config["thinkingConfig"] = json!({"thinkingBudget":0});
+    }
     if (truthy(get(profile, "thinkingBudget")) || truthy(get(profile, "reasoningEffort")))
         && !drop.iter().any(|v| v == "thinkingConfig")
     {
@@ -702,6 +713,9 @@ fn encode_ollama(profile: &Value, messages: &[Value], options: &Value) -> CoreRe
     }
     if !tools.is_empty() {
         body["tools"] = json!(tools);
+    }
+    if thinking_off(profile) && !drop.iter().any(|v| v == "think") {
+        body["think"] = json!(false);
     }
     if truthy(get(profile, "reasoningEffort")) && !drop.iter().any(|v| v == "think") {
         body["think"] = if get(profile, "reasoningEffort") == "minimal" {
@@ -2410,6 +2424,24 @@ mod tests {
         assert_eq!(r["usage"]["output"].as_f64(), Some(7.0));
         assert_eq!(r["_native"]["items"][2]["thoughtSignature"], "secret");
         assert!(strv(&r["tool_calls"][0]["id"]).starts_with("g_"));
+    }
+    #[test]
+    fn thinking_off_disables_reasoning_per_protocol() {
+        let msgs = [json!({"role":"user","content":"hello"})];
+        let mut p = profile("chat-completions");
+        p["thinking"] = json!("off");
+        let chat = encode_request(&p, &msgs, &json!({}), false).unwrap();
+        assert_eq!(chat["thinking"], json!({"type":"disabled"}));
+        assert!(chat.get("reasoning_effort").is_none());
+        let dropped = encode_request(&p, &msgs, &json!({"compat":{"drop":["thinking"]}}), false).unwrap();
+        assert!(dropped.get("thinking").is_none());
+        assert_eq!(encode_request(&p, &msgs, &json!({}), true).unwrap()["think"], false);
+        let mut g = profile("gemini");
+        g["thinking"] = json!("off");
+        let gem = encode_request(&g, &msgs, &json!({}), false).unwrap();
+        assert_eq!(gem["generationConfig"]["thinkingConfig"], json!({"thinkingBudget":0}));
+        let plain = encode_request(&profile("chat-completions"), &msgs, &json!({}), false).unwrap();
+        assert!(plain.get("thinking").is_none());
     }
     #[test]
     fn ollama_native_context_images_tools_and_uncached_usage() {

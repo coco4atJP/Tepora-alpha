@@ -5,6 +5,7 @@ import {Browser,findBrowser} from './browser.mjs';
 import {runGoal,llmChooser,DO_DEFAULTS,validateChecks} from './decide.mjs';
 import {Desktop,desktopSupported} from './desktop.mjs';
 import {oneLine} from '../tools/format.mjs';
+import {canvasSnapshotDocument} from '../canvas-frame.mjs';
 
 /** Computer use for work agents. Two surfaces: a browser (Chromium over DevTools; headless by default, one tab
  * per session) and, on macOS, desktop apps through the Accessibility API. Two ways to drive them:
@@ -43,7 +44,7 @@ export class ComputerUse{
  async page(sessionId){
   const c=this.config();invariant(c.enabled,'コンピューター操作が設定で無効になっています。',403);
   if(!this.browser||!this.browser.alive&&!this.browser.starting){
-   this.browser=new Browser({executable:findBrowser(c.browserExecutable),profileDir:path.join(this.dataDir,'browser-profile'),downloadDir:path.join(this.workRoot(),'downloads'),headless:c.headless});
+   this.browser=this.newBrowser(c);
   }
   return this.browser.page(sessionId);
  }
@@ -63,6 +64,26 @@ export class ComputerUse{
   try{const p=await this.page(key);signal?.throwIfAborted();await p.goto(this.assertURL(url));return {html:await p.html(),url:(await p.observe()).url};}
   finally{await this.browser?.release(key);}
  }
+ /** A still picture of canvas HTML for an agent's self-check, in a throwaway tab of the same browser. It needs a
+  * browser on this computer but not computer use: the page is offline (no script, every URL blocked). */
+ async picture(html,{width=800,height=600,maxHeight=1800,quality=60,signal}={}){
+  const c=this.config();invariant(findBrowser(c.browserExecutable),'No Chrome, Edge, Brave or Chromium was found for a canvas picture.',409);
+  if(!this.browser||!this.browser.alive&&!this.browser.starting)this.browser=this.newBrowser(c);
+  const key='snapshot:'+Math.random().toString(36).slice(2);
+  try{
+   const p=await this.browser.page(key);signal?.throwIfAborted();
+   await p.send('Network.enable');await p.send('Network.setBlockedURLs',{urls:['http://*','https://*','ws://*','wss://*','file://*']});
+   await p.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+   const {frameTree}=await p.send('Page.getFrameTree');
+   await p.send('Page.setDocumentContent',{frameId:frameTree.frame.id,html:canvasSnapshotDocument(html)});
+   const m=await p.send('Page.getLayoutMetrics'),h=Math.min(maxHeight,Math.max(height,Math.ceil(m.cssContentSize?.height||m.contentSize?.height||height)));
+   if(h!==height)await p.send('Emulation.setDeviceMetricsOverride',{width,height:h,deviceScaleFactor:1,mobile:false});
+   signal?.throwIfAborted();
+   const r=await p.send('Page.captureScreenshot',{format:'jpeg',quality,captureBeyondViewport:false},30000);
+   return {mime:'image/jpeg',base64:r.data,width,height:h};
+  }finally{await this.browser?.release(key);}
+ }
+ newBrowser(c){return new Browser({executable:findBrowser(c.browserExecutable),profileDir:path.join(this.dataDir,'browser-profile'),downloadDir:path.join(this.workRoot(),'downloads'),headless:c.headless});}
  chooser(session,{signal}={}){
   const llm=this.registry?llmChooser(async(messages,s)=>(await this.registry.invoke('grounding',messages,{signal:s||signal,maxTokens:40,priority:session.kind==='main'?10:0})).content):null;
   return async(state,criteria,s)=>{
