@@ -183,7 +183,7 @@ export const CANVAS_GUIDE=`Drawing guide
 - create {html, summary}: a first version, a totally new idea, or a rebuild in another medium (keep subject, colours and ids that still fit).
 - patch {ops, summary}: every revision, as small diffs by data-id, in drawing order:
   {"op":"set","id","attrs"?,"style"?,"text"?} {"op":"add","parent","html","before"?} {"op":"remove","id"} {"op":"replace","id","html"} (keep the same data-id). Prefer several small ops to one big replace; never replace the top container to restyle it.
-- revert {version}: bring an older version back as a new one (nothing is deleted).
+- revert {version}: bring an older version back as a new one (nothing is deleted). Only when the user asks: versions by jobs or other sessions are intended, never an accident to undo.
 - summary: a caption of at most 20 Japanese characters.
 HTML: one self-contained fragment in a sandboxed frame. No <html>/<head>/<body>, scripts, on* handlers, external resources or network. Inline <style> and inline SVG are fine; url(#x)/href="#x" need a real id="x".
 - Give every element you may edit later a unique, short, meaningful data-id ("nose", "R1", "bar-3") and keep ids stable. Group each object: <g data-id="flame">…</g>.
