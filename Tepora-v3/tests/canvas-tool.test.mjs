@@ -93,7 +93,7 @@ test('the conversation draws with the canvas tool itself, patches it, and the us
   const tools=toolResults(body),user=String(last(body,'user')?.content||'');
   if(!isMain(body))return {content:'unused'};
   assert.ok(toolNames(body).includes('canvas'),'the conversation is offered the canvas');
-  assert.match(body.messages[0].content,/The canvas is yours, not delegated/);
+  assert.match(body.messages[0].content,/Draw visuals yourself with canvas, not via a work agent/);
   if(user.includes('ロケットを描いて')&&!tools.length)return {calls:[{name:'canvas',args:{action:'create',html:ROCKET,summary:'夜空のロケット'}}]};
   if(user.includes('これを赤くして')&&!tools.some(m=>/Made v2/.test(m.content))){
    const sel=/selected "([\w-]+)"/.exec(body.messages.map(m=>typeof m.content==='string'?m.content:'').join('\n'))?.[1];

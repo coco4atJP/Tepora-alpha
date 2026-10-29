@@ -158,15 +158,9 @@ function createCuts(html){
  return [...new Set(out)];
 }
 
-const CANVAS_TOOL_DESCRIPTION=`Draw or edit the shared canvas: ONE visual artifact the user sees live beside the conversation and can also touch (select, remove, undo). Use it whenever a picture, diagram, circuit, chart, mock-up, slide or small UI explains or answers better than words — the user does not need to ask for "the canvas". You choose the medium; mix freely.
-Actions:
-- read: current version, HTML, version log, and what the user selected or changed directly.
-- create {html, summary}: a first version, a totally new idea, or a rebuild in another medium (keep subject, colours and ids where they still fit).
-- patch {ops, summary, expected_version?}: every revision, as small diffs addressed by data-id: {"op":"set","id","attrs"?,"style"?,"text"?}, {"op":"add","parent","html","before"?}, {"op":"remove","id"}, {"op":"replace","id","html"}. Prefer many small ops over one huge replace.
-- revert {version}: bring back an older version as a new one (nothing is deleted).
-The artifact is one self-contained HTML fragment in a sandboxed frame: no <html>/<head>/<body>, no scripts, no on* handlers, no external resources. Inline <style> and inline SVG are fine. Every element you may edit later has a unique, short, meaningful data-id ("nose", "R1", "bar-3"); keep ids stable. Group each object (<g data-id="flame">…</g>). summary = caption of <= 20 Japanese characters.
-Pictures: <svg data-id="scene" viewBox="0 0 800 600" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"> with <rect data-id="bg" width="800" height="600"> first, then groups in drawing order; a first drawing is already complete (8-20 elements). Circuits: standard symbols, parts as <g data-id="R1">, orthogonal wires ending on pins, labels like "R1 330Ω". UI/diagrams/charts: semantic HTML with <style data-id="app-style">, ids on nodes, cards, bars. Look good; text never overlaps; font 'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif.
-After drawing, tell the user in one short sentence what you made; do not paste the HTML into the reply.`;
+const CANVAS_TOOL_DESCRIPTION=`The shared canvas: one visual artifact the user watches live and can select, remove or undo in. Use it unasked when a picture, diagram, circuit, chart or mock-up beats words.
+read: HTML, log, the user's selection and direct changes. create {html,summary}: first version or full rebuild. patch {ops,summary,expected_version?}: small ops by data-id — set {id,attrs?,style?,text?}, add {parent,html,before?}, remove {id}, replace {id,html}. revert {version}.
+html: a self-contained fragment, no scripts/on*/external URLs; inline <style> and SVG fine. Short stable data-id on every editable part ("flame", "R1"). Pictures: <svg viewBox="0 0 800 600" width="100%" height="100%">, background first, complete at once. Circuits: standard symbols, orthogonal wires, labels like "R1 330Ω". No overlapping text. summary: caption ≤20 Japanese chars. Then say in one sentence what you drew.`;
 
 export function canvasTool(board){
  const by=ctx=>({kind:'agent',sessionId:ctx.session?.id||null,sessionKind:ctx.session?.kind||null,title:ctx.session?.kind==='main'?'会話':ctx.session?.title||'仕事'});
@@ -177,11 +171,11 @@ export function canvasTool(board){
   description:CANVAS_TOOL_DESCRIPTION,
   parameters:{type:'object',additionalProperties:false,required:['action'],properties:{
    action:{type:'string',enum:['read','create','patch','revert']},
-   html:{type:'string',description:'create: the complete artifact HTML fragment'},
-   ops:{type:'array',items:{type:'object'},description:'patch: the edit ops, in drawing order'},
-   summary:{type:'string',description:'create/patch: caption, <= 20 Japanese characters'},
-   expected_version:{type:'integer',description:'patch: fail instead of merging if the canvas moved on'},
-   version:{type:'integer',description:'revert: the version to bring back'}
+   html:{type:'string'},
+   ops:{type:'array',items:{type:'object'}},
+   summary:{type:'string'},
+   expected_version:{type:'integer'},
+   version:{type:'integer'}
   }},
   summarize:a=>a.action==='create'?`キャンバスに描いています${a.summary?`: ${a.summary}`:''}`:a.action==='patch'?`キャンバスを手直ししています${a.summary?`: ${a.summary}`:''}`:a.action==='revert'?`キャンバスを v${a.version} に戻しています`:'キャンバスを見ています',
   ephemeral:true,ephemeralKey:a=>a.action==='read'?'canvas:read':null,
