@@ -80,6 +80,37 @@ test('what the user selects or removes becomes one context note, newest selectio
  board.close();
 });
 
+test('an agent edit of the selected element clears the selection, marks it edited and rides along in the next note',async t=>{
+ const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0,settleMs:10_000}),tool=canvasTool(board),notes=[];
+ board.onUserEvents=text=>notes.push(text);
+ const agent={kind:'agent',sessionId:'s1',title:'会話'},ctx={sessionId:'s1',session:{title:'会話'}};
+ await board.create({html:ROCKET,summary:'ロケット',by:agent});
+ board.select('rocket');assert.match(board.flush(),/selected "rocket"/);notes.length=0;
+ const other=await board.patch({ops:[{op:'set',id:'bg',attrs:{fill:'#000'}}],summary:'背景',by:agent});
+ assert.equal(other.edited,null);assert.equal(board.summary().selection.id,'rocket','editing something else keeps the selection');
+ const r=await tool.run({action:'patch',ops:[{op:'set',id:'window',style:{fill:'#e02020'}}],summary:'窓を赤く'},ctx);
+ assert.equal(r.data.edited,'rocket','an edit inside the selected group counts');
+ assert.match(r.text,/edited the user's selection "rocket"; it is now cleared/);
+ assert.equal(board.summary().selection,null);assert.deepEqual(board.summary().edited,{id:'rocket',version:3});
+ assert.deepEqual(notes,[],'the edit does not wake anyone by itself');
+ const note=board.flush();
+ assert.match(note,/^Shared canvas update \(it is now v3\)/);
+ assert.match(note,/their selection "rocket" was edited by .* in v3, so it is no longer selected/);
+ board.select('flame');assert.equal(board.summary().edited,null,'a new selection retires the edited mark');
+ board.close();
+});
+
+test('read returns the drawing guide on demand, so the tool description stays short',async t=>{
+ const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0}),tool=canvasTool(board);
+ assert.ok(tool.description.length<300,`description is ${tool.description.length} chars`);
+ const empty=await tool.run({action:'read'},{});
+ assert.match(empty.text,/^Drawing guide/);assert.match(empty.text,/viewBox="0 0 800 600"/);assert.match(empty.text,/R1 330Ω/);assert.match(empty.text,/canvas is empty/);
+ await board.create({html:ROCKET,summary:'ロケット',by:{kind:'agent'}});
+ const full=await tool.run({action:'read'},{});
+ assert.match(full.text,/Drawing guide[\s\S]*Canvas v1 "ロケット"[\s\S]*HTML:\n<svg/);
+ board.close();
+});
+
 test('the canvas tool is gated by the board like computer use: disabled means not offered',async t=>{
  const {store}=await tempStore(t),board=new CanvasBoard(store,{paceMs:0}),tool=canvasTool(board);
  assert.equal(tool.name,'canvas');assert.equal(tool.available(),true);
@@ -93,7 +124,7 @@ test('the conversation draws with the canvas tool itself, patches it, and the us
   const tools=toolResults(body),user=String(last(body,'user')?.content||'');
   if(!isMain(body))return {content:'unused'};
   assert.ok(toolNames(body).includes('canvas'),'the conversation is offered the canvas');
-  assert.match(body.messages[0].content,/Draw visuals yourself with canvas, not via a work agent/);
+  assert.match(body.messages[0].content,/Draw visuals yourself with canvas, not via agents/);
   if(user.includes('ロケットを描いて')&&!tools.length)return {calls:[{name:'canvas',args:{action:'create',html:ROCKET,summary:'夜空のロケット'}}]};
   if(user.includes('これを赤くして')&&!tools.some(m=>/Made v2/.test(m.content))){
    const sel=/selected "([\w-]+)"/.exec(body.messages.map(m=>typeof m.content==='string'?m.content:'').join('\n'))?.[1];
