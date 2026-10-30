@@ -52,9 +52,12 @@ test('the board keeps an append-only, persisted version log with authors, and st
  assert.ok(seen.filter(e=>e.type==='canvas.stream').every(e=>e.seq===null),'live progress is not persisted');
  const updated=seen.filter(e=>e.type==='canvas.updated');assert.equal(updated.length,2);assert.ok(updated.every(e=>e.seq>0&&!('html' in e.data)));
  store.close();
- const again=new Store(dir),reopened=new CanvasBoard(again,{paceMs:0});t.after(()=>again.close());
- assert.deepEqual(reopened.snapshot().versions.map(v=>[v.n,v.caption,v.by.kind]),[[1,'ロケット','agent'],[2,'炎を薄く','agent']]);
- assert.equal(reopened.snapshot().html,board.latest().html);
+ // Close the reopened store before tempStore's cleanup deletes the folder; Windows refuses to unlink an open SQLite file.
+ const again=new Store(dir),reopened=new CanvasBoard(again,{paceMs:0});
+ try{
+  assert.deepEqual(reopened.snapshot().versions.map(v=>[v.n,v.caption,v.by.kind]),[[1,'ロケット','agent'],[2,'炎を薄く','agent']]);
+  assert.equal(reopened.snapshot().html,board.latest().html);
+ }finally{again.close();}
 });
 
 test('aborting a drawing commits nothing and tells the screen to drop it',async t=>{
