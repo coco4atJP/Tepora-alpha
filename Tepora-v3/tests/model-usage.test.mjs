@@ -190,7 +190,7 @@ test('ordinary Node server and agent expose the shared receipts through the publ
  const launch=await fetch(app.launchUrl,{redirect:'manual'});assert.equal(launch.status,303);const cookie=launch.headers.get('set-cookie').split(';')[0];
  const bootstrap=await(await fetch(app.origin+'/api/bootstrap',{headers:{Cookie:cookie}})).json();
  const request=(route,method='GET',body)=>fetch(app.origin+route,{method,headers:{Cookie:cookie,'X-Tepora-CSRF':bootstrap.csrf,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- assert.equal((await request('/api/providers','PUT',{expectedRevision:0,config:{profiles:[profile()],routes:{main:{primary:'p'}}}})).status,200);
+ assert.equal((await request('/api/providers','PUT',{expectedRevision:0,config:{profiles:[profile({contextTokens:128000})],routes:{main:{primary:'p'}}}})).status,200);
  const admitted=await request('/api/agent/input','POST',{text:'Synthetic ordinary chat',requestId:'model-usage-smoke'});assert.equal(admitted.status,202);const {sessionId}=await admitted.json();
  await until(()=>!app.agent.runs.has(sessionId)&&app.agent.sessions.entries(sessionId,{types:['assistant']}).length===1);
  const response=await request('/api/agent');assert.equal(response.status,200);const publicState=await response.json(),usage=publicState.agent.usage;

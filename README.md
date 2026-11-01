@@ -25,9 +25,11 @@ Windowsはルートの `start.cmd`、macOSは `start.command` からも起動で
 
 新規クラウド接続は **pi-ai 1.3.0** を実際の推論・認証基盤として利用します。42プロバイダーのカタログと9種類のOAuthを設定画面から選択できます（専用通信が未接続のBedrock/Vertex等を含む一覧であり、全モデルの動作保証ではありません）。通常のNode/Tauri起動が対象です。[pi-aiの接続範囲と検証](Tepora-v3/docs/PI-AI.md)を参照してください。
 
-上部の「AIを接続」（または「設定 → AIとの接続」）で稼働中のローカルモデルを設定するか、送信先を確認して外部プロバイダーを接続します。モデルや推論環境は同梱されておらず、自動導入も完成していません。
+上部の「AIを接続」（または「設定 → AI・通信」）で稼働中のローカルモデルを設定するか、送信先を確認して外部プロバイダーを接続します。アカウント認証は既定のブラウザーで進め、開けなかった場合は画面のボタンから再試行できます。設定は用途別のカテゴリから選べ、「設定を検索」でカテゴリをまたいで探せます。モデルや推論環境は同梱されておらず、自動導入も完成していません。
 
 名前付き接続には22のひな形、接続先のモデル一覧取得、通常起動・デスクトップ向けの公式 **Sign in with ChatGPT** を追加しています。ChatGPTのサブスク認証と従量課金APIは分離し、アカウント・課金方式を跨ぐ自動切替は行いません。独立Rust開発ホストのOAuth所有者は未移植です。[接続方法・資格情報の保管・検証範囲](Tepora-v3/docs/MODEL-CONNECTIONS.md)を確認してください。
+
+音声認識・読み上げ・記憶検索には、主モデルと別のローカル／クラウド候補を追加しています。候補はモデル導入や認証済み接続を意味しません。録音・記憶の外部送信には明示確認が必要です。[モデル候補・導入条件・検証範囲](Tepora-v3/docs/MODALITY-MODELS.md)を参照してください。
 
 AIを接続せずに画面を確認する場合:
 
@@ -60,6 +62,7 @@ npm run test:native        # ネイティブサービスの単体/統合試験
 npm run doctor             # 環境診断
 npm test                   # V3 Nodeテストとルート起動テスト
 npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
+npm run quality:full       # 上記にブラウザE2E・Computer Use連携を追加（Playwrightが必要）
 npm run preview:build      # モデル不要の画面プレビュー
 npm ci --prefix Tepora-v3 --ignore-scripts  # pi-aiとネイティブ用CLI
 npm run desktop            # Tauri開発起動
@@ -67,6 +70,10 @@ npm run build              # Windows/macOSネイティブパッケージ
 ```
 
 標準検証にはPython 3が必要です。ネイティブビルドにはRust stableとOSごとのTauriビルド環境が必要です。Taskを利用する場合も、`task dev`、`task quality`、`task build` は同じV3のコマンドを実行します。
+
+macOSビルドは既定でアドホック署名を行い、アプリのリソース署名と同梱Node/Rustの読み込みを検証します。一般配布用のDeveloper ID署名・Apple公証には別途証明書と認証設定が必要です。詳細は[QA](Tepora-v3/docs/QA.md#macos-signing-and-current-browser-gates)を参照してください。
+
+実APIを使う[基本動作ベンチマーク](Tepora-v3/docs/BENCHMARK.md)を追加しました。`npm --prefix Tepora-v3 run bench:list` で対象を確認できます。DeepSeek V4.1 Flash・MiniMax M3.1 Flash・Step5・MiMo V2.6 Flash・Muse Spark 1.3 Contributorをpi-ai経由で登録し、JevによるComputer Useを含む22項目を既定で各2回測ります。有料APIの実行は通常の品質チェックとは別に明示指定します。
 
 CIは `rust/v3-core-migration` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
 

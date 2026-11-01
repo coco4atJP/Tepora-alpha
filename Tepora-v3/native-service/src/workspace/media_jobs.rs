@@ -206,6 +206,10 @@ impl MediaJobs {
             return Ok(public(&old));
         }
         let profile = self.capabilities.pin(kind).map_err(ApiError::from)?;
+        require(kind!="tts"||profile["voice"]!="SELECT_INSTALLED_BUILTIN",400,"MOSSの取得済みbuilt-in voiceを選んでください。")?;
+        if kind=="tts" && profile["model"].as_str().is_some_and(|s|s.starts_with("inworld-tts-2")||s=="kokoro"||s.starts_with("OpenMOSS-Team/MOSS-TTS-Nano")||s.starts_with("Qwen/Qwen3-TTS-")){
+            require(json_codec::utf16_units(prompt).len()<=4000,400,"This speech profile accepts at most 4000 characters")?;
+        }
         require(
             b["profileIdentity"] == profile["identity"],
             409,
@@ -432,7 +436,7 @@ impl MediaJobs {
         let route = match kind {
             "tts" => {
                 request.json = Some(
-                    json!({"model":j["model"],"input":j["prompt"],"voice":j["profile"]["voice"],"response_format":"mp3"}),
+                    json!({"model":j["model"],"input":j["prompt"],"voice":j["profile"]["voice"],"response_format":j["profile"].get("audioFormat").and_then(Value::as_str).unwrap_or("mp3")}),
                 );
                 "/audio/speech"
             }

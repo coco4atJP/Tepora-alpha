@@ -1,5 +1,70 @@
 # Tepora V3 changelog
 
+## Authentication opens in the default browser (beta.11)
+
+- Open a user-started Pi SDK or preserved ChatGPT login once in the OS default browser, with inline failure feedback and explicit retry
+- Resolve only the active service-owned HTTPS authentication URL from an attempt ID behind existing cookie/CSRF checks; keep the WebView confined to its sidecar origin
+- Preserve manual/secret input while polling, retain the pending service selection and avoid automatic relaunch on settings re-entry or after view closure
+- Cover launcher arguments, HTTP admission and both auth screens with synthetic tests; verify a non-secret test URL opens in the actual macOS default browser
+
+## Clearer AI connection setup (beta.11)
+
+- Start with account, API-key or local-AI choices; show registered AI/authentication/test state before advanced controls
+- Group service, model and display name into numbered sections; retain custom endpoints and legacy connections in disclosures
+- Select ordered fallback AIs by name while preserving role, device, account and billing constraints
+- Protect unsaved Back navigation and keep route edits during immediate network changes
+- Add inert preview catalogs with login/key entry disabled; verify the UI without real accounts or inference
+
+## Settings navigation and search (beta.11)
+
+- Show one settings category at a time; split display, home, idle/photo, AI/network and tool/skill settings by purpose
+- Add local search across categories, clear/empty states and keyboard focus management; retain search and expanded controls after changes save
+- Label clock controls separately, shorten widget names and explain immediate saves versus dialog Save buttons
+- Keep category navigation available on wide surfaces and use a category selector on narrow surfaces; retain shell-scroll regression coverage
+
+## Updated recorded ASR candidates (beta.11)
+
+- Suggest the Japanese-capable 2026-10-21 Granite Speech 5.0 470M TurboCTC for new recorded-input profiles; retain existing Qwen configurations
+- Add a local-only CPU/CUDA adapter using native Transformers CTC, resampling and bounded temporary WAV input; no downloads or remote code
+- Add the official Nemotron 3.5 recorded HTTP subset with ja-JP locale; do not claim the separate realtime WebSocket is integrated
+- Verify mocked decoding and Node/native HTTP contracts; the exact Granite public revision pin remains blocked by HTTP403 metadata access and real model quality/latency remains untested
+
+## Voice and memory model candidates (beta.11)
+
+- Add current local/cloud STT, TTS and embedding candidates, without changing existing routes, installing models or authenticating accounts
+- Connect recorded STT through identity-bound capability routes on both hosts; distinguish GPT-Transcribe multipart language fields and require per-recording external consent
+- Add an optional local MOSS/Qwen/Kokoro WAV TTS adapter and Inworld-compatible speech selection; preserve explicit text/recipient confirmation and cancellation
+- Version embedding input recipes, context and optional model revisions; keep Qwen query instructions separate from documents and require explicit reindexing after space changes
+- Separate external query consent from shared-memory indexing consent; test synthetic transports, Node/native parity and offline settings UI
+- See [choices, official sources and unverified paths](../Tepora-v3/docs/MODALITY-MODELS.md); real model quality, paid APIs and native desktop UI remain untested
+
+## Windows CI staging and Node budget repairs (beta.11)
+
+- Publish staged native binaries on Windows even when the previous file is still open or mapped, by retiring the old file before the new bytes take its place; a failed publish restores the working binary and never leaves a retired copy behind
+- Keep the single atomic rename on POSIX and do not retry unrelated filesystem errors
+- Raise the aggregate Node-suite budget to ten minutes so the measured 514-second Windows serial suite is no longer cut off; the 120-second file deadline, assertions, test selection and workflow limits are unchanged
+- Cover the Windows in-use destination, the restore-on-failure path and the retained-file case with focused staging fixtures; see [Windows CI evidence](../Tepora-v3/docs/QA.md#windows-native-staging-against-an-open-destination-2026-10-21-jst)
+
+## Real-provider benchmark and OpenCode registration (beta.11)
+
+- Add an opt-in 22-case, repeated acceptance benchmark with actual OpenCode main models, Jev Computer Use decisions, exact file/form oracles, browser UI checks, usage estimates and failed-session evidence
+- Register OpenCode through the actual Pi login/profile/SDK path; require the registered key, stable conversation header and Tepora client identity at dispatch, and record OpenCode response log IDs
+- Supplement Pi 1.3.0's older Go catalog with the current MiniMax M3.1 Flash and Step5 IDs and current endpoints; retain SDK adapters, authentication, native reasoning replay and account/billing boundaries
+- Extend the benchmark to MiMo V2.6 Flash and Muse Spark 1.3 Contributor, retaining their distinct Chat Completions/Responses adapters; check nested Responses usage, endpoint matching and real-SDK tool-result continuation
+- Verify delegated file creation in either the assigned parent folder or the worker folder, with worker write/read evidence and independent content checks; retain raw results from the older worker-only location oracle
+- Return 404 for not-yet-created session downloads and cover approval preconditions without mistaking a missing file for a service failure
+- Keep inference explicit, use isolated synthetic data, enforce bounded dispatch budgets and report provider failures and untested capabilities without claiming complete product certification; see [method and commands](../Tepora-v3/docs/BENCHMARK.md)
+
+## Release regression repairs (beta.11)
+
+- Preserve same-named attachment bytes, coalesce concurrent input retries and reject downloads escaping the canonical session root
+- Pin daily-budget regressions to explicit UTC instants and cover midnight recovery
+- Update browser E2E for the current Computer Use/account screens and asynchronous weather rendering
+- Show the effective network-tools permission consistently in Settings and the provider dialog
+- Seal macOS packages with a default ad-hoc signature while retaining hardened runtime; verify resources and the bundled V8/Rust addon after build and DMG installation
+- Add real signed-app resource-tampering coverage; Developer ID signing and Apple notarization still require release credentials
+- Replace staged native binaries atomically and allow a bounded post-exit Chrome stdio drain without releasing its profile early
+
 ## Configurable companion monitor (beta.11)
 
 - Add four scene/layout presets, clock fonts/sizes/seconds, an in-place customizer and up to four pinned cards, while keeping display changes separate from execution permissions

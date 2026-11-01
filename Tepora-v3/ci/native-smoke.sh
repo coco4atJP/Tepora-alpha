@@ -11,6 +11,8 @@ SOURCE_APP=$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)
 test -n "$SOURCE_APP"
 ditto "$SOURCE_APP" "$APP"
 hdiutil detach "$MOUNT"
+# Verify the installed copy, including its sealed resources, V8 and native addon.
+node scripts/verify-macos-bundle.mjs "$APP" > "$OUT/signature-verification.txt" 2>&1
 EXE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
 /usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$APP/Contents/Info.plist" > "$OUT/microphone-description.txt"
 "$APP/Contents/MacOS/$EXE" >/dev/null 2>"$OUT/native-stderr.txt" &

@@ -20,7 +20,7 @@ with sync_playwright() as pw:
  assert page.locator('#speech').is_visible()
  assert page.locator('#speech').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgba(0, 0, 0, 0)'
  assert '・' in page.locator('#clock-season').inner_text()
- assert '晴れ' in page.locator('#clock-sub').inner_text()
+ page.wait_for_function("document.querySelector('#clock-sub').textContent.includes('晴れ')")
  assert page.locator('body').get_attribute('data-backdrop')=='room'
  page.screenshot(path=str(out/'01-home.png'))
  checks.append('home: the character speaks as a caption, the date carries its 七十二候, weather is one line, the room is the backdrop')

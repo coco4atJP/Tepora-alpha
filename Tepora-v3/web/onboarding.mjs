@@ -15,11 +15,12 @@ export function createOnboarding({bridge,openSheet,closeSheet,isOpen,notice,onCo
   const connected=snapshot.verified;
   const candidates=(snapshot.candidates||[]).map(c=>`<button class="setup-choice" data-action="setup-select" data-id="${escape(c.id)}" ${loading?'disabled':''}><span><strong>${escape(c.model)}</strong><small>${escape(c.name)} · このPC${c.bytes?' · '+setupGiB(c.bytes):''}</small></span><span>確認して使う →</span></button>`).join('');
   const engines=snapshot.engines||[],transfer=snapshot.transfer,busy=loading||['downloading','checking'].includes(transfer?.status);
-  return `<p class="setup-lead">${connected?'つながりました。今度は、あなたの用事を一つ。':'AIの準備はここで。まず、このPCで使えるものを探します。'}</p>
+  return `<p class="setup-lead">${connected?'つながりました。会話や仕事を始められます。':'このPCで動くAIを、見つけてつなぎます。'}</p>
+   ${connected?'':'<p class="small-text">OllamaやLM StudioなどでAIを起動してから探してください。サービスのアカウントやAPIキーを使う方法も選べます。</p>'}
    <div id="setup-error" class="setup-error" role="alert" ${lastError?'':'hidden'}>${escape(lastError)}</div>
    ${connected?`<section class="setup-connected"><span aria-hidden="true">✓</span><div><strong>${escape(snapshot.model)}</strong><p>道具を呼び、戻り値を利用できることを確認しました。仕事の品質は結果で確かめます。</p></div></section>
     <div class="onboard-actions">${btn('setup-done','自分の依頼を始める','arrow','button')}${btn('setup-first-file','メモを添えて頼む','file','button secondary')}</div>`:''}
-   <div class="setup-options">${btn('setup-scan',loading?'確認しています…':'このPCのAIを探す','refresh','button secondary',loading?'disabled':'')}${btn('setup-advanced','自分の接続先を使う','','text-button')}</div>
+   <div class="setup-options">${btn('setup-scan',loading?'確認しています…':'このPCのAIを探す','refresh','button secondary',loading?'disabled':'')}${btn('setup-advanced','ほかの接続方法を選ぶ','','text-button')}</div>
    ${candidates?`<div class="setup-candidates">${candidates}</div>`:snapshot.scanned?'<p class="small-text">起動済みのモデルが見つかりませんでした。既存のAIアプリを起動して、もう一度探せます。</p>':''}
    ${engines.length&&!connected?`<details class="setup-download" ${candidates?'':'open'}><summary>ローカルモデルを取得する</summary><p>Ollamaのライブラリから取得します。個人の会話やファイルは送りません。保存先・取得済み部分はOllamaが管理します。</p>
     <small>現在のメモリ: 約${snapshot.ramGiB} GiB。取得サイズと推論に必要なメモリは異なります。以下はサイズの選択肢で、性能評価の順位ではありません。</small>

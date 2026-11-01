@@ -23,7 +23,7 @@ function validateSampling(raw){
  return out;
 }
 export const credentialClass=p=>p.authMode?.startsWith('pi-')?p.authMode+':'+p.accountId:p.authMode==='chatgpt'?'chatgpt:'+p.accountId:'api-key';
-const profileFields=['engine','piProvider','authMode','accountId','id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
+const profileFields=['engine','piProvider','authMode','accountId','id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader','thinking'];
 /** Gateways that route by conversation (and keep its prompt cache warm on one backend) when told which one a request
  * belongs to. OpenCode Go requires it; anyone else can set `sessionHeader` on the profile. */
 function sessionHeaderFor(u){return /(^|\.)opencode\.ai$/.test(u.hostname)?'x-opencode-session':'';}
@@ -59,6 +59,8 @@ export function validateProfile(raw,options={}){
  invariant(!raw.reasoningEffort||['minimal','low','medium','high'].includes(raw.reasoningEffort),'Invalid reasoning effort');
  invariant(raw.server===undefined||SERVERS.includes(raw.server),'Invalid server kind');
  invariant(!raw.sessionHeader||/^x-[a-z0-9-]{1,60}$/.test(raw.sessionHeader),'Invalid session header name');
+ invariant(!raw.thinking||raw.thinking==='off','Invalid thinking mode');
+ invariant(raw.thinking!=='off'||!raw.reasoningEffort&&!raw.thinkingBudget,'思考オフは推論の強さや思考予算と同時に指定できません。');
  const slow=raw.domain==='device'?600000:raw.domain==='lan'?300000:180000;
  const p={id:raw.id,name:text(raw.name||raw.id,'name',100),protocol:raw.protocol,baseUrl:u.href.replace(/\/$/,''),model:text(raw.model,'model',160),domain:raw.domain,
   enabled:raw.enabled!==false,apiKeyEnv:raw.apiKeyEnv||'',capabilities:caps,
@@ -67,7 +69,7 @@ export function validateProfile(raw,options={}){
   timeoutMs:number('timeoutMs',60000,1000,600000),firstByteTimeoutMs:number('firstByteTimeoutMs',slow,1000,3600000),idleTimeoutMs:number('idleTimeoutMs',120000,1000,3600000),
   maxParallel:number('maxParallel',raw.domain==='cloud'?4:1,1,64),resource:raw.resource||raw.id,
   thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,sessionHeader:raw.sessionHeader||sessionHeaderFor(u),
-  ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{})};
+  ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{}),...(raw.thinking==='off'?{thinking:'off'}:{})};
  if(authMode==='chatgpt'||authMode.startsWith('pi-')){p.authMode=authMode;p.accountId=raw.accountId;}
  if(raw.engine==='pi-ai'){p.engine='pi-ai';p.piProvider=raw.piProvider;validatePiProfile(p,options.resolvePiModel||piModel);}
  p.identity=digest(p);return p;

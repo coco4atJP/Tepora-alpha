@@ -35,7 +35,7 @@ export class MediaJobs{
   if(options.aspectRatio)invariant(['16:9','9:16','1:1','4:3','3:4','3:2','2:3'].includes(options.aspectRatio),'Invalid aspect ratio');
   const id=hash((job?.id||'user')+':'+requestId),intentHash=hash(JSON.stringify({kind,prompt,inputId,sourceAssetId,options}));
   const existing=this.store.get('media-job',id);if(existing){invariant(existing.intentHash===intentHash,'Request ID reused with different content',409);return mediaPublic(existing);}
-  const profile=this.capabilities.pin(kind);invariant(profileIdentity===profile.identity,'生成先を確認してから開始してください。',409);
+  const profile=this.capabilities.pin(kind);invariant(kind!=='tts'||profile.voice!=='SELECT_INSTALLED_BUILTIN','MOSSの取得済みbuilt-in voiceを選んでください。');if(kind==='tts'&&(profile.model.startsWith('inworld-tts-2')||profile.model==='kokoro'||profile.model.startsWith('OpenMOSS-Team/MOSS-TTS-Nano')||profile.model.startsWith('Qwen/Qwen3-TTS-')))invariant(prompt.length<=4000,'This speech profile accepts at most 4000 characters');invariant(profileIdentity===profile.identity,'生成先を確認してから開始してください。',409);
   invariant(this.store.list('media-job').filter(j=>activeStates.includes(j.status)).length<16,'生成待ちがいっぱいです。',429);
   invariant(this.capabilities.network.permitted(profile.domain,'model'),'現在の通信モードでは生成先を利用できません。',403);
   invariant(!inputId&&!sourceAssetId||['image_edit','video'].includes(kind),'この生成種類には画像を添付できません。');
@@ -65,7 +65,7 @@ export class MediaJobs{
    if(j.remoteId){await this.poll(j,signal);return;}
    const image=await this.input(j);signal.throwIfAborted();
    let route,json,body;
-   if(j.kind==='tts'){route='/audio/speech';json={model:j.model,input:j.prompt,voice:j.profile.voice,response_format:'mp3'};}
+   if(j.kind==='tts'){route='/audio/speech';json={model:j.model,input:j.prompt,voice:j.profile.voice,response_format:j.profile.audioFormat||'mp3'};}
    if(j.kind==='image'){route='/images/generations';json={model:j.model,prompt:j.prompt,n:1,size:j.options.size||'1024x1024'};}
    if(j.kind==='image_edit'){
     route='/images/edits';body=new FormData();body.set('model',j.model);body.set('prompt',j.prompt);body.set('n','1');

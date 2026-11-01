@@ -4,7 +4,8 @@
  */
 import {spawnSync} from 'node:child_process';
 import {assertNodeTarget} from './native-target.mjs';
-import {mkdir,copyFile,readFile,writeFile,readdir} from 'node:fs/promises';
+import {installNativeBinary} from './install-native-binary.mjs';
+import {mkdir,readFile,writeFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -22,10 +23,11 @@ for(const name of ['Cargo.toml','Cargo.lock','build.rs'])fingerprint.update(name
 await hashTree(path.join(crate,'src'));
 fingerprint.update(await readFile(fileURLToPath(import.meta.url)));
 fingerprint.update(await readFile(new URL('./native-target.mjs',import.meta.url)));
+fingerprint.update(await readFile(new URL('./install-native-binary.mjs',import.meta.url)));
 const digest=fingerprint.digest('hex'),stamp=path.join(out,'build.json'),binary=path.join(out,'tepora_core.node');
 function smoke(){
  const result=spawnSync(process.execPath,['-e',`const {StateCore}=require(process.argv[1]);const s=new StateCore(':memory:');s.call('kv.set',JSON.stringify({key:'smoke',value:true}));if(s.call('kv.get',JSON.stringify({key:'smoke'}))!=='true')process.exit(2);s.call('close','{}');`,binary],{encoding:'utf8',timeout:10000});
- if(result.status!==0)throw new Error('Built Rust core cannot load under this Node executable: '+(result.stderr||result.error?.message||result.status));
+ if(result.status!==0)throw new Error('Built Rust core cannot load under this Node executable: '+(result.stderr||result.error?.message||result.signal||result.status));
 }
 let current;try{current=JSON.parse(await readFile(stamp,'utf8'));}catch{}
 if(current?.digest===digest){try{
@@ -49,7 +51,7 @@ const metadata=spawnSync(process.env.CARGO||'cargo',['metadata','--locked','--of
 if(metadata.status!==0)throw new Error('Cannot collect Rust dependency notices: '+metadata.stderr);
 const resolved=JSON.parse(metadata.stdout);
 const source=path.join(resolved.target_directory,host,profile,name);
-await mkdir(out,{recursive:true});await copyFile(source,binary);
+await mkdir(out,{recursive:true});await installNativeBinary(source,binary);
 const packages=resolved.packages.filter(p=>p.source).sort((a,b)=>a.name.localeCompare(b.name));
 const notices=['Tepora Rust persistence core — third-party dependency notices\n'];
 for(const pkg of packages){

@@ -7,7 +7,7 @@ import path from 'node:path';
 import {Store} from '../core/store.mjs';
 import {NetworkPolicy} from '../core/network-policy.mjs';
 import {ProviderRegistry,validateProfile} from '../core/provider-registry.mjs';
-import {ProtocolClient,encodeRequest,ThinkSplitter,classifyResponse,overflowLimit} from '../core/provider-protocols.mjs';
+import {ProtocolClient,encodeRequest,encodeOllama,ThinkSplitter,classifyResponse,overflowLimit} from '../core/provider-protocols.mjs';
 
 const profile=(protocol,extra={})=>validateProfile({id:'p',protocol,baseUrl:'https://api.example.com/v1',model:'m',domain:'cloud',...extra});
 const sse=frames=>new Response(new ReadableStream({start(c){const e=new TextEncoder();for(const f of frames){const s=`data: ${typeof f==='string'?f:JSON.stringify(f)}\n\n`;for(let i=0;i<s.length;i+=5)c.enqueue(e.encode(s.slice(i,i+5)));}c.close();}}),{headers:{'content-type':'text/event-stream'}});
@@ -93,6 +93,18 @@ test('a slow but steady stream is never cut off; a silent server is',async t=>{
  const q=await quiet.invoke('work',[{role:'user',content:'go'}]).catch(e=>e);
  assert.ok(q.retryAfterMs!==undefined||q.kind,'a silent server becomes a retryable unavailability');
 });
+test('thinking "off" on a profile turns reasoning off in each protocol\'s own words, and validation keeps it consistent',()=>{
+ const msgs=[{role:'user',content:'hi'}];
+ assert.deepEqual(encodeRequest(profile('chat-completions',{thinking:'off'}),msgs,{}).thinking,{type:'disabled'});
+ assert.equal(encodeRequest(profile('chat-completions',{thinking:'off'}),msgs,{compat:{drop:['thinking']}}).thinking,undefined);
+ assert.equal(encodeOllama(profile('chat-completions',{thinking:'off',server:'ollama'}),msgs,{}).think,false);
+ assert.deepEqual(encodeRequest(profile('gemini',{thinking:'off'}),msgs,{}).generationConfig.thinkingConfig,{thinkingBudget:0});
+ assert.equal(encodeRequest(profile('chat-completions'),msgs,{}).thinking,undefined);
+ assert.equal(profile('chat-completions').thinking,undefined,'unset keeps existing profile identities');
+ assert.throws(()=>profile('chat-completions',{thinking:'on'}),/Invalid thinking mode/);
+ assert.throws(()=>profile('chat-completions',{thinking:'off',reasoningEffort:'high'}),/思考オフ/);
+});
+
 test('an optional parameter a strict server rejects is dropped and remembered',async t=>{
  const seen=[];
  const s=await local(async(req,res)=>{

@@ -55,8 +55,8 @@ test('persona revision change cancels autosend but leaves typed draft intact',as
 });
 test('character job internals are hidden from work list; historical jobs stay visible',()=>{
  const f=fixture();f.state.jobs.push({id:'turn',title:'INTERNAL TURN',kind:'chat',characterSessionId:'session-one',status:'running'},{id:'legacy',title:'HISTORICAL CHAT',kind:'chat',status:'paused'});
- f.ctx.statuses={};f.run(part('const workJobs=','const settings='));f.load('function taskRows(){','function artifactSurface(){');const html=f.run('taskRows()');
- assert.doesNotMatch(html,/INTERNAL TURN/);assert.match(html,/HISTORICAL CHAT/);assert.equal(f.run('activeJobs().length'),1);
+ f.ctx.statuses={};f.ctx.canvasView={busy:()=>false};f.ctx.icon=()=>'';f.run(part('const workJobs=','const settings='));f.load('function taskRows(){','function artifactSurface(){');const html=f.run('taskRows()');
+ assert.doesNotMatch(html,/INTERNAL TURN/);assert.match(html,/HISTORICAL CHAT/);assert.match(html,/data-action="canvas-open"/);assert.equal(f.run('activeJobs().length'),1);
 });
 test('normal UI offers no manual continue/new/side routing or agent selector',()=>{
  assert.doesNotMatch(appSource,/data-action="(?:agent-select|composer-intent|natural-intent)"/);assert.doesNotMatch(appSource,/\/api\/companion\/(?:propose|submit|context)/);assert.doesNotMatch(appSource,/chooseComposerIntent|submitIntent\(/);

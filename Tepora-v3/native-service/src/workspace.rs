@@ -1003,7 +1003,12 @@ impl Backend for Workspace {
             let settings = { let mut state = self.lock()?; require(!state.closed && !state.closing, 503, "Service closing")?; state.settings()? };
             let value = match operation {
                 Operation::VoiceEdit { body } => native.voice.edit(&settings, &body, cancel).await?,
-                Operation::VoiceTranscribe { audio } => native.voice.transcribe(&settings, audio, cancel).await?,
+                Operation::VoiceTranscribe { audio, target } => {
+                    if target.is_some() || native.capabilities.get().map_err(ApiError::from)?["routes"].get("stt").is_some(){
+                        let (identity,consent)=target.unwrap_or_default();
+                        native.voice.transcribe_capability(&settings,&native.capabilities,audio,&identity,consent,cancel).await?
+                    }else{native.voice.transcribe(&settings, audio, cancel).await?}
+                },
                 _ => return Err(ApiError::bad_request("Invalid voice operation")),
             };
             Ok(Reply::Json(value))
@@ -1028,8 +1033,8 @@ impl Backend for Workspace {
             let (body,index)=match operation {Operation::SemanticIndex{body}=>(body,true),Operation::SemanticSearch{body}=>(body,false),_=>return Err(ApiError::bad_request("Invalid semantic operation"))};
             let access=crate::semantic::Access{allow_external:body["consent"]==true,..Default::default()};
             let work=async {
-                if index {native.semantic.index(access,&cancel).await}
-                else {native.semantic.search(&body["query"],crate::semantic::SearchOptions{access,..Default::default()},&cancel).await}
+                if index {native.semantic.index_expected(access,&cancel,body.get("profileIdentity")).await}
+                else {native.semantic.search_expected(&body["query"],crate::semantic::SearchOptions{access,..Default::default()},&cancel,body.get("profileIdentity")).await}
             };
             let value=match tokio::time::timeout(std::time::Duration::from_secs(if index{90}else{30}),work).await {
                 Ok(result)=>result.map_err(ApiError::from)?,

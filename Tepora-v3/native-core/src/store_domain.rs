@@ -242,7 +242,7 @@ fn atomic(
 }
 
 pub fn default_settings() -> Value {
-    json!({"dictationEditing":false,"codexEnabled":false,"codexNetwork":false,"codexBinary":"","codexModel":"","companion":"Tepora","provider":"llama.cpp","baseUrl":"http://127.0.0.1:8080/v1","model":"","apiKeyEnv":"","allowCloud":false,"allowNetwork":false,"shareMemory":false,"maxSteps":64,"maxTokens":2048,"concurrency":2,"asrUrl":"","asrStreamUrl":"","asrModel":"Qwen/Qwen3-ASR-1.7B","decisionUrl":"","decisionModel":"multilingual","voiceEnabled":true,"autoAmbient":false,"weatherCity":"","newsUrl":"","runtimeBinary":"","modelPath":"","bravePath":""})
+    json!({"dictationEditing":false,"codexEnabled":false,"codexNetwork":false,"codexBinary":"","codexModel":"","companion":"Tepora","provider":"llama.cpp","baseUrl":"http://127.0.0.1:8080/v1","model":"","apiKeyEnv":"","allowCloud":false,"allowNetwork":false,"shareMemory":false,"maxSteps":64,"maxTokens":2048,"concurrency":2,"asrUrl":"","asrStreamUrl":"","asrModel":"Qwen/Qwen3-ASR-0.6B","decisionUrl":"","decisionModel":"multilingual","voiceEnabled":true,"autoAmbient":false,"weatherCity":"","newsUrl":"","runtimeBinary":"","modelPath":"","bravePath":""})
 }
 fn settings(state: &mut NativeState) -> CoreResult<Value> {
     let mut settings = default_settings();

@@ -1,6 +1,6 @@
 {
   "source": "core/provider-registry.mjs",
-  "sourceHash": "e27d7e4062328d64e35f7b23a1a3572f8afb9701197e7b3c19962d3c93ba6958",
+  "sourceHash": "6f55017ecc790ebe6b85d07accda5743ec5ccdf6f47d36903bb07d45960702ed",
   "cases": [
     {
       "raw": {
@@ -61,7 +61,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p1",
@@ -96,7 +97,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "f73d0e1091a7eb286f000fafcd4c3d99abc3cdcf761508a619c51e57d45aed06"
+        "thinking": "off",
+        "identity": "60a975fea4d22d8e367df69c0ebf480db37d0b8df38690fdc928ee2a177c0026"
       }
     },
     {
@@ -263,7 +265,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p5",
@@ -298,7 +301,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "64f4cf051871f30734d4c150e94e9af5c131173aa51a795143ce8b6571d75511"
+        "thinking": "off",
+        "identity": "915693bdd3b81c0d388c7902e65e01d5884c23eeeadc403996a42e84a040c1e2"
       }
     },
     {
@@ -465,7 +469,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p9",
@@ -500,7 +505,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "617a9d4d35dc2d9dc56ec6522ea68cd2f3bac60217cb1afa54f8aa1ea5f3c6a2"
+        "thinking": "off",
+        "identity": "e1b8253652c52874727df7232b2e1c80b370465d19b83130a3157d788fa9ac1c"
       }
     },
     {
@@ -667,7 +673,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p13",
@@ -702,7 +709,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "459ba695bcbe99ec5e361f90b869a9b8f7bdbaec187f330fbbaf4b5868a1fcf7"
+        "thinking": "off",
+        "identity": "736e7c09cfcbdc3e5a6857ce3aad13c6fd0bc71f7105eb0ee001ac66fad27359"
       }
     },
     {
@@ -869,7 +877,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p17",
@@ -904,7 +913,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "x-opencode-session",
-        "identity": "44abad436cf945fc22a7dae74c39f41d13f0ed7a71d050048fe119c7893b329f"
+        "thinking": "off",
+        "identity": "6cbdc07a5a94c0701e123f00fddbff8fd8933742893e728a9089c62e55b8808d"
       }
     },
     {
@@ -1075,7 +1085,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p21",
@@ -1110,7 +1121,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "d7efecd9743711df54e9fbbd7827aa53d5a97cc95f862b11e62ef32d9ff5dd4c"
+        "thinking": "off",
+        "identity": "6b0595aa24b19290b64ddbd7fc5fcabc0d25001a7095707b2caa02728807bdaa"
       }
     },
     {
@@ -1285,7 +1297,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p25",
@@ -1320,7 +1333,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "934a2666b195fd8bad604552b22950c127270702119350b4f3ddda091d473085"
+        "thinking": "off",
+        "identity": "e4e073869404fed271625d4faaab938e746b90bcd7d414328da79211d806ded4"
       }
     },
     {
@@ -1491,7 +1505,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p29",
@@ -1526,7 +1541,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "83de024949c4911c8445f250b98e6eb25bdf3c1f0c1616409abd26986550efbc"
+        "thinking": "off",
+        "identity": "5ce1af8fb7ead43db4de8d6799825ad0d4dcd7f03a05d3bb63dda01326f99096"
       }
     },
     {
@@ -1693,7 +1709,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p33",
@@ -1728,7 +1745,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "8f3611a96855f69351f63eb2350e691e35a45f2f70d124c666991987c02c63d1"
+        "thinking": "off",
+        "identity": "71ee83325ac67c567a17ff02dfcb03ba4197c1fc24abd3c46486d27969c141f7"
       }
     },
     {
@@ -1895,7 +1913,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p37",
@@ -1930,7 +1949,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "9e33e85f3c91e54e2dcd91047f99341a6c51880f1ace4303a9c67967c5dca5de"
+        "thinking": "off",
+        "identity": "b527ae24e3868b55e01733cd4937169b7b8c8a5357eb7a143ab619eb3bf01ce0"
       }
     },
     {
@@ -2097,7 +2117,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p41",
@@ -2132,7 +2153,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "05dd087ef4ebf0dfb9cd9e5ddc1d586ce9acb5569ba65b3bbfeabfba2e7d68e1"
+        "thinking": "off",
+        "identity": "0908aa6250b4b9885420607b43e67dabbf156a32769ec38d43d70834c9fea79d"
       }
     },
     {
@@ -2299,7 +2321,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p45",
@@ -2334,7 +2357,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "x-opencode-session",
-        "identity": "e777fe28d5888f747e743e62c9c437487f537e3775bfc967325fbf42f1890c15"
+        "thinking": "off",
+        "identity": "6233ef41889d9779e613f8fe904c6219ad9289ecc9cb26ebc57fdc0b05d43397"
       }
     },
     {
@@ -2505,7 +2529,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p49",
@@ -2540,7 +2565,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "63f5faf709b1d405d9cc0db9ba388cef6d2a2f4a03c36f491b344f61c11f3700"
+        "thinking": "off",
+        "identity": "aaee2de02c76e7183e1cbc23d26ef73e5391f5cd8e8629e8eee4f9db01e22b19"
       }
     },
     {
@@ -2715,7 +2741,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p53",
@@ -2750,7 +2777,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "9d107789d7c1cfa96836199d630d949f9c3a4c97ec73a536a41d734d19f06bdb"
+        "thinking": "off",
+        "identity": "75de8e9302e65e91028c52c8a249265434c4d261a1f72e28cafeef738304d270"
       }
     },
     {
@@ -2921,7 +2949,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p57",
@@ -2956,7 +2985,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "09a1c37c42d6f1db52215a9438a9c65e2900459509e3623780772d67878aa971"
+        "thinking": "off",
+        "identity": "49e665d967d09ac55702700bc679dff93a6336f0fd1168685b66cbac664e1352"
       }
     },
     {
@@ -3123,7 +3153,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p61",
@@ -3158,7 +3189,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "9c3ddd09e1cfc66a5ebcea13c99754c0c1bcd314556920885d80347d807b1b01"
+        "thinking": "off",
+        "identity": "8ee480a74b2cc311484f32d0bb4386bb21369872e791d99a6fd9bc02231b8dec"
       }
     },
     {
@@ -3325,7 +3357,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p65",
@@ -3360,7 +3393,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "dba5ec0e59ca2ae7010ead38599759a159e85b5bba89de58f2160443e307d3f5"
+        "thinking": "off",
+        "identity": "e9258e9ad59afea11e6dab8fb9254ea79d94ce3ae9f632846a0ecf961bf28be8"
       }
     },
     {
@@ -3527,7 +3561,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p69",
@@ -3562,7 +3597,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "bcccc07ce9a5ca6c209654e1982b316f5cfecc83dea7b24fcd893c6815521ba7"
+        "thinking": "off",
+        "identity": "7aee4a85720030e70fdfaa19691a87dbe5c3d65126d9e6e73eb0b71ce6cf7ac2"
       }
     },
     {
@@ -3729,7 +3765,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p73",
@@ -3764,7 +3801,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "x-opencode-session",
-        "identity": "c2487c8e73822b0355addc0d15ccc1f92edaa55e7912127144f73df855414f96"
+        "thinking": "off",
+        "identity": "30c09ca1daab8a9dbbe2c6a6df9efb60882859a52f3d6373896016d3dca1d1c2"
       }
     },
     {
@@ -3935,7 +3973,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p77",
@@ -3970,7 +4009,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "329301c7ae79fb99be2fb8a13b2602df518acd6cf6a746e369309670399c3c06"
+        "thinking": "off",
+        "identity": "12e0810572f92e31f51d7478a1cdde1e4aecdf05727a8625303e22da5b1bb299"
       }
     },
     {
@@ -4145,7 +4185,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p81",
@@ -4180,7 +4221,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "026acc789aa4ff33eaaad0bc8f97c9f4837911569e69de63afeab87dd451c01e"
+        "thinking": "off",
+        "identity": "b9126f1bf5aad2688a75aea17f3428f1727e8b0c1cb56301df5593835aa3f445"
       }
     },
     {
@@ -4351,7 +4393,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p85",
@@ -4386,7 +4429,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "c2a2a4327160de7e4da2420879752a4f6e94ce06e44cb20d4591aa49d3933c93"
+        "thinking": "off",
+        "identity": "a999bf288e50680c743bbba66e01ead9ebe2439639af0238b371868cfe4d8217"
       }
     },
     {
@@ -4553,7 +4597,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p89",
@@ -4588,7 +4633,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "025f565201191604cb9d5a9adf3285483974802158cbaafcffcd72e30403035b"
+        "thinking": "off",
+        "identity": "5bbf88a3e9707150545399e9f5c2ce9e4e80a581c4ce886b213374d7c6225364"
       }
     },
     {
@@ -4755,7 +4801,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p93",
@@ -4790,7 +4837,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "151f6ec636328679ba330c2711fa2c7545e60047110bf480c234349b6f67fedd"
+        "thinking": "off",
+        "identity": "8caf6e9122484f5a0b30b2530896a4a80cba7bb11db0893773b3146aee2df375"
       }
     },
     {
@@ -4957,7 +5005,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p97",
@@ -4992,7 +5041,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "69ced8f29f2fd6b5d4743138b61800ce1e6ce5cbddc0c67ac8d51ed5fa8d8ebb"
+        "thinking": "off",
+        "identity": "a81014228cfc268ea778877f1a221d1944fd5101d59a278084b75cc9fe1b0cc3"
       }
     },
     {
@@ -5159,7 +5209,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p101",
@@ -5194,7 +5245,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "x-opencode-session",
-        "identity": "3dc8780da83206758e2e1ae06c24f46472c473e317a229cc3f3ecf6e0cc2d726"
+        "thinking": "off",
+        "identity": "b76645de29eb5abe0055169091e6559586bd11f2257302c0fa1638663e47272f"
       }
     },
     {
@@ -5365,7 +5417,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p105",
@@ -5400,7 +5453,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "edf2e2e4d60cc73ed8aedf66b923ad56ee1a0d0e05adfde78393202ece20905e"
+        "thinking": "off",
+        "identity": "58dbe498e38dd6b8ef222e359b1e938e8c03e6db79338940de9bccf04c2fd2d7"
       }
     },
     {
@@ -5575,7 +5629,8 @@
         "capabilities": {
           "vision": false,
           "tools": true
-        }
+        },
+        "thinking": "off"
       },
       "expected": {
         "id": "p109",
@@ -5610,7 +5665,8 @@
         "server": "auto",
         "cache": true,
         "sessionHeader": "",
-        "identity": "6fb313dc0359abcc1fa18957382d92c83840a26d1839f58b3928db98b45666eb"
+        "thinking": "off",
+        "identity": "666de4eb45b9187841f0023c4255589ec4b2c64809be490ab43f9bbd6208a776"
       }
     },
     {

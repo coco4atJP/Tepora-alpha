@@ -4,10 +4,12 @@ import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
 import {ProviderAuth} from './provider-auth.mjs';
 import {PiAIService,piProviders} from './pi-ai.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
-import {openInstallerPage} from './platform-links.mjs';
+import {openInstallerPage,openAuthenticationPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {stageInputs,removeStagedInput,resolveInputs} from './input-files.mjs';
 import {editDictation} from './dictation.mjs';
+import {canvasFrameDocument,canvasFrameCsp} from './canvas-frame.mjs';
+import {CanvasBoard} from './canvas-board.mjs';
 import {SpeechStream} from './speech-stream.mjs';
 import {Avatar,AvatarAssets,MAX_ASSET_BYTES} from './avatar.mjs';
 import {PhotoFrame,MAX_PHOTO_BYTES} from './photo-frame.mjs';
@@ -25,7 +27,8 @@ import {defaultPersonas,nextVoice,normalizePersonas} from './persona.mjs';
 /** Loopback-only service. UI and API share an origin; credentials never enter browser storage. */
 import http from 'node:http';
 import {randomBytes,timingSafeEqual,randomUUID} from 'node:crypto';
-import {readFile,mkdir,stat,readdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdir,stat,readdir,writeFile,realpath,open} from 'node:fs/promises';
+import {constants as fsConstants} from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -58,30 +61,41 @@ function configurePersonas(store,raw){
  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
  store.value('dialogue-personas',next);return next;
 }
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},canvasOptions={},mediaOptions={},toolHubOptions={},agentOptions={},openAuthBrowser=openAuthenticationPage}={}) {
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth,pi});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
  const semantic=new SemanticMemory(store,capabilities),toolHub=new ToolHub(store,network,toolHubOptions);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry,...computerOptions});
+ const canvas=new CanvasBoard(store,canvasOptions);
  // The work folder is ~/Tepora only for the real data folder. Tests and alternative data folders (TEPORA_DATA_DIR)
  // keep their work inside that folder, so they never write into the user's home.
  const isolated=!!process.env.TEPORA_DATA_DIR||path.resolve(dir)!==path.resolve(dataDir());
- const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
+ const agent=new AgentRuntime(store,{registry,network,toolHub,capabilities,computer,canvas,media,semantic,pluginDir:path.join(dir,'plugins'),...(isolated&&!(store.value('agent-settings')||{}).workRoot?{workRoot:path.join(dir,'work')}:{}),...agentOptions});
  const ui=new AgentUIModel(store,agent);
  await agent.tools.loadPlugins().catch(()=>{});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),avatarAssets=new AvatarAssets(store),avatar=new Avatar(store,avatarAssets),frame=new PhotoFrame(store);
  const setup=new SetupManager(store,{registry,busy:()=>agent.runs.size>0},{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions});
- const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map();
+ const probes=new Map(),catalog=new ModelCatalog(store,network),seen=new Map(),pendingInputs=new Map();
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
- const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
+ const snapshot=()=>({...store.snapshot(),...ui.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:computer.snapshot(),canvas:canvas.snapshot(),capabilities:capabilities.snapshot(),mediaJobs:media.snapshot(),display:display.get(),avatar:avatar.get(),avatarAssets:avatarAssets.snapshot(),frame:frame.snapshot(),sandbox:detectSandbox()});
+ async function openAuthPage(req,res,auth){
+  const b=await body(req);invariant(b&&typeof b.id==='string'&&b.id.length<=100&&Object.keys(b).length===1,'現在の認証IDだけを指定してください。');
+  await openAuthBrowser(auth.browserURL(b.id));return json(res,{opened:true});
+ }
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.',enabled:true,source:'builtin',createdAt:new Date().toISOString()});
  /** Files the person attaches are copied into a dated inbox folder the agents can read. */
  async function saveAttachments(ids){
   const docs=resolveInputs(store,ids);if(!docs.length)return [];
   const folder=path.join(agent.workRoot,'inbox',new Date().toISOString().slice(0,10));await mkdir(folder,{recursive:true});
-  const saved=[];for(const d of docs){let name=d.name.replace(/[\\/:*?"<>|]/g,'_'),file=path.join(folder,name);for(let i=1;;i++){try{await stat(file);file=path.join(folder,name.replace(/(\.[^.]*)?$/,`-${i}$1`));}catch{break;}}
-   await writeFile(file,d.kind==='image'?Buffer.from(d.base64,'base64'):d.content);saved.push({path:file,name:d.name,kind:d.kind||'text'});}
+  const saved=[];for(const d of docs){
+   const name=d.name.replace(/[\\/:*?"<>|]/g,'_'),bytes=d.kind==='image'?Buffer.from(d.base64,'base64'):d.content;
+   for(let i=0;;i++){
+    const file=path.join(folder,i?name.replace(/(\.[^.]*)?$/,`-${i}$1`):name);
+    try{await writeFile(file,bytes,{flag:'wx'});saved.push({path:file,name:d.name,kind:d.kind||'text'});break;}
+    catch(error){if(error.code!=='EEXIST')throw error;}
+   }
+  }
   return saved;
  }
  const server=http.createServer(async(req,res)=>{
@@ -115,6 +129,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     return res.end(`<!doctype html><meta charset="utf-8"><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;overflow:hidden;background:#120c0a}</style><iframe title="YouTube player" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen src="https://www.youtube-nocookie.com/embed/${id}?autoplay=0&amp;playsinline=1&amp;rel=0"></iframe>`);
    }
+   if(p==='/canvas/frame' && method==='GET'){
+    const nonce=randomBytes(18).toString('base64url');res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy',canvasFrameCsp(nonce,origin));
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});return res.end(canvasFrameDocument(nonce));
+   }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');if(!network.permitted('cloud','web'))throw new NetworkBlocked('インターネットを使う道具を許可してください。');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
    if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
    if(p==='/api/bootstrap' && method==='GET')return json(res,{...snapshot(),setup:setup.snapshot(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:agent.workRoot,preview:false,version:VERSION});
@@ -139,16 +158,25 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     const b=await body(req),input=text(b.text,'message',32000);
     invariant(b.requestId===undefined||typeof b.requestId==='string'&&/^[\w-]{8,80}$/.test(b.requestId),'Invalid request id');
     if(b.requestId&&seen.has(b.requestId))return json(res,seen.get(b.requestId),202);
+    if(b.requestId&&pendingInputs.has(b.requestId))return json(res,await pendingInputs.get(b.requestId),202);
     invariant(registry.configured,'先に「AIを接続」でモデルを登録してください。',409);
-    const files=await saveAttachments(b.attachmentIds||[]);
-    const main=agent.main(),source=b.source==='voice'?'voice':'text';
-    // Pictures go to the character as images (it sees them if its model can); every file is also on disk for work agents.
-    const images=[];for(const f of files.filter(f=>f.kind==='image').slice(0,4)){try{images.push({...await loadImage(f.path),name:f.name});}catch{}}
-    const message=files.length?`${input}\n\n[添付ファイル（このPCに保存済み）: ${files.map(f=>f.path).join(', ')}]`:input;
-    agent.send(main.id,{text:message,from:'user',kind:'message',mode:'steer',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
-    const receipt={accepted:true,sessionId:main.id,requestId:b.requestId||null};
-    if(b.requestId){seen.set(b.requestId,receipt);if(seen.size>500)seen.delete(seen.keys().next().value);}
-    return json(res,receipt,202);
+    const admission=(async()=>{
+     const files=await saveAttachments(b.attachmentIds||[]);
+     const main=agent.main(),source=b.source==='voice'?'voice':'text';
+     // Pictures go to the character as images (it sees them if its model can); every file is also on disk for work agents.
+     const images=[];for(const f of files.filter(f=>f.kind==='image').slice(0,4)){try{images.push({...await loadImage(f.path),name:f.name});}catch{}}
+     const message=files.length?`${input}\n\n[添付ファイル（このPCに保存済み）: ${files.map(f=>f.path).join(', ')}]`:input;
+     agent.send(main.id,{text:message,from:'user',kind:'message',mode:'steer',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
+     return {accepted:true,sessionId:main.id,requestId:b.requestId||null};
+    })();
+    // Reserve the id before yielding; successful receipts retain the existing
+    // bounded cache, while failed preparation releases the id for an explicit retry.
+    if(b.requestId)pendingInputs.set(b.requestId,admission);
+    try{
+     const receipt=await admission;
+     if(b.requestId){seen.set(b.requestId,receipt);if(seen.size>500)seen.delete(seen.keys().next().value);}
+     return json(res,receipt,202);
+    }finally{if(b.requestId)pendingInputs.delete(b.requestId);}
    }
    if(p==='/api/agent/sessions'&&method==='GET')return json(res,agent.sessions.list().map(({system,...s})=>s));
    if(p==='/api/agent/spawn'&&method==='POST'){const b=await body(req);invariant(registry.configured,'先にモデルを登録してください。',409);const s=await agent.spawn(agent.main(),{task:text(b.task,'task',32000),title:b.title,from:'user'});return json(res,ui.job(s),202);}
@@ -172,9 +200,17 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
      await walk(root,0);return json(res,{root,files});
     }
     if(action==='download'&&method==='GET'){
-     const root=path.resolve(s.cwd||agent.workRoot),file=path.resolve(root,String(u.searchParams.get('path')||''));invariant(file.startsWith(root+path.sep),'File is outside the session folder',403);
+     const root=await realpath(s.cwd||agent.workRoot),requested=path.resolve(root,String(u.searchParams.get('path')||''));
+     invariant(requested.startsWith(root+path.sep),'File is outside the session folder',403);
+     let file;try{file=await realpath(requested);}catch(e){if(e.code==='ENOENT')return json(res,{error:'File not found'},404);throw e;}invariant(file.startsWith(root+path.sep),'File is outside the session folder',403);
      const info=await stat(file);invariant(info.isFile()&&info.size<=50_000_000,'Download is limited to 50 MB',413);
-     res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(path.basename(file))}`,'Cache-Control':'no-store'});return res.end(await readFile(file));
+     const handle=await open(file,fsConstants.O_RDONLY|(fsConstants.O_NOFOLLOW||0));
+     try{
+      const opened=await handle.stat();invariant(opened.isFile()&&opened.size<=50_000_000,'Download is limited to 50 MB',413);
+      const chunks=[];let size=0;
+      for await(const chunk of handle.createReadStream({autoClose:false})){size+=chunk.length;invariant(size<=50_000_000,'Download is limited to 50 MB',413);chunks.push(chunk);}
+      res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(path.basename(requested))}`,'Cache-Control':'no-store'});return res.end(Buffer.concat(chunks,size));
+     }finally{await handle.close();}
     }
    }
    if(p==='/api/agent/settings'&&method==='GET')return json(res,{...agent.settings(),sandboxAvailable:detectSandbox()});
@@ -205,8 +241,8 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/capabilities'&&method==='PUT'){const b=await body(req);return json(res,capabilities.save(b.config,b.expectedRevision));}
    const capKey=p.match(/^\/api\/capabilities\/([^/]+)\/key$/);
    if(capKey&&method==='POST'){const b=await body(req);return json(res,capabilities.setKey(capKey[1],b.key,b.identity));}
-   if(p==='/api/semantic/index'&&method==='POST'){const b=await body(req);return json(res,await semantic.index({allowExternal:b.consent===true,signal:AbortSignal.timeout(90000)}));}
-   if(p==='/api/semantic/search'&&method==='POST'){const b=await body(req);return json(res,await semantic.search(b.query,{allowExternal:b.consent===true,signal:AbortSignal.timeout(30000)}));}
+   if(p==='/api/semantic/index'&&method==='POST'){const b=await body(req);return json(res,await semantic.index({profileIdentity:b.profileIdentity,allowExternal:b.consent===true,signal:AbortSignal.timeout(90000)}));}
+   if(p==='/api/semantic/search'&&method==='POST'){const b=await body(req);return json(res,await semantic.search(b.query,{profileIdentity:b.profileIdentity,allowExternal:b.consent===true,signal:AbortSignal.timeout(30000)}));}
    if(p==='/api/media/jobs'&&method==='GET')return json(res,{jobs:media.snapshot()});
    if(p==='/api/media/jobs'&&method==='POST'){const b=await body(req);invariant(b.consent===true,'送信先と生成内容への確認が必要です。',403);return json(res,media.create(b),202);}
    const mediaJob=p.match(/^\/api\/media\/jobs\/([a-f0-9]{64})(?:\/(cancel|resume))?$/);
@@ -255,11 +291,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/pi/models/refresh'&&method==='POST'){const b=await body(req);return json(res,await pi.refreshModels(b.provider,b.accountId,b.consent,AbortSignal.timeout(30000)));}
    if(p==='/api/pi/auth'&&method==='GET')return json(res,pi.snapshot());
    if(p==='/api/pi/auth/start'&&method==='POST')return json(res,pi.begin(await body(req)));
+   if(p==='/api/pi/auth/open'&&method==='POST')return await openAuthPage(req,res,pi);
    if(p==='/api/pi/auth/respond'&&method==='POST')return json(res,pi.respond(await body(req)));
    if(p==='/api/pi/auth/cancel'&&method==='POST'){const b=await body(req);return json(res,pi.cancel(b.id));}
    if(p==='/api/pi/auth/disconnect'&&method==='POST'){const b=await body(req);return json(res,await pi.disconnect(b.accountId));}
    if(p==='/api/provider-auth'&&method==='GET')return json(res,providerAuth.snapshot());
    if(p==='/api/provider-auth/start'&&method==='POST')return json(res,await providerAuth.begin(await body(req)));
+   if(p==='/api/provider-auth/open'&&method==='POST')return await openAuthPage(req,res,providerAuth);
    if(p==='/api/provider-auth/cancel'&&method==='POST'){const b=await body(req);return json(res,providerAuth.cancel(b.id));}
    const authAction=p.match(/^\/api\/provider-auth\/(chatgpt-[a-f0-9-]{36})\/(models|disconnect)$/);
    if(authAction&&method==='POST'){const b=await body(req);return json(res,authAction[2]==='models'?await providerAuth.models(authAction[1],{consent:b.consent,signal:AbortSignal.timeout(30000)}):await providerAuth.disconnect(authAction[1]));}
@@ -282,6 +320,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
    if(p==='/api/runtime/discover' && method==='POST')return json(res,await Promise.all(PROVIDERS.map(async x=>{try{return {...x,available:true,models:await new Runtime({baseUrl:x.url,allowCloud:false},'',network.fetch({purpose:'model'})).models()};}catch{return {...x,available:false,models:[]};}})));
+   // The shared canvas (the agents' `canvas` tool writes it; these routes are the user's own hands).
+   if(p==='/api/canvas'&&method==='GET')return json(res,canvas.snapshot());
+   if(p==='/api/canvas'&&method==='PATCH'){const b=await body(req);return json(res,canvas.configure(b));}
+   if(p==='/api/canvas/select'&&method==='POST'){const b=await body(req);return json(res,canvas.select(b.id??null,{version:b.version}));}
+   if(p==='/api/canvas/edit'&&method==='POST'){const b=await body(req);invariant(b&&typeof b==='object','Invalid canvas edit');return json(res,canvas.edit({action:b.action,id:b.id,version:b.version}));}
    if(p==='/api/voice/edit'&&method==='POST'){
     const b=await body(req);invariant(store.settings.dictationEditing===true,'Local dictation editing is not enabled',403);
     invariant(!probes.has('dictation'),'Another draft edit is running',429);const cancel=new AbortController();probes.set('dictation',cancel);
@@ -370,7 +413,17 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/connector/weather' && method==='POST')return json(res,await connectors.weather());
    if(p==='/api/connector/news' && method==='POST')return json(res,await connectors.news());
    if(p==='/api/media/open' && method==='POST'){const b=await body(req);return json(res,await connectors.openMedia(b.url));}
-   if(p==='/api/voice/transcribe' && method==='POST')return json(res,await connectors.transcribe(await body(req,true)));
+   if(p==='/api/voice/transcribe' && method==='POST'){
+    const identity=req.headers['x-tepora-audio-profile'];
+    if(identity||capabilities.get().routes.stt){
+     invariant(store.settings.voiceEnabled!==false,'Microphone is disabled',403);
+     const cancel=new AbortController(),id='transcription:'+randomUUID();probes.set(id,cancel);
+     const abort=()=>{if(!res.writableEnded)cancel.abort();};res.once('close',abort);
+     try{return json(res,await capabilities.transcribe(await body(req,true),{profileIdentity:identity,consent:req.headers['x-tepora-audio-consent']==='true',signal:cancel.signal}));}
+     finally{probes.delete(id);res.off('close',abort);}
+    }
+    return json(res,await connectors.transcribe(await body(req,true)));
+   }
    if(p==='/api/context/export' && method==='GET'){res.setHeader('Content-Disposition','attachment; filename="tepora-context.json"');return json(res,store.export());}
    if(p==='/api/context/import' && method==='POST')return json(res,store.import(await body(req)));
    if(p==='/api/artifacts' && method==='GET')return json(res,store.list('artifact'));

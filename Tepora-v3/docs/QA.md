@@ -1,5 +1,111 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Installed macOS authentication acceptance (2026-10-28 JST)
+
+The sealed macOS bundle's authentication sources matched the final working-tree sources before installation. The previous application was backed up, the verified bundle replaced `/Applications/Tepora V3 Beta.app`, and the installed copy's signature passed verification. The previous application backup was subsequently deleted at the user's request; application data and the connected account were retained.
+
+In the actual Tauri window, **設定 → AI・通信 → AIを接続する → アカウントでログイン → サービスを選ぶ → 再接続** on an existing disconnected OpenAI registration opened Chrome at `auth.openai.com/sign-in-with-chatgpt/consent`, displaying **Tepora を ChatGPT に接続**. The agent did not operate the provider's Continue/access-approval button. During observation, the application changed to **接続済み**; that connection was retained and the updated application was left running. This confirms the packaged WebView-to-default-browser handoff for this OpenAI flow, beyond the earlier synthetic/ordinary-host checks.
+
+No model was registered or invoked by this acceptance check. Other providers' live account flows, Windows/Linux browser integration, the updated Python browser flows and the full quality suite were not exercised in this acceptance run. The unverified statements in the dated 2026-10-25 sections below describe the evidence available at that time.
+
+## Authentication browser handoff (2026-10-25 JST)
+
+Both Pi SDK login and the preserved ChatGPT flow now open the current authentication URL through the service's OS default-browser launcher. The frontend sends an attempt ID only, opens once after an explicit login start and provides inline retry. Re-entry and view closure cannot replay an automatic launch; the current pending provider stays selected.
+
+The 58 selected Node tests passed, including real SDK/legacy OAuth fixtures, real cookie/CSRF/Origin routing, stale/cancelled/expired/offline refusal, injected launcher failure and macOS/Windows/Linux launcher argument checks. Five installed-Chrome auth checks passed with synthetic attempts: delayed auto-open, retry, live manual-code retention, re-entry/cancel and closure-before-Start completion, plus the preserved ChatGPT UI. No actual credentials or upstream account calls are used by these tests. A separate ordinary-host localhost UI smoke opened a public test URL in macOS's actual default Chrome using an isolated temporary data directory. The macOS app/DMG build and bundled Node/addon signature-load verifier passed. Real provider login/callback acceptance in the packaged WebView and Windows/Linux OS integration remain unverified.
+
+## AI connection flow (2026-10-25 JST)
+
+The AI connection screen starts with account login, API-key and local-AI methods. It separates registration from key/login/test status, groups model setup into three numbered sections and replaces comma-separated fallback IDs with ordered named selectors. Existing role-specific-only routes remain unchanged unless edited. Immediate network changes preserve unsaved route controls; leaving an edited connection form uses the existing discard confirmation.
+
+Local validation passed JavaScript syntax checks, 17 related frontend/controller tests, six offline connection-browser checks and the ten existing layout checks. The connection browser fixture covers disabled preview login/key entry, model-search empty results, registration-to-key handoff, unsaved Back/Cancel, ordered fallback save, preservation of role-only configurations and 320–1440px at 100%/160% text. The UI helper tests separately verify account/billing isolation and vision/device filtering. No real accounts, credentials, external catalog refresh or inference are used. The updated Python flows were syntax checked but not executed because Python Playwright is unavailable. The macOS app/DMG was rebuilt and its signature/runtime verifier passed; real account acceptance and native WebView interaction remain unverified.
+
+## Settings categories and search (2026-10-25 JST)
+
+Settings now shows one of nine categories, with local search across all settings and a category selector on narrow surfaces. Theme/text size, home layout/widgets and idle/photo settings have separate destinations. Dialog Save/Discard behavior, network permissions and tool connection approvals keep their existing contracts.
+
+The offline installed-Chrome layout suite covers category selection and re-entry, shell/header stability, keyword/alias search, empty results, Escape to clear, preserved search/control focus after saving, widget disclosure state and narrow surfaces. Local syntax checks and the 11 related frontend tests passed. The in-app browser also exercised search-to-dialog navigation, clock selections and widget changes, including a 390px viewport at 160% text without horizontal overflow. These checks use synthetic preview data, not real accounts or model calls. The macOS app/DMG was rebuilt and its signature/runtime verifier passed; native WebView interaction and the updated Python browser flows remain unverified.
+
+## Real-model acceptance benchmark
+
+The selectable matrix also includes MiMo V2.6 Flash and Muse Spark 1.3 Contributor. MiMo uses Chat Completions; Muse uses Responses, including native tool-call replay and nested streamed usage accounting. Their current Go endpoints and SDK round trips are covered by the deterministic regression; their actual API results must be recorded separately.
+
+The [benchmark method](BENCHMARK.md) covers 22 basic behaviors with explicit cloud consent, real Pi SDK registrations and Jev-selected Computer Use actions. It is separate from `quality:full`: local fixture success does not imply real-provider success. Results record source fingerprints, independent exact oracles, latency, provider response log IDs, known/unknown usage and missing capabilities. Initial manual-protocol pilot runs are exploratory evidence and do not certify the Pi path. The corrected connection audit verified actual Pi native responses for all three requested models; the user supplied matching Console Logs evidence (2026-10-21 11:21 JST, three HTTP 200 requests). Ongoing provider failures remain separate from registration correctness. The new deterministic OpenCode regression exercises real SDK login, account refresh, three current model IDs, credential/session/client headers and native reasoning/tool-result continuation without external inference.
+
+## macOS signing and current browser gates
+
+`npm run build` now requests a complete ad-hoc macOS signature instead of leaving
+the linker signature on an unsealed app. Hardened runtime remains enabled; the
+entitlements allow V8 JIT and the separately signed Rust addon. Tauri applies
+the file to its executable signing targets. Developer ID signing can override
+the default with `APPLE_SIGNING_IDENTITY`; Apple notarization credentials and
+a valid signing identity are separate release requirements. Ad-hoc signing does
+not establish a notarized, Gatekeeper-approved public distribution.
+
+The [post-build verifier](../scripts/verify-macos-bundle.mjs) checks the complete
+resource seal with `codesign --verify --deep --strict`, verifies the Node/addon
+signatures, then executes V8 and loads the actual addon without opening user data.
+The macOS CI smoke applies the same verifier to the installed copy from the DMG.
+A [macOS regression](../tests/macos-signing.test.mjs) signs a temporary real app,
+accepts it, and rejects a subsequent resource modification; it skips other OSes.
+Native addon/runtime staging replaces files atomically rather than rewriting
+an executable inode, preserving mapped bytes and avoiding stale macOS signature
+state during debug/release switches. A failed copy preserves the prior binary.
+
+The Computer Use gate exposed Chrome's macOS updater retaining stderr after the
+browser itself exits normally. Shutdown still waits for `close` before releasing
+the owned profile, with a bounded 30-second drain for an already exited process;
+the live-process kill bound remains five seconds. Clock-driven lifecycle tests
+cover the extra drain and retain the existing blocked-restart/failed-kill checks.
+
+The routing E2E saves and reopens the current Computer Use form. The lamp E2E
+waits for the asynchronous weather subtitle. The capability E2E uses unambiguous
+accessible button names and both current OAuth entry points, requiring preview
+authentication rejection without network authentication requests or fake panels.
+Native inspection also exposed stale legacy permission rendering in Settings;
+the switch now displays the effective network policy, matching the provider
+dialog. Routing E2E covers both enable and disable without changing policy defaults.
+The gate remains `npm run quality:full`; set `PYTHON` to a Python environment with
+Playwright and `CHROMIUM_PATH` to an installed Chrome when needed. These local
+browser/model fixtures do not certify real OAuth accounts or paid model quality.
+
+Local macOS arm64 native inspection on 2026-10-21 JST used the signed release
+Tauri app and its actual WebView, with the existing Accessibility/Screen Recording
+permissions. Home, Settings and the provider dialog rendered and accepted native
+Accessibility actions. Both permission switches agreed without changing their
+values. At a 390×844 native window, the composer, bottom navigation and connection
+controls remained visible; the window was restored to 1440×960 before Command-Q
+exited with code zero and empty startup stderr. Screenshots and AX snapshots were
+recorded separately from Chrome E2E. This is scoped screen/launch/exit acceptance,
+not real-account login, microphone/audio, full-screen or long-duration acceptance.
+
+## Compatibility-host input and download regressions (2026-10-21 JST)
+
+The ordinary Node/Tauri service creates attachment copies exclusively, retrying
+only filename collisions. Parallel same-named uploads and later attachments
+retain distinct files and their original bytes. Concurrent retries with the
+same request ID share preparation and delivery; successful receipts retain the
+existing 500-entry service-local cache. Failed preparation releases the ID for
+an explicit retry. This cache does not establish deduplication across restarts.
+
+[Input admission fixtures](../tests/input-admission.test.mjs) exercise the real
+authenticated HTTP routes, SQLite transcripts and temporary files with a
+synthetic model boundary. They cover parallel filenames, existing-file
+preservation, concurrent/later retries and recovery after a filesystem failure.
+[Session download fixtures](../tests/session-files-http.test.mjs) reject file
+and directory links outside the canonical session root, preserve internal links
+and linked roots, and retain empty-file, directory and 50 MB bounds. Windows
+directory cases use junctions without requiring file-symlink privileges; direct
+file-symlink cases run on Unix. Downloads check the opened file and enforce the
+byte limit while reading before publishing a successful response.
+
+The [runtime budget fixtures](../tests/rust-runtime.test.mjs) now pin same-day
+rechecks to UTC noon. A separate 23:55-to-00:05 case verifies that a daily-budget
+wait resumes on the next UTC day without raising the limit. The prior real-time
+fixture could fail during the ten minutes before UTC midnight. These fixtures
+use no real provider account, paid inference or user data; cross-platform CI and
+installer acceptance remain separate checks.
+
 ## pi-ai refresh durability and saved catalogs (2026-10-17 UTC)
 
 Focused local checks under Node **24.19.0** passed **19 tests**: seven inert
@@ -231,3 +337,23 @@ At `933a7b7b`, the Windows regression Node suite completed inside its 480,000 ms
 Each owned browser process now records its `close` event immediately after spawn. Graceful shutdown captures that process and connection before page/CDP teardown, shares one shutdown barrier, and waits for closed stdio rather than treating `exit` or a successful kill request as completion. After a five-second graceful window, it may request SIGKILL, but still waits up to five more seconds for actual close. An unreaped process rejects shutdown and retains ownership. A concurrent start waits for shutdown, and shutdown cancels pending startup/handshake waits without allowing late readiness to publish a connection.
 
 Deterministic lifecycle fixtures separately exercise exit and close, including an exit before the CDP response, delayed close after SIGKILL, repeated close/start, stale callbacks, failed kill/reap and canceled startup/handshake. The real browser fixture also uses native recursive-removal retries (`maxRetries:5`, `retryDelay:100`) for transient Windows handle release; persistent cleanup errors still fail the hook. Existing browser actions, assertions, behavioral deadlines, test selection and CI budgets are unchanged. Focused lifecycle fixtures are not a substitute for the full Windows regression and native installation/startup jobs.
+
+
+## Windows native staging against an open destination (2026-10-21 JST)
+
+At `3bd7e53`, the [Windows native job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713474/job/119062179079) failed one test, `native staging preserves a mapped old binary while publishing complete new bytes`, with `EPERM: operation not permitted, rename '...runtime.ddf33ef2-....tmp' -> '...runtime'`. The Linux and macOS jobs of the same run passed, so the failure is Windows-specific.
+
+The cause is the Windows rename contract. libuv implements `fs__rename()` on Windows as `MoveFileExW(path, new_path, MOVEFILE_REPLACE_EXISTING)`, which cannot replace a destination that another handle still holds open; the API reports `ERROR_ACCESS_DENIED`, which Node surfaces as `EPERM`. The staging test deliberately keeps the previous binary open, exactly like a running Tepora instance that has already loaded the Rust core addon or the bundled Node runtime.
+
+Staging now keeps the single atomic rename on POSIX and falls back on Windows only when the destination reports an in-use code (`EPERM`, `EACCES`, `EBUSY`): the previous file is renamed aside, the new bytes are renamed into place, and the retired file is removed afterwards. If the publish of the new bytes fails, the previous file is renamed back, so a failed publish never removes a working binary and never leaves a retired copy behind. Unrelated errors such as `EIO` are not retried. The addon, the bundled Node runtime and the `build:core` fingerprint all keep using this one staging path.
+
+Focused fixtures inject the rename effect, so the Windows in-use path, the restore-on-failure path and the unrelated-error path are exercised on every platform without opening a real handle against a real binary. The original mapped-binary test still runs unchanged on all platforms. These fixtures do not replace the Windows native and package jobs.
+
+
+## Windows aggregate Node budget (2026-10-21 JST)
+
+At `3bd7e53`, the [Windows regression job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713477/job/119062179191) stopped the serial Node suite at its 480,000 ms aggregate limit, with `setup-journey.test.mjs` still running and no TAP failure before the cutoff. The same commit's [native Windows job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713474/job/119062179079) needed 435,620 ms for the same suite, and an earlier measurement at `6c86be0` completed the serial suite in 514 s within the native job's 600,000 ms step budget.
+
+The aggregate Node budget is now 600,000 ms, matching the native job's own ten-minute step. The 120,000 ms individual file deadline, test selection, assertions, skips and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace.
+
+This is the same correction made for `codex/v3-hands-free-voice-20261017` at `017d378`, which had not been merged into `rust/v3-core-migration`. A longer outer bound does not turn an individual failure into a pass, and these fixtures are not a substitute for the complete Windows regression and package matrices.

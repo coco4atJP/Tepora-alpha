@@ -32,6 +32,8 @@ pub const PROTOCOL_ROLES: &[(&str, &str)] = &[
     ("openai-embeddings", "embedding"),
     ("ollama-embed", "embedding"),
     ("openai-speech", "tts"),
+    ("openai-transcriptions", "stt"),
+    ("openai-transcribe", "stt"),
     ("openai-images", "image"),
     ("openai-image-edit", "image_edit"),
     ("xai-video", "video"),
@@ -40,6 +42,7 @@ pub const ROLES: &[&str] = &[
     "decision",
     "embedding",
     "tts",
+    "stt",
     "image",
     "image_edit",
     "video",
@@ -61,6 +64,10 @@ const FIELDS: &[&str] = &[
     "voice",
     "dimensions",
     "assetOrigins",
+    "embeddingFormat",
+    "contextTokens",
+    "modelRevision",
+    "audioFormat",
 ];
 const BASE_FIELDS: &[&str] = &[
     "id",
@@ -347,6 +354,22 @@ pub fn validate_capability(raw: &Value) -> Result<Value, CapabilityError> {
             .unwrap_or(Value::Null),
     );
     out.insert("assetOrigins".into(), json!(normalized_origins));
+    if let Some(value)=raw.get("embeddingFormat") {
+        require(role=="embedding" && matches!(value.as_str(),Some("plain-v1"|"qwen3-retrieval-v1")),400,"Invalid embedding format")?;
+        out.insert("embeddingFormat".into(),value.clone());
+    }
+    if let Some(value)=raw.get("contextTokens") {
+        require(raw["protocol"]=="ollama-embed" && value.as_f64().is_some_and(|n|n.fract()==0.&&(512.0..=8192.0).contains(&n)),400,"Invalid embedding context")?;
+        out.insert("contextTokens".into(),value.clone());
+    }
+    if let Some(value)=raw.get("modelRevision") {
+        require(role=="embedding" && value.as_str().is_some_and(|v|json_codec::utf16_units(v).len()<=200),400,"Invalid model revision")?;
+        out.insert("modelRevision".into(),value.clone());
+    }
+    if let Some(value)=raw.get("audioFormat"){
+        require(role=="tts" && matches!(value.as_str(),Some("mp3"|"wav")),400,"Invalid speech format")?;
+        out.insert("audioFormat".into(),value.clone());
+    }
     let mut out = Value::Object(out);
     let wire = json_codec::stringify_js(&out)?;
     out["identity"] = json!(format!("{:x}", Sha256::digest(wire.as_bytes())));
@@ -1080,6 +1103,7 @@ impl Capabilities {
             "Embedding input budget exceeded",
         )?;
         let mut payload = json!({"model":p["model"],"input":inputs});
+        if p["protocol"]=="ollama-embed" && p.get("contextTokens").is_some(){payload["options"]=json!({"num_ctx":p["contextTokens"]});}
         if p["protocol"] == "openai-embeddings" {
             payload["encoding_format"] = json!("float");
             if truthy(&p["dimensions"]) {
@@ -1321,3 +1345,15 @@ pub fn validate_embeddings(
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+/// Versioned retrieval space; unknown provider revisions are not immutable weights.
+pub fn embedding_identity(profile:&Value)->Value {
+    if profile.get("embeddingFormat").is_some(){json!(format!("tepora-memory:prefix12000:utf16:none:v1:{}",profile["identity"].as_str().unwrap_or("")))}else{profile["identity"].clone()}
+}
+pub fn embedding_inputs(profile:&Value,inputs:&Value,purpose:&str)->Value {
+    Value::Array(inputs.as_array().into_iter().flatten().enumerate().map(|(i,v)|{
+        if profile["embeddingFormat"]=="qwen3-retrieval-v1" && (purpose=="query"||purpose=="ranking"&&i==0){
+            json!(format!("Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {}",v.as_str().unwrap_or("")))
+        }else{v.clone()}
+    }).collect())
+}

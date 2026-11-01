@@ -32,9 +32,9 @@ function fixture(name = 'node-tests') {
 }
 
 test('Node and native suites have explicit measured-workload budgets', () => {
-  assert.equal(NODE_SUITE_TIMEOUT_MS, 480_000);
+  assert.equal(NODE_SUITE_TIMEOUT_MS, 600_000);
   assert.equal(DEFAULT_STAGE_TIMEOUT_MS, 180_000);
-  assert.equal(stageTimeoutMs('node-tests'), 480_000);
+  assert.equal(stageTimeoutMs('node-tests'), 600_000);
   assert.equal(NATIVE_TEST_TIMEOUT_MS, 300_000);
   assert.equal(stageTimeoutMs('native-service-tests'), 300_000);
   for (const name of [
@@ -45,18 +45,18 @@ test('Node and native suites have explicit measured-workload budgets', () => {
   ]) assert.equal(stageTimeoutMs(name), 180_000, name);
 });
 
-test('Node stage keeps its command settings and reports measured elapsed time, not the budget', async () => {
+test('Node stage keeps command settings and accepts the measured 514-second successful workload', async () => {
   const f = fixture();
-  assert.equal(f.timers[0].delay, 480_000);
+  assert.equal(f.timers[0].delay, 600_000);
   assert.deepEqual(f.spawns, [{executable: 'fixture-node', args: f.argv, options: {
     cwd: f.cwd, shell: false, env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
   }}]);
   assert.deepEqual(f.children, [f.child]);
   assert.deepEqual(f.pipes, ['stdout', 'stderr'].map(stream => ({stream, target: f.log, options: {end: false}})));
-  f.elapsed(212_318);
+  f.elapsed(514_000);
   f.child.emit('close', 0);
   const result = await f.result;
-  assert.deepEqual(result, {name: 'node-tests', code: 0, error: null, ms: 212_318, timeoutMs: 480_000});
+  assert.deepEqual(result, {name: 'node-tests', code: 0, error: null, ms: 514_000, timeoutMs: 600_000});
   assert.deepEqual(JSON.parse(JSON.stringify({results: [result]})).results, [result]);
   assert.equal(f.log.ended, true);
   assert.equal(f.timers[0].cleared, true);
@@ -64,7 +64,7 @@ test('Node stage keeps its command settings and reports measured elapsed time, n
   assert.deepEqual(f.children, [f.child, null]);
 });
 
-for (const [name, budget] of [['node-tests', 480_000], ['native-service-tests', 300_000], ['syntax', 180_000]]) {
+for (const [name, budget] of [['node-tests', 600_000], ['native-service-tests', 300_000], ['syntax', 180_000]]) {
   test(`${name} still terminates at its bounded budget and keeps the 1.5-second kill grace`, async () => {
     const f = fixture(name);
     assert.equal(f.timers[0].delay, budget);
@@ -84,11 +84,11 @@ for (const [name, budget] of [['node-tests', 480_000], ['native-service-tests', 
 
 test('a stage closing after SIGTERM clears the pending SIGKILL timer', async () => {
   const f = fixture();
-  f.elapsed(480_000);
+  f.elapsed(600_000);
   f.timers[0].callback();
-  f.elapsed(480_007);
+  f.elapsed(600_007);
   f.child.emit('close', null);
-  assert.equal((await f.result).ms, 480_007);
+  assert.equal((await f.result).ms, 600_007);
   assert.equal(f.timers[1].cleared, true);
   assert.deepEqual(f.signals, ['SIGTERM']);
 });
@@ -107,7 +107,7 @@ test('spawn errors are reported once, with timer cleanup and their measured dura
   f.child.emit('error', new Error('fixture could not start'));
   f.elapsed(17);
   f.child.emit('close', 0);
-  assert.deepEqual(await f.result, {name: 'node-tests', code: 1, error: 'fixture could not start', ms: 12, timeoutMs: 480_000});
+  assert.deepEqual(await f.result, {name: 'node-tests', code: 1, error: 'fixture could not start', ms: 12, timeoutMs: 600_000});
   assert.equal(f.timers[0].cleared, true);
   assert.deepEqual(f.children, [f.child, null]);
 });

@@ -24,3 +24,25 @@ def test_rejects_bad_audio_browser_origin_and_untrusted_host():
     assert client.post('/v1/audio/transcriptions', files={'file': ('a.wav', b'invalid')}).status_code == 400
     assert client.get('/health', headers={'origin': 'https://evil.example'}).status_code == 403
     assert client.get('/health', headers={'host': 'evil.example'}).status_code == 403
+
+# These contracts also run without pytest in a prepared HTTP-adapter environment.
+import unittest
+from pathlib import Path
+from granite_asr import MODEL_ID
+
+class AdapterContracts(unittest.TestCase):
+    def test_existing_contracts(self):
+        test_transcription_contract_and_model_validation()
+        test_rejects_bad_audio_browser_origin_and_untrusted_host()
+
+    def test_granite_alias_japanese_and_deleted_temporary_audio(self):
+        paths=[]
+        def transcriber(path, language):
+            self.assertEqual(language,'ja');self.assertTrue(Path(path).exists());paths.append(path)
+            return '句読点付きの合成日本語。'
+        client=TestClient(create_app(transcriber,MODEL_ID,8012),base_url='http://127.0.0.1:8012')
+        response=client.post('/v1/audio/transcriptions',files={'file':('synthetic.wav',wav_bytes(),'audio/wav')},data={'model':MODEL_ID,'language':'ja','response_format':'json'})
+        self.assertEqual(response.status_code,200);self.assertEqual(response.json()['text'],'句読点付きの合成日本語。')
+        self.assertFalse(Path(paths[0]).exists())
+        response=client.post('/v1/audio/transcriptions',files={'file':('synthetic.wav',wav_bytes(),'audio/wav')},data={'model':'old-english-checkpoint'})
+        self.assertEqual(response.status_code,400);self.assertEqual(len(paths),1)

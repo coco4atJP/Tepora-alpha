@@ -45,7 +45,7 @@ this PC played in place through blob URLs; nothing is uploaded and the list last
 is open; YouTube is in 設定), つくったもの (generated images as a photo frame) and 天気 (Open-Meteo,
 current/hourly/high-low) — the weather card only when the weather changes what you would do: rain or
 snow now or soon, a hot or a cold day. A card appears only when it has something to show; setup
-lives in 設定 → ホームと待機画面. 「ステージをカスタマイズ」 opens an in-place panel, and
+lives in 設定 → ホーム. 「ステージをカスタマイズ」 opens an in-place panel, and
 「表示の設定」 opens the full settings. Feeds load only with the existing network permission and
 configured sources.
 
@@ -103,7 +103,7 @@ lights carry no titles and open nothing, there is no amber lamp, and personal ph
 
 ## Idle screen (screensaver) and photo frame
 
-After the idle time chosen in 設定 → ホームと待機画面 (5 minutes by default, or never) the screen
+After the idle time chosen in 設定 → 待機画面・写真 (5 minutes by default, or never) the screen
 switches to a **待機画面** that behaves like a screensaver.
 
 - **Starts from any quiet view**, not only ホーム. It does not start while a panel or sheet is open,
@@ -120,7 +120,7 @@ switches to a **待機画面** that behaves like a screensaver.
   Screen Wake Lock API where the browser or WebView provides it; elsewhere nothing happens and
   nothing is claimed.
 
-**Wallpapers** (設定 → ホームと待機画面 → 壁紙; drawn with CSS only, no remote file or video, and
+**Wallpapers** (設定 → 待機画面・写真 → 壁紙; drawn with CSS only, no remote file or video, and
 motionless under `prefers-reduced-motion`):
 
 | 壁紙 | What it shows |
@@ -136,7 +136,7 @@ At night (two hours after sunset until sunrise when the weather data has them, o
 colours; the night sky and the photo frame use the same palette so text stays readable over a
 picture. The optional night dimming also lowers the photos' brightness.
 
-**Photo frame** (設定 → ホームと待機画面 → 写真立て → 写真を管理; 「写真立てにする」 in the 画面の表示
+**Photo frame** (設定 → 待機画面・写真 → 写真立て → 写真を管理; 「写真立てにする」 in the 画面の表示
 menu starts it at once, asks the window for full screen and keeps the display awake until it ends):
 
 - Photos are chosen from this PC (JPEG, PNG, WebP, GIF, AVIF; HEIC/HEIF where the browser can read
