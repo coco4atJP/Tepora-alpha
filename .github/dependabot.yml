@@ -1,9 +1,9 @@
 version: 2
-# Version updates follow V3; security updates still use the repository's default branch.
+# Version and security updates both target main (the default branch, now carrying V3).
 updates:
   - package-ecosystem: npm
     directory: /Tepora-v3
-    target-branch: rust/v3-core-migration
+    target-branch: main
     schedule:
       interval: weekly
       day: monday
@@ -21,7 +21,7 @@ updates:
       - /Tepora-v3/desktop
       - /Tepora-v3/native-core
       - /Tepora-v3/native-service
-    target-branch: rust/v3-core-migration
+    target-branch: main
     schedule:
       interval: weekly
       day: monday
@@ -36,7 +36,7 @@ updates:
     labels: [dependencies, automated]
   - package-ecosystem: github-actions
     directory: /
-    target-branch: rust/v3-core-migration
+    target-branch: main
     schedule:
       interval: weekly
       day: monday
