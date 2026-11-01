@@ -75,7 +75,7 @@ jobs:
           node tests/browser-ui-layout.mjs
       - name: Validation evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tepora-v3-regression-${{ matrix.os }}
           path: Tepora-v3/validation/
