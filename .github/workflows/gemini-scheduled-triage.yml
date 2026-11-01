@@ -1,20 +1,7 @@
 name: '📋 Gemini Scheduled Issue Triage'
 
+# Disabled at the repository owner's request. Keep manual dispatch only for reversibility.
 on:
-  schedule:
-    - cron: '0 * * * *' # Runs every hour
-  pull_request:
-    branches:
-      - 'rust/v3-core-migration'
-      - 'release/**/*'
-    paths:
-      - '.github/workflows/gemini-scheduled-triage.yml'
-  push:
-    branches:
-      - 'rust/v3-core-migration'
-      - 'release/**/*'
-    paths:
-      - '.github/workflows/gemini-scheduled-triage.yml'
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +14,7 @@ defaults:
 
 jobs:
   triage:
+    if: ${{ false }} # Gemini automation is disabled.
     runs-on: 'ubuntu-latest'
     timeout-minutes: 7
     permissions:
@@ -130,14 +118,10 @@ jobs:
           prompt: '/gemini-scheduled-triage'
 
   label:
+    if: ${{ false }} # Gemini automation is disabled.
     runs-on: 'ubuntu-latest'
     needs:
       - 'triage'
-    if: |-
-      needs.triage.outputs.available_labels != '' &&
-      needs.triage.outputs.available_labels != '[]' &&
-      needs.triage.outputs.triaged_issues != '' &&
-      needs.triage.outputs.triaged_issues != '[]'
     permissions:
       contents: 'read'
       issues: 'write'
