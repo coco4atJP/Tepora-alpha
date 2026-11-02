@@ -11,7 +11,7 @@ const sse=events=>new Response(events.map(x=>`data: ${typeof x==='string'?x:JSON
 async function fixture(t,transport){const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-pi-'));const store=new Store(dir),network=new NetworkPolicy(store,{lookup:async()=>[{address:'8.8.8.8'}],transport}),pi=new PiAIService(store,network),registry=new ProviderRegistry(store,network,{pi});t.after(async()=>{await pi.close();network.close();registry.close();store.close();await rm(dir,{recursive:true,force:true});});return {store,network,pi,registry,dir};}
 const selected=piModel('groq','llama-3.3-70b-versatile');
 const profile=()=>({id:'pi-groq',name:'Groq through Pi',engine:'pi-ai',piProvider:'groq',protocol:'chat-completions',baseUrl:selected.baseUrl,model:selected.id,domain:'cloud',maxTokens:512});
-test('real SDK catalogs: all built-ins and all OAuth methods are exposed',()=>{const p=piProviders();assert.equal(p.version,'1.3.0');assert.equal(p.providers.length,42);assert.equal(p.providers.filter(x=>x.oauth).length,9);assert.ok(p.providers.reduce((n,x)=>n+x.modelCount,0)>1600);});
+test('real SDK catalogs: all built-ins and all OAuth methods are exposed',()=>{const p=piProviders();assert.equal(p.version,'1.4.0');assert.equal(p.providers.length,42);assert.equal(p.providers.filter(x=>x.oauth).length,9);assert.ok(p.providers.reduce((n,x)=>n+x.modelCount,0)>1500);});
 test('real pi-ai SDK performs streamed inference through Tepora registry and checked transport',async t=>{
  const seen=[],deltas=[];const f=await fixture(t,async(admitted,init)=>{seen.push({url:admitted.url.href,body:JSON.parse(Buffer.from(init.body).toString()),headers:Object.fromEntries(new Headers(init.headers))});return sse([{id:'chatcmpl-fixture',choices:[{delta:{role:'assistant',content:'Hello Pi'},finish_reason:null}]},{choices:[{delta:{},finish_reason:'stop'}],usage:{prompt_tokens:12,completion_tokens:3}},'[DONE]']);});
  const snapshot=f.registry.save({profiles:[profile()],routes:{main:{primary:'pi-groq',fallbacks:[]}}},0);f.registry.setKey('pi-groq','synthetic-pi-key',snapshot.profiles[0].identity);
@@ -86,10 +86,10 @@ test('GitHub Copilot real SDK prompts, token exchange and available-model filter
   if(url.pathname==='/login/device/code')return json({device_code:'synthetic-device',user_code:'FIXTURE',verification_uri:'https://github.com/login/device',expires_in:60,interval:1});
   if(url.pathname==='/login/oauth/access_token')return json({access_token:'synthetic-github-access',token_type:'bearer',scope:'read:user'});
   if(url.pathname==='/copilot_internal/v2/token')return json({token:'synthetic-copilot-access',expires_at:Math.floor(Date.now()/1000)+3600});
-  if(url.pathname==='/models')return json({data:[{id:'gpt-5-mini',model_picker_enabled:true,capabilities:{type:'chat'},policy:{state:'enabled'}}]});
+  if(url.pathname==='/models')return json({data:[{id:'gpt-5.4-nano',model_picker_enabled:true,capabilities:{type:'chat'},policy:{state:'enabled'}}]});
   throw Error('No model policy mutation permitted');
  });f.pi.begin({provider:'github-copilot',consent:true});await until(()=>f.pi.snapshot().pending?.prompt);const p=f.pi.snapshot().pending;assert.equal(p.prompt.type,'text');f.pi.respond({id:p.id,promptId:p.prompt.id,value:''});await f.pi.pending.task;assert.equal(f.pi.snapshot().pending.status,'connected');
- const account=f.pi.snapshot().accounts[0];assert.equal(account.connected,true);const list=f.pi.models('github-copilot',account.id).models;assert.deepEqual(list.map(m=>m.id),['gpt-5-mini']);
+ const account=f.pi.snapshot().accounts[0];assert.equal(account.connected,true);const list=f.pi.models('github-copilot',account.id).models;assert.deepEqual(list.map(m=>m.id),['gpt-5.4-nano']);
 });
 test('in-flight logout cannot resurrect credentials after an SDK refresh',async t=>{
  let refreshStarted=false;const f=await fixture(t,async({url},init)=>{refreshStarted=true;return new Promise((resolve,reject)=>init.signal.addEventListener('abort',()=>reject(init.signal.reason),{once:true}));});
@@ -204,6 +204,6 @@ test('refresh replaces stale same-model context and pricing without profile meta
 test('SDK-version mismatches are inert, while malformed current snapshots preserve and disable the vault',async t=>{
  const {readFile,writeFile}=await import('node:fs/promises');const f=await fixture(t,()=>{throw Error('No network expected');});seedPiKey(f.pi,piAccountA,'groq');f.pi.vault.accounts[piAccountA].catalog={schema:1,version:'9.9.9',at:'2026-10-17T00:00:00.000Z',models:[{...selected,id:'future-only-model'}]};f.pi.persist();await f.pi.close();
  let reopened=new PiAIService(f.store,f.network);assert.equal(reopened.snapshot().supported,true);assert.equal(reopened.status(piAccountA).connected,true);assert.equal(reopened.model('groq','future-only-model',piAccountA),undefined);assert.ok(reopened.model('groq',selected.id,piAccountA));await reopened.close();
- const malformed=JSON.parse(await readFile(f.pi.file,'utf8'));malformed.accounts[piAccountA].catalog.version='1.3.0';malformed.accounts[piAccountA].catalog.models[0].baseUrl='https://evil.invalid/v1';await writeFile(f.pi.file,JSON.stringify(malformed));const before=await readFile(f.pi.file,'utf8');reopened=new PiAIService(f.store,f.network);
+ const malformed=JSON.parse(await readFile(f.pi.file,'utf8'));malformed.accounts[piAccountA].catalog.version='1.4.0';malformed.accounts[piAccountA].catalog.models[0].baseUrl='https://evil.invalid/v1';await writeFile(f.pi.file,JSON.stringify(malformed));const before=await readFile(f.pi.file,'utf8');reopened=new PiAIService(f.store,f.network);
  try{assert.equal(reopened.snapshot().supported,false);assert.throws(()=>reopened.persist(),/保全/);assert.equal(await readFile(f.pi.file,'utf8'),before);}finally{await reopened.close();}
 });
