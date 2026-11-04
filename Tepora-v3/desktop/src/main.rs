@@ -18,6 +18,31 @@ fn node_path(path: &std::path::Path) -> &std::path::Path {
     dunce::simplified(path)
 }
 
+/// Linux/WebKitGTK only: the local UI may use the microphone (voice input).
+/// Camera and screen capture stay denied; everything else keeps WebKit's default.
+/// Navigation is already pinned to the loopback backend, so only Tepora's own page asks.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn linux_media_permission(kind: tauri::webview::PermissionKind) -> tauri::webview::PermissionResponse {
+    use tauri::webview::{PermissionKind, PermissionResponse};
+    match kind {
+        PermissionKind::Microphone => PermissionResponse::Allow,
+        PermissionKind::Camera | PermissionKind::DisplayCapture => PermissionResponse::Deny,
+        _ => PermissionResponse::Default,
+    }
+}
+
+/// WebKitGTK disables MediaStream (getUserMedia) unless the embedder turns it on.
+#[cfg(target_os = "linux")]
+fn enable_linux_media(window: &tauri::WebviewWindow) {
+    let _ = window.with_webview(|webview| {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        if let Some(settings) = webview.inner().settings() {
+            settings.set_enable_media_stream(true);
+            settings.set_enable_webrtc(true);
+        }
+    });
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -102,12 +127,16 @@ fn main() {
                                         if let Ok(url) = url::Url::parse(raw) {
                                             if url.scheme() != "http" || url.host_str() != Some("127.0.0.1") { continue; }
                                             let port = url.port();
-                                            let result = WebviewWindowBuilder::new(&handle, "main", WebviewUrl::External(url))
+                                            let builder = WebviewWindowBuilder::new(&handle, "main", WebviewUrl::External(url))
                                                 .title("Tepora · Your quiet monitor")
                                                 .inner_size(1440.0, 960.0)
                                                 .min_inner_size(390.0, 640.0)
-                                                .on_navigation(move |next| next.scheme() == "http" && next.host_str() == Some("127.0.0.1") && next.port() == port)
-                                                .build();
+                                                .on_navigation(move |next| next.scheme() == "http" && next.host_str() == Some("127.0.0.1") && next.port() == port);
+                                            #[cfg(target_os = "linux")]
+                                            let builder = builder.on_permission_request(|_, kind| linux_media_permission(kind));
+                                            let result = builder.build();
+                                            #[cfg(target_os = "linux")]
+                                            if let Ok(window) = &result { enable_linux_media(window); }
                                             if result.is_ok() { opened = true; }
                                             else if let Err(error) = result {
                                                 eprintln!("Failed to create the Tepora window: {error}");
@@ -164,6 +193,31 @@ fn main() {
             _ => {}
         }
     });
+}
+
+#[cfg(test)]
+mod permission_tests {
+    use super::linux_media_permission;
+    use tauri::webview::{PermissionKind, PermissionResponse};
+
+    #[test]
+    fn microphone_is_allowed_for_the_local_ui() {
+        assert!(matches!(linux_media_permission(PermissionKind::Microphone), PermissionResponse::Allow));
+    }
+
+    #[test]
+    fn camera_and_screen_capture_are_denied() {
+        for kind in [PermissionKind::Camera, PermissionKind::DisplayCapture] {
+            assert!(matches!(linux_media_permission(kind), PermissionResponse::Deny));
+        }
+    }
+
+    #[test]
+    fn other_requests_keep_webkit_defaults() {
+        for kind in [PermissionKind::Geolocation, PermissionKind::Notifications, PermissionKind::Other] {
+            assert!(matches!(linux_media_permission(kind), PermissionResponse::Default));
+        }
+    }
 }
 
 #[cfg(test)]
