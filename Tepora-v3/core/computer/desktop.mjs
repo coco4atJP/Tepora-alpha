@@ -10,7 +10,8 @@ import {invariant} from '../policy.mjs';
 /** macOS desktop apps through the Accessibility API, via a small Swift helper compiled on first use (Xcode
  * Command Line Tools provide swiftc). The helper stays running; requests and replies are JSON lines. */
 const SOURCE=fileURLToPath(new URL('./ax-helper.swift',import.meta.url));
-export const desktopSupported=()=>process.platform==='darwin'&&existsSync(SOURCE);
+/** macOS Accessibility only; Windows/Linux report unsupported instead of failing. */
+export const desktopSupported=(platform=process.platform)=>platform==='darwin'&&existsSync(SOURCE);
 const run=(file,args,opts={})=>new Promise((resolve,reject)=>execFile(file,args,{timeout:300000,...opts},(e,out,err)=>e?reject(Object.assign(e,{stderr:String(err||'')})):resolve(out)));
 export class Desktop{
  constructor({binDir}){this.binDir=binDir;this.proc=null;this.pending=new Map();this.id=0;this.targets=new Map();this.building=null;}

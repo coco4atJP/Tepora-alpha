@@ -20,3 +20,10 @@ V2の設定ファイル・データベースをV3のデータとして置き換�
 この環境で `phf_macros` などのE0463と `mis-aligned LINKEDIT string pool` を再現しました。症状は[Rustの公式報告](https://github.com/rust-lang/rust/issues/157750)と一致します。`Tepora-v3/desktop/Cargo.toml` のdev/release `build-override` は、ビルドスクリプトと手続きマクロのデバッグ情報を残し、stripを無効にします。アプリ本体のrelease最適化は変更しません。
 
 新しい設定で `npm run build` を再実行してください。ツールチェーンの更新で回避策が不要になった場合は、実際のビルドを検証してから外します。
+
+## Linux desktop (WebKitGTK)
+
+- **白画面・起動直後のクラッシュ（主にNVIDIA GPU）**: `WEBKIT_DISABLE_DMABUF_RENDERER=1` を設定して起動します。改善しない場合は `WEBKIT_DISABLE_COMPOSITING_MODE=1` も追加します。例: `WEBKIT_DISABLE_DMABUF_RENDERER=1 ./Tepora*.AppImage`
+- **マイクが使えない**: GStreamerの `gstreamer1.0-plugins-good` と、PipeWireなら `gstreamer1.0-pipewire`（PulseAudioなら `gstreamer1.0-pulseaudio`）を入れます。
+- **ビルド時に `pkg-config` / `webkit2gtk-4.1` が見つからない**: READMEのLinux依存パッケージを入れてから再実行します。
+- **Macのアプリ操作が出ない**: macOS専用機能です。Linuxではブラウザ操作のみ使えます。
