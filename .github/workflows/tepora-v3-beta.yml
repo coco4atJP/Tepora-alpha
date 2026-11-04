@@ -23,9 +23,9 @@ jobs:
           - os: macos-latest
             bundle: dmg
           - os: ubuntu-22.04
-            bundle: deb,rpm,appimage
+            bundle: deb,appimage
           - os: ubuntu-24.04-arm
-            bundle: deb,rpm,appimage
+            bundle: deb,appimage
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     env:
@@ -72,6 +72,9 @@ jobs:
       - run: node scripts/build-sidecar.mjs
       - run: ../node_modules/.bin/tauri build --bundles ${{ matrix.bundle }} -- --locked
         working-directory: Tepora-v3/desktop
+      - name: Bundle RPM with prerelease package metadata
+        if: runner.os == 'Linux'
+        run: node scripts/bundle-rpm.mjs
       - name: Native launcher and permission regressions
         run: cargo test --release --locked --bin tepora-v3
         working-directory: Tepora-v3/desktop

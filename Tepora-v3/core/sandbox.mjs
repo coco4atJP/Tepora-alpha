@@ -20,11 +20,25 @@ export function sandboxConfig(raw={},previous=SANDBOX_DEFAULT){
 }
 const which=name=>{try{return execFileSync(process.platform==='win32'?'where':'which',[name],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).split(/\r?\n/)[0].trim()||null;}catch{return null;}};
 let detected=null;
+const bwrapArgs=(command,{cwd,policy})=>{
+ const binds=policy.mode==='readonly'?[]:[cwd,...policy.writable].filter(Boolean).flatMap(p=>['--bind',p,p]);
+ return ['--ro-bind','/','/','--dev','/dev','--proc','/proc','--tmpfs','/tmp',...binds,...(policy.network?[]:['--unshare-net']),'--die-with-parent','--chdir',cwd,'/bin/sh','-c',command];
+};
+function probeBwrap(file,network){
+ try{
+  execFileSync(file,bwrapArgs('true',{cwd:'/',policy:{mode:'readonly',network,writable:[]}}),{timeout:5000,stdio:['ignore','pipe','pipe']});
+  return null;
+ }catch(e){return (String(e.stderr||'').trim()||e.message).slice(0,1000);}
+}
 export function detectSandbox({refresh=false}={}){
  if(detected&&!refresh)return detected;
+ const bwrap=process.platform==='linux'?which('bwrap'):null;
+ const bwrapError=bwrap?probeBwrap(bwrap,true):null;
+ const bwrapNetworkError=bwrap&&!bwrapError?probeBwrap(bwrap,false):null;
  detected={platform:process.platform,
   seatbelt:process.platform==='darwin'&&existsSync('/usr/bin/sandbox-exec'),
-  bwrap:process.platform==='linux'?which('bwrap'):null,
+  bwrap:bwrap&&!bwrapError?bwrap:null,bwrapError,
+  bwrapNetwork:!!bwrap&&!bwrapError&&!bwrapNetworkError,bwrapNetworkError,
   docker:which('docker'),podman:which('podman')};
  return detected;
 }
@@ -72,9 +86,10 @@ export function wrapCommand(command,{cwd,policy=SANDBOX_DEFAULT,containerName=nu
  if(policy.mode==='off')return {file:shell.file,args:shell.args(command),cwd,sandbox:'off'};
  if(policy.mode!=='container'){
   if(available.seatbelt)return {file:'/usr/bin/sandbox-exec',args:['-p',seatbeltProfile(policy,cwd),shell.file,...shell.args(command)],cwd,sandbox:'seatbelt'};
+  invariant(!available.bwrapError,`bubblewrap の隔離を開始できません: ${available.bwrapError}`,409);
   if(available.bwrap){
-   const binds=policy.mode==='readonly'?[]:[cwd,...policy.writable].filter(Boolean).flatMap(p=>['--bind',p,p]);
-   return {file:available.bwrap,args:['--ro-bind','/','/','--dev','/dev','--proc','/proc','--tmpfs','/tmp',...binds,...(policy.network?[]:['--unshare-net']),'--die-with-parent','--chdir',cwd,'/bin/sh','-c',command],cwd,sandbox:'bwrap'};
+   invariant(policy.network||available.bwrapNetwork,`bubblewrap のネットワーク隔離を開始できません: ${available.bwrapNetworkError}`,409);
+   return {file:available.bwrap,args:bwrapArgs(command,{cwd,policy}),cwd,sandbox:'bwrap'};
   }
  }
  const engine=policy.engine==='auto'?(available.docker?'docker':available.podman?'podman':null):available[policy.engine]?policy.engine:null;

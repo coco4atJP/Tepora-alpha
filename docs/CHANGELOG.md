@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Linux CI and package repairs (beta.11)
+
+- Run main/PR source regression on Linux, Windows and macOS; keep additional ARM64 and standalone tag/manual source checks in package CI
+- Build Linux deb/AppImage and then bundle the existing binary as an RPM with Version `3.0.0`, Release `0.beta.11.1`; retain application version `3.0.0-beta.11`
+- Probe bubblewrap mount/network capabilities with the actual sandbox arguments; reject unavailable requested isolation before executing a command, without host or container fallback
+- Retain real write-confinement tests where supported and verify fail-closed execution where kernel capabilities are unavailable; see [CI coverage](../Tepora-v3/docs/QA.md#ci-responsibilities-and-linux-package-coverage)
+
 ## Authentication opens in the default browser (beta.11)
 
 - Open a user-started Pi SDK or preserved ChatGPT login once in the OS default browser, with inline failure feedback and explicit retry
