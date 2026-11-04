@@ -100,7 +100,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   <p class="small-text">判断モデル: ${computer.decision?'接続済み':'未接続 — つなぐまでは、作業担当のモデルが同じ候補から操作を選びます'}。判断モデルは画面にある操作から選ぶだけで、文章は書きません。</p>
   ${toggle('ブラウザを見えないまま動かす','headless',c.headless,'見える状態にすると操作の様子を見られ、ログインを手で済ませられます。ログインは見えないときにも引き継がれます。')}
   ${field('ブラウザの場所（空なら自動）','browserExecutable',c.browserExecutable||'',computer.browser.executable?`自動: ${computer.browser.executable}`:'Chrome / Edge / Brave / Chromium が見つかりません')}
-  ${computer.desktop.supported?toggle('Macのアプリも操作する','desktop',c.desktop,'アクセシビリティの許可が必要です（システム設定 → プライバシーとセキュリティ → アクセシビリティで、Teporaを動かしているアプリを許可）。初回は操作用の小さなプログラムを組み立てます（Xcodeコマンドラインツールが必要）。'):''}
+  ${computer.desktop.supported?toggle('Macのアプリも操作する','desktop',c.desktop,'アクセシビリティの許可が必要です（システム設定 → プライバシーとセキュリティ → アクセシビリティで、Teporaを動かしているアプリを許可）。初回は操作用の小さなプログラムを組み立てます（Xcodeコマンドラインツールが必要）。'):'<p class="small-text">デスクトップアプリの操作はmacOSのみ対応です。このOSではブラウザ操作だけを使います。</p>'}
   ${field('ひとつの目標の最大手数','maxSteps',c.maxSteps,'','number')}
   <button class="button" type="submit">設定を保存</button></form><div class="sheet-actions">${btn('computer-release','ブラウザを閉じる','stop','button secondary')}${computer.desktop.supported?btn('computer-permissions','Macの許可を確かめる','','button secondary'):''}</div><div id="computer-permissions"></div>`,'computer');
  }
