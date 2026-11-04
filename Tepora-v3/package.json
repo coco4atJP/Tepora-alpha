@@ -16,7 +16,7 @@
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "preview:build": "node scripts/build-preview.mjs",
     "desktop:build": "tauri icon web/favicon.svg --output desktop/icons && node scripts/build-sidecar.mjs && cd desktop && tauri build -- --locked",
-    "postdesktop:build": "node scripts/verify-macos-bundle.mjs",
+    "postdesktop:build": "node scripts/bundle-rpm.mjs && node scripts/verify-macos-bundle.mjs",
     "test:scenarios": "node scripts/verify-scenarios.mjs",
     "test:workers": "node scripts/run-workers.mjs",
     "eval:list": "node scripts/eval-agent.mjs --list",

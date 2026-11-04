@@ -258,7 +258,7 @@ boundaries in package CI; a pipe-backed entry fixture also covers spaces,
 Unicode and dependency imports. The final installed-app CI still provides
 the acceptance evidence; these fixture checks alone do not establish a pass.
 
-`.github/workflows/tepora-v3-beta.yml` builds the current revision for Windows/macOS and records installation/startup evidence and screenshots. The bundled service must report the package version **3.0.0-beta.11**. The separate manual native-smoke workflow requires an explicit artifact run and matching exact commit; it has no defaults pointing at older betas.
+`.github/workflows/tepora-v3-beta.yml` builds the current revision for Windows/macOS and Linux x64/arm64 and records installation/startup evidence and screenshots. Linux produces deb, rpm and AppImage packages; the installed deb is launched under Xvfb/D-Bus with isolated XDG data directories and software graphics. Readiness requires the packaged service health/version and 25 seconds of native-host liveness. This does not exercise RPM/AppImage launch, physical GPU drivers or microphone capture. The bundled service must report the package version **3.0.0-beta.11**. The separate manual native-smoke workflow requires an explicit artifact run and matching exact commit; it has no defaults pointing at older betas.
 
 Local macOS arm64 `.app`/DMG creation and bundled Node service startup passed during this cutover; the native WebView was not exercised. Native startup, screenshots and regression tests are different evidence. Do not infer real-model quality, microphone/ASR success, signed/notarized distribution or unattended reliability from service readiness. A configured workflow is not a successful remote CI run.
 
@@ -357,3 +357,16 @@ At `3bd7e53`, the [Windows regression job](https://github.com/coco4atJP/Tepora-a
 The aggregate Node budget is now 600,000 ms, matching the native job's own ten-minute step. The 120,000 ms individual file deadline, test selection, assertions, skips and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace.
 
 This is the same correction made for `codex/v3-hands-free-voice-20261017` at `017d378`, which had not been merged into `rust/v3-core-migration`. A longer outer bound does not turn an individual failure into a pass, and these fixtures are not a substitute for the complete Windows regression and package matrices.
+
+
+## CI responsibilities and Linux package coverage
+
+`ci.yml` runs the complete source regression gate on Linux x64, Windows and macOS. `npm run quality` already includes Rust core/native-service builds and tests, syntax, Node/Python tests, traceability, preview generation, capability fixtures and root-entry tests; its separate workflow-level Rust test invocation has been removed.
+
+`tepora-v3-beta.yml` owns packaging, release-mode desktop launcher/permission tests and installed startup. It no longer repeats the same source suites on those three platforms. Linux ARM64 retains core/native-service/Node tests in its package job because that architecture is not in the source regression matrix. Tag/manual package builds also retain those source checks on every platform because they do not trigger the separate regression workflow. Package CI still creates its own preview and release sidecar. Both workflows run for relevant `main` pushes and pull requests; native builds also run for release tags. The obsolete legacy-branch PR skip is removed.
+
+The manual artifact smoke workflow retains its exact commit/run validation and can replay all four package platforms. Security scanning, dependency-health checks, release notes and the disabled Gemini automation are unchanged. Configured coverage is not evidence of a successful run; inspect the results for the exact commit.
+
+RPM packaging runs separately against the existing release binary, using Version `3.0.0` and Release `0.beta.11.1` so the prerelease sorts before release `1` of the final RPM. The compiled app, deb and AppImage retain `3.0.0-beta.11`. The Linux Tauri defaults select deb/AppImage; `npm run build` also invokes the RPM bundling helper after the build. The helper derives metadata from the application version and does not rebuild with a different application version.
+
+An installed bubblewrap binary does not establish usable kernel namespaces. Capability detection probes the production mount arguments and separately adds `--unshare-net`. A failed probe rejects execution with status 409 before starting the user's command; it never removes requested isolation or falls back to the host/container. The write-confinement fixture runs with and without network isolation wherever each capability is available. Only recognized host permission/namespace restrictions switch that fixture to checking rejection, no marker file and no managed process; unexpected probe errors fail the test. Separate synthetic executables cover mount, network-only and silent failures even on hosts where real bubblewrap works. Runtime failures after a successful probe still fail the real confinement assertions.

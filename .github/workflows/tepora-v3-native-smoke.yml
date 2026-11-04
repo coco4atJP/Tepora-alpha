@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-22.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -52,6 +52,16 @@ jobs:
           run-id: ${{ inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: Tepora-v3
+      - name: Install Linux smoke dependencies
+        if: runner.os == 'Linux'
+        working-directory: Tepora-v3
+        run: bash ci/install-linux-deps.sh
+      - name: Install and launch Linux package
+        if: runner.os == 'Linux'
+        working-directory: Tepora-v3
+        run: |
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          xvfb-run -a -s "-screen 0 1440x960x24" dbus-run-session -- bash ci/native-smoke-linux.sh
       - name: Install and launch Windows package
         if: runner.os == 'Windows'
         shell: pwsh

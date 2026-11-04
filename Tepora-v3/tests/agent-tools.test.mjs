@@ -100,14 +100,23 @@ test('argument repair, schema checks and head/tail fitting',()=>{
  assert.match(checkArgs(schema,{}),/path is required/);assert.match(checkArgs(schema,{path:'a',n:0}),/≥ 1/);assert.match(checkArgs(schema,{path:'a',x:1}),/not a known parameter/);assert.equal(checkArgs(schema,{path:'a',n:2}),null);
  const long='x'.repeat(10000),fit=fitTokens(long,500,'#9');assert.ok(fit.truncated);assert.match(fit.text,/recall\("#9", offset=\d+\)/);assert.ok(fit.text.length<2500);
 });
-test('the sandbox confines writes to the working folder (Seatbelt on macOS)',{skip:!detectSandbox().seatbelt&&!detectSandbox().bwrap},async t=>{
- const f=await toolFixture(t,{sandbox:{mode:'workspace',network:false}});
- const outside=path.join(os.homedir(),`.tepora-sandbox-test-${process.pid}.txt`);t.after(()=>rm(outside,{force:true}));
+for(const network of [true,false])test(`the sandbox confines writes or rejects unavailable isolation (network ${network})`,{skip:!detectSandbox().seatbelt&&!detectSandbox().bwrap&&!detectSandbox().bwrapError},async t=>{
+ const available=detectSandbox(),f=await toolFixture(t,{sandbox:{mode:'workspace',network}});
+ const outside=path.join(os.homedir(),`.tepora-sandbox-test-${process.pid}.txt`);
+ await assert.rejects(f.call('write',{path:outside,content:'x'}),/サンドボックス/);
+ const homeDir=path.join(os.homedir(),'tepora-ro-test');assert.throws(()=>assertWritable({mode:'readonly',writable:[]},homeDir,path.join(homeDir,'a')),/サンドボックス/);
+ if(available.bwrapError||!network&&available.bwrap&&!available.bwrapNetwork){
+  assert.match(available.bwrapError||available.bwrapNetworkError,/Operation not permitted|Permission denied|No permissions to create new namespace|setting up (?:uid|gid) map: Read-only file system/i,'Only known host capability restrictions can replace the real confinement assertions.');
+  t.diagnostic('Requested bubblewrap isolation is unavailable; checking fail-closed execution.');
+  await assert.rejects(f.call('exec',{command:'echo unsafe > must-not-run.txt'}),e=>e.status===409&&/bubblewrap/.test(e.message));
+  await assert.rejects(stat(path.join(f.session.cwd,'must-not-run.txt')),{code:'ENOENT'});
+  assert.deepEqual(f.rt.processes.list(),[]);
+  return;
+ }
+ t.after(()=>rm(outside,{force:true}));
  const inside=await f.call('exec',{command:`echo ok > inside.txt && cat inside.txt`});assert.match(inside.text,/^exit 0[\s\S]*ok/);assert.match(inside.text,/sandbox (seatbelt|bwrap)/);
  const denied=await f.call('exec',{command:`echo no > ${JSON.stringify(outside)}`});assert.doesNotMatch(denied.text,/^exit 0/);
  await assert.rejects(stat(outside));
- await assert.rejects(f.call('write',{path:outside,content:'x'}),/サンドボックス/);
- const homeDir=path.join(os.homedir(),'tepora-ro-test');assert.throws(()=>assertWritable({mode:'readonly',writable:[]},homeDir,path.join(homeDir,'a')),/サンドボックス/);
 });
 test('container planning requires an available engine and never drops network isolation',()=>{
  const plan=()=>wrapCommand('true',{cwd:os.tmpdir(),policy:{mode:'container',network:false,writable:[],image:'node:22',engine:'auto'},containerName:'tepora-x'});
