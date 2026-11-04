@@ -66,12 +66,24 @@ npm run quality:full       # 上記にブラウザE2E・Computer Use連携を追
 npm run preview:build      # モデル不要の画面プレビュー
 npm ci --prefix Tepora-v3 --ignore-scripts  # pi-aiとネイティブ用CLI
 npm run desktop            # Tauri開発起動
-npm run build              # Windows/macOSネイティブパッケージ
+npm run build              # Windows/macOS/Linuxネイティブパッケージ
 ```
 
 標準検証にはPython 3が必要です。ネイティブビルドにはRust stableとOSごとのTauriビルド環境が必要です。Taskを利用する場合も、`task dev`、`task quality`、`task build` は同じV3のコマンドを実行します。
 
 macOSビルドは既定でアドホック署名を行い、アプリのリソース署名と同梱Node/Rustの読み込みを検証します。一般配布用のDeveloper ID署名・Apple公証には別途証明書と認証設定が必要です。詳細は[QA](Tepora-v3/docs/QA.md#macos-signing-and-current-browser-gates)を参照してください。
+
+Linux（x64/arm64、glibc）のTauriビルドには、Node ≥22.19・Rust ≥1.88に加えて次のパッケージが必要です（Debian/Ubuntu例）。
+
+```sh
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+  libssl-dev build-essential pkg-config \
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-pipewire
+```
+
+`npm run build` でdeb・rpm・AppImageを作ります（AppImageはGStreamerを同梱）。マイクはWebKitGTKのメディア取得を有効にし、Teporaの画面からの要求だけ許可します（カメラ・画面共有は拒否）。Macのアプリ操作はmacOS専用のため、Linuxでは非対応と表示され、ブラウザ操作のみ使えます。
+
+既知の問題: NVIDIA GPUとWebKitGTKの組み合わせで、起動直後に白画面やクラッシュになる報告があります。その場合は `WEBKIT_DISABLE_DMABUF_RENDERER=1`（必要なら `WEBKIT_DISABLE_COMPOSITING_MODE=1` も）を設定して起動してください。Linuxのネイティブ配布物は実機での起動・マイク確認が未実施です。
 
 実APIを使う[基本動作ベンチマーク](Tepora-v3/docs/BENCHMARK.md)を追加しました。`npm --prefix Tepora-v3 run bench:list` で対象を確認できます。DeepSeek V4.1 Flash・MiniMax M3.1 Flash・Step5・MiMo V2.6 Flash・Muse Spark 1.3 Contributorをpi-ai経由で登録し、JevによるComputer Useを含む22項目を既定で各2回測ります。有料APIの実行は通常の品質チェックとは別に明示指定します。
 
