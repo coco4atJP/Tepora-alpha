@@ -106,6 +106,7 @@ for(const network of [true,false])test(`the sandbox confines writes or rejects u
  await assert.rejects(f.call('write',{path:outside,content:'x'}),/サンドボックス/);
  const homeDir=path.join(os.homedir(),'tepora-ro-test');assert.throws(()=>assertWritable({mode:'readonly',writable:[]},homeDir,path.join(homeDir,'a')),/サンドボックス/);
  if(available.bwrapError||!network&&available.bwrap&&!available.bwrapNetwork){
+  assert.match(available.bwrapError||available.bwrapNetworkError,/Operation not permitted|Permission denied|No permissions to create new namespace|setting up (?:uid|gid) map: Read-only file system/i,'Only known host capability restrictions can replace the real confinement assertions.');
   t.diagnostic('Requested bubblewrap isolation is unavailable; checking fail-closed execution.');
   await assert.rejects(f.call('exec',{command:'echo unsafe > must-not-run.txt'}),e=>e.status===409&&/bubblewrap/.test(e.message));
   await assert.rejects(stat(path.join(f.session.cwd,'must-not-run.txt')),{code:'ENOENT'});
