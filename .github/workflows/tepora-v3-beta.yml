@@ -2,7 +2,7 @@ name: Tepora V3 beta.11 native build
 on:
   workflow_dispatch:
   push:
-    branches: ['rust/v3-core-migration']
+    branches: ['main']
     tags: ['v3.*']
     paths: ['Tepora-v3/**', 'package*.json', '.github/workflows/tepora-v3-beta.yml']
   pull_request:
@@ -14,9 +14,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   native:
-    # The canonical V3 branch is checked at its exact push SHA, even when the PR
-    # head ref is delayed. Avoid running the same matrix twice on PR sync.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rust/v3-core-migration'
     strategy:
       fail-fast: false
       matrix:
@@ -25,8 +22,14 @@ jobs:
             bundle: nsis
           - os: macos-latest
             bundle: dmg
+          - os: ubuntu-22.04
+            bundle: deb,rpm,appimage
+          - os: ubuntu-24.04-arm
+            bundle: deb,rpm,appimage
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
     defaults:
       run:
         working-directory: Tepora-v3
@@ -38,38 +41,38 @@ jobs:
           node-version: '22.22.0'
       - name: Install pinned V3 SDK dependencies
         run: npm ci --prefix "${{ github.workspace }}/Tepora-v3" --ignore-scripts
-      - name: Bound Windows Rust test parallelism
-        if: runner.os == 'Windows'
-        run: echo "RUST_TEST_THREADS=2" >> "$GITHUB_ENV"
-      - run: rustup default stable
-      - run: npm run build:core
-      - run: npm run test:rust
-      - run: npm run build:native
-      - run: npm run test:native
-      - run: node scripts/check.mjs
-      - name: Node tests
-        if: runner.os != 'Windows'
-        run: node --test
-      - name: Node tests (Windows diagnostics)
-        if: runner.os == 'Windows'
-        timeout-minutes: 10
-        # Keep cold browser starts and synchronous SQLite fixtures from starving
-        # each other on Windows. Behavioral assertions/deadlines stay unchanged.
-        run: node --import ./scripts/ci-diagnostics.mjs --test --test-concurrency=1 --test-timeout=120000
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build and smoke dependencies
+        if: runner.os == 'Linux'
+        run: bash ci/install-linux-deps.sh
+      # ci.yml owns PR/main source regression. Keep coverage for ARM64 and
+      # standalone tag/manual builds, which do not have that regression run.
+      - name: Standalone source regressions
+        if: matrix.os == 'ubuntu-24.04-arm' || github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then export RUST_TEST_THREADS=2; fi
+          npm run build:core
+          npm run test:rust
+          npm run build:native
+          npm run test:native
+          node scripts/check.mjs
+          if [ "$RUNNER_OS" = Windows ]; then
+            node --import ./scripts/ci-diagnostics.mjs --test --test-concurrency=1 --test-timeout=120000
+          else
+            node --test
+          fi
       - uses: actions/upload-artifact@v7
-        if: always() && runner.os == 'Windows'
+        if: always() && runner.os == 'Windows' && (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch')
         with:
           name: tepora-v3-test-diagnostics-${{ matrix.os }}
           path: Tepora-v3/validation/test-diagnostics/
           if-no-files-found: warn
       - run: node scripts/build-preview.mjs
-      - run: rustup default stable
-      - run: npm ci --ignore-scripts
       - run: npx tauri icon web/favicon.svg --output desktop/icons
       - run: node scripts/build-sidecar.mjs
       - run: ../node_modules/.bin/tauri build --bundles ${{ matrix.bundle }} -- --locked
         working-directory: Tepora-v3/desktop
-      - name: Native launcher path regression
+      - name: Native launcher and permission regressions
         run: cargo test --release --locked --bin tepora-v3
         working-directory: Tepora-v3/desktop
       - name: Native installation and startup (Windows)
@@ -79,6 +82,9 @@ jobs:
       - name: Native bundle startup (macOS)
         if: runner.os == 'macOS'
         run: bash ci/native-smoke.sh
+      - name: Native installation and startup (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1440x960x24" dbus-run-session -- bash ci/native-smoke-linux.sh
       - uses: actions/upload-artifact@v7
         if: always()
         with:

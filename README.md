@@ -87,7 +87,7 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
 実APIを使う[基本動作ベンチマーク](Tepora-v3/docs/BENCHMARK.md)を追加しました。`npm --prefix Tepora-v3 run bench:list` で対象を確認できます。DeepSeek V4.1 Flash・MiniMax M3.1 Flash・Step5・MiMo V2.6 Flash・Muse Spark 1.3 Contributorをpi-ai経由で登録し、JevによるComputer Useを含む22項目を既定で各2回測ります。有料APIの実行は通常の品質チェックとは別に明示指定します。
 
-CIは `rust/v3-core-migration` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
+CIは `main` のV3関連変更およびPRを対象にします。通常検証はLinux/Windows/macOSで実行し、配布CIはWindows（NSIS）、macOS（DMG）、Linux x64/arm64（deb・rpm・AppImage）をビルドします。Linuxの起動確認はXvfb上のインストール済みdebで行い、RPM/AppImageの起動と実機マイクは別途確認が必要です。ワークフローの設定は実行成功の証拠ではありません。
 
 ## 現在の範囲
 
