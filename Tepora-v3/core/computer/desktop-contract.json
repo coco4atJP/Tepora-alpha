@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "about": "The desktop backend contract shared by every OS helper (macOS ax-helper.swift, Windows/Linux tepora-desktop-helper). One JSON request per line on stdin, one JSON reply per line on stdout: {\"id\":1,\"cmd\":\"observe\",\"pid\":123,\"title\":\"\"} -> {\"id\":1,\"ok\":true,\"result\":{...}} or {\"id\":1,\"ok\":false,\"error\":\"...\"}. Roles are the macOS helper's table (ax-helper.swift roles); the other tables map native roles onto the same names.",
+  "commands": ["status", "windows", "observe", "matches", "press", "click", "setText", "type", "choose", "key", "scroll", "screenshot", "open"],
+  "roles": ["button", "checkbox", "radio", "combobox", "textbox", "password", "searchbox", "link", "menuitem", "menubutton", "slider", "disclosure", "cell", "row", "tab", "switch", "date", "color", "image"],
+  "valueRoles": ["textbox", "password", "searchbox", "combobox", "slider", "date"],
+  "toggleRoles": ["checkbox", "radio", "switch"],
+  "mac": {
+    "AXButton": "button", "AXCheckBox": "checkbox", "AXRadioButton": "radio", "AXPopUpButton": "combobox", "AXComboBox": "combobox",
+    "AXTextField": "textbox", "AXTextArea": "textbox", "AXSecureTextField": "password", "AXLink": "link", "AXMenuItem": "menuitem",
+    "AXMenuButton": "menubutton", "AXSlider": "slider", "AXIncrementor": "slider", "AXDisclosureTriangle": "disclosure",
+    "AXCell": "cell", "AXRow": "row", "AXTab": "tab", "AXSwitch": "switch", "AXDateField": "date", "AXColorWell": "color",
+    "AXSegmentedControl": "tab", "AXImage": "image"
+  },
+  "uia": {
+    "Button": "button", "CheckBox": "checkbox", "RadioButton": "radio", "ComboBox": "combobox", "Edit": "textbox",
+    "Document": "textbox", "Hyperlink": "link", "MenuItem": "menuitem", "SplitButton": "menubutton", "Slider": "slider",
+    "Spinner": "slider", "TreeItem": "row", "ListItem": "row", "DataItem": "row", "TabItem": "tab", "Calendar": "date",
+    "HeaderItem": "button", "Image": "image"
+  },
+  "atspi": {
+    "push button": "button", "toggle button": "checkbox", "check box": "checkbox", "radio button": "radio", "combo box": "combobox",
+    "text": "textbox", "entry": "textbox", "password text": "password", "link": "link", "menu item": "menuitem",
+    "check menu item": "menuitem", "radio menu item": "menuitem", "push button menu": "menubutton", "slider": "slider",
+    "spin button": "slider", "table cell": "cell", "table row": "row", "list item": "row", "tree item": "row", "page tab": "tab",
+    "switch": "switch", "date editor": "date", "calendar": "date", "color chooser": "color", "image": "image", "icon": "image"
+  },
+  "noPressFallback": {
+    "mac": ["AXStaticText", "AXGroup", "AXWindow"],
+    "uia": ["Text", "Group", "Window", "Pane", "TitleBar", "MenuBar", "ToolBar", "StatusBar", "Separator", "ScrollBar", "Thumb"],
+    "atspi": ["label", "static", "paragraph", "heading", "panel", "filler", "frame", "window", "dialog", "section", "scroll pane", "viewport", "menu bar", "tool bar", "status bar", "separator", "scroll bar", "application"]
+  },
+  "textRoles": {
+    "mac": ["AXStaticText"],
+    "uia": ["Text"],
+    "atspi": ["label", "static", "paragraph", "heading", "caption"]
+  },
+  "keys": ["a-z", "0-9", "Enter", "Return", "Tab", "Space", "Backspace", "Escape", "Delete", "Home", "End", "PageUp", "PageDown", "ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "F1-F12"],
+  "modifiers": {"Mod": "Command on macOS, Control elsewhere", "Control": "Ctrl", "Alt": "Option", "Shift": "", "Meta": "Command on macOS, Windows/Super key elsewhere"}
+}
