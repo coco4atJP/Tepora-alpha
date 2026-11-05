@@ -190,8 +190,12 @@ pauses work instead of stopping it.
 ## Computer use
 
 Work agents operate a Chromium-family browser over the DevTools protocol (headless by default, one tab per
-agent, nothing to install) and, on macOS, desktop apps through the Accessibility API (a small Swift helper
-built on first use; needs the Accessibility and Screen Recording permissions). The preferred way is
+agent, nothing to install) and desktop apps. On macOS this uses the Accessibility API (a small Swift helper
+built on first use; needs the Accessibility and Screen Recording permissions). On Windows and on Linux X11
+it uses the Rust `tepora-desktop-helper` (UI Automation + SendInput, or AT-SPI + XTest), which packaged
+builds include and source checkouts build with cargo on first use. Both helpers speak the same JSON-lines
+commands (`core/computer/desktop-contract.json`) and report the same roles. Linux on Wayland, or with no
+display, is reported as unsupported; browser control still works there. The preferred way is
 **decision-model control**: the agent gives a small goal, the text to enter and checks that prove
 completion; the decision model (Liquid d1 or Laya) picks each next action from controls that exist on
 screen, with probability gates, freshness checks and local verification. Without a decision model the
@@ -210,6 +214,8 @@ npm run improve:check        # syntax, all Node tests, Python contracts, scenari
 npm run test:capabilities    # agent -> embedding/image/speech endpoints -> files, deterministic fixtures
 npm run test:computer        # real headless browser: direct actions, decision loop, screenshot (+ macOS helper)
 node scripts/eval-agent.mjs --run --url http://127.0.0.1:8080/v1 --model <model>   # real-model eval with metrics
+npm run test:desktop-helper  # Windows/Linux desktop helper unit tests
+dbus-run-session -- desktop-helper/smoke/run-x11-smoke.sh   # Linux: helper on Xvfb + AT-SPI with a GTK window
 npm run improve:full         # also UI and owned-browser Computer Use; existing browser required
 npm run improve:watch        # recheck only after source changes; Ctrl+C stops
 ```

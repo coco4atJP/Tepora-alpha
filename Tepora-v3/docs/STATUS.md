@@ -32,6 +32,8 @@ Metacognition and learning from experience (2026-10-07, later the same day):
 
 Not verified: macOS desktop control itself (Accessibility was not granted in the test environment), Anthropic/OpenAI cache behaviour against the real APIs (the 20-block lookback and TTL rules come from the providers' documentation), the local Laya worker, and the delegation safety net against a real small character model end to end (it is covered by a scripted test; the d1 routing question was calibrated on 15 sample messages).
 
+Windows and Linux desktop control (2026-11-05): the Rust `tepora-desktop-helper` implements the shared JSON-lines contract with UI Automation + SendInput on Windows and AT-SPI + XTest on Linux X11. On Linux it was driven end to end through the computer tool on Xvfb with an AT-SPI bus and a GTK3 window (`desktop-helper/smoke/run-x11-smoke.sh`): window list, observe with a masked password, type, checkbox, combo selection, button click, XTest keys including a character without a keycode, and a JPEG screenshot. Not verified: Windows on a real desktop (only the helper's unit tests on the CI Windows runner), Wayland (reported as unsupported), GTK4/Qt apps, a running window manager and multiple monitors.
+
 ## Local evidence
 
 On 2026-10-02, after integrating beta.11 into `main` and fixing the two security findings, the V3 suite passed **482 Node tests**, **13 isolated Python worker tests** and syntax checks for **103 JavaScript modules**. Capability integration used deterministic local HTTP providers with **zero external network calls**. Scenario consistency and preview generation passed.
