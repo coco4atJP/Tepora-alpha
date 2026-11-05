@@ -238,16 +238,39 @@ impl X11 {
         self.conn.sync()?;
         Ok(())
     }
-    /// Wheel notches at a point: button 4 up, 5 down, about 120 px per notch.
-    pub fn wheel(&self, x: f64, y: f64, dy: i64) -> Result<()> {
+    /// Wheel notches at a point: button 4 up, 5 down, 6 left, 7 right, about 120 px per notch.
+    pub fn wheel(&self, x: f64, y: f64, dy: i64, dx: i64) -> Result<()> {
         self.need_xtest()?;
         let (x, y) = self.clamp_point(x, y);
         self.fake(MOTION, 0, x, y)?;
-        let button = if dy < 0 { 4 } else { 5 };
-        for _ in 0..wheel_notches(dy) {
-            self.fake(BUTTON_PRESS, button, 0, 0)?;
-            self.fake(BUTTON_RELEASE, button, 0, 0)?;
+        for (d, button) in [(dy, if dy < 0 { 4 } else { 5 }), (dx, if dx < 0 { 6 } else { 7 })] {
+            if d == 0 {
+                continue;
+            }
+            for _ in 0..wheel_notches(d) {
+                self.fake(BUTTON_PRESS, button, 0, 0)?;
+                self.fake(BUTTON_RELEASE, button, 0, 0)?;
+            }
         }
+        self.conn.sync()?;
+        Ok(())
+    }
+    /// Button 1 pressed at one point, moved in a few steps, released at the other.
+    pub fn drag(&self, from: (f64, f64), to: (f64, f64)) -> Result<()> {
+        self.need_xtest()?;
+        let (x, y) = self.clamp_point(from.0, from.1);
+        self.fake(MOTION, 0, x, y)?;
+        self.conn.sync()?;
+        std::thread::sleep(Duration::from_millis(30));
+        self.fake(BUTTON_PRESS, 1, 0, 0)?;
+        for i in 1..=5 {
+            let t = i as f64 / 5.0;
+            let (x, y) = self.clamp_point(from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t);
+            self.fake(MOTION, 0, x, y)?;
+            self.conn.sync()?;
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        self.fake(BUTTON_RELEASE, 1, 0, 0)?;
         self.conn.sync()?;
         Ok(())
     }

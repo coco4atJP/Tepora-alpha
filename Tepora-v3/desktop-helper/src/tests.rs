@@ -14,7 +14,7 @@ fn c() -> &'static Contract {
 #[test]
 fn contract_parses_and_lists_every_command() {
     let k = Contract::parse(CONTRACT_JSON).unwrap();
-    for cmd in ["status", "windows", "observe", "matches", "press", "click", "setText", "type", "choose", "key", "scroll", "screenshot", "open"] {
+    for cmd in ["status", "windows", "observe", "matches", "press", "click", "setText", "type", "choose", "key", "scroll", "drag", "screenshot", "open"] {
         assert!(k.commands.iter().any(|c| c == cmd), "{cmd}");
     }
     assert!(Contract::parse("{}").is_err());
@@ -245,8 +245,12 @@ impl Backend for Fake {
         self.calls.push(format!("key {pid} {:?}", combo.key));
         Ok(())
     }
-    fn scroll(&mut self, pid: u32, reference: &str, dy: i64) -> Result<()> {
-        self.calls.push(format!("scroll {pid} {reference} {dy}"));
+    fn drag(&mut self, pid: u32, from: (f64, f64), to: (f64, f64), title: &str) -> Result<()> {
+        self.calls.push(format!("drag {pid} {} {} {} {} {title}", from.0, from.1, to.0, to.1));
+        Ok(())
+    }
+    fn scroll(&mut self, pid: u32, reference: &str, dy: i64, dx: i64) -> Result<()> {
+        self.calls.push(format!("scroll {pid} {reference} {dy} {dx}"));
         Ok(())
     }
     fn screenshot(&mut self, _pid: u32, _title: &str) -> Result<Shot> {
@@ -303,6 +307,8 @@ fn commands_reach_the_backend() {
         r#"{"id":7,"cmd":"key","pid":7,"combo":"Mod+L"}"#,
         r#"{"id":8,"cmd":"scroll","pid":7,"ref":"","dy":-300}"#,
         r#"{"id":9,"cmd":"scroll","pid":7}"#,
+        r#"{"id":9,"cmd":"scroll","pid":7,"dx":200}"#,
+        r#"{"id":9,"cmd":"drag","pid":7,"x":1,"y":2,"toX":30,"toY":4.5,"title":"T"}"#,
     ] {
         assert_eq!(ask(&mut f, line)["ok"], json!(true), "{line}");
     }
@@ -317,11 +323,14 @@ fn commands_reach_the_backend() {
             "type 7 z",
             "choose 7 a1 Two",
             "key 7 Char('l')",
-            "scroll 7  -300",
-            "scroll 7  600"
+            "scroll 7  -300 0",
+            "scroll 7  600 0",
+            "scroll 7  0 200",
+            "drag 7 1 2 30 4.5 T"
         ]
     );
     assert_eq!(ask(&mut f, r#"{"id":10,"cmd":"matches","pid":7,"checks":[{"ref":"a0","value":"hi"},{"ref":"a0","value":"no"},{"ref":"a1","value":""}]}"#)["result"], json!([true, false, false]));
+    assert_eq!(ask(&mut f, r#"{"id":13,"cmd":"drag","pid":7,"x":1}"#)["ok"], json!(false));
     assert_eq!(ask(&mut f, r#"{"id":11,"cmd":"matches","pid":7,"checks":[{"ref":"a9","value":"x"}]}"#)["ok"], json!(false));
     assert_eq!(ask(&mut f, r#"{"id":12,"cmd":"screenshot","pid":7}"#)["result"], json!({"base64": "/9j/", "width": 2, "height": 1, "mime": "image/jpeg"}));
 }

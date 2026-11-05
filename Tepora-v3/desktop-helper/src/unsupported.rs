@@ -20,7 +20,8 @@ impl Backend for Unsupported {
     fn type_text(&mut self, _: u32, _: &str) -> Result<()> { no() }
     fn choose(&mut self, _: u32, _: &str, _: &str) -> Result<()> { no() }
     fn key(&mut self, _: u32, _: &Combo) -> Result<()> { no() }
-    fn scroll(&mut self, _: u32, _: &str, _: i64) -> Result<()> { no() }
+    fn scroll(&mut self, _: u32, _: &str, _: i64, _: i64) -> Result<()> { no() }
+    fn drag(&mut self, _: u32, _: (f64, f64), _: (f64, f64), _: &str) -> Result<()> { no() }
     fn screenshot(&mut self, _: u32, _: &str) -> Result<Shot> { no() }
     fn open(&mut self, _: &str) -> Result<()> { no() }
 }

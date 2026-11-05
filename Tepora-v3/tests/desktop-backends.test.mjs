@@ -33,7 +33,7 @@ test('every helper role is one decide.mjs can act on (the shared contract matche
  // color wells have no generic action on macOS either; every other role can be clicked or filled.
  assert.deepEqual(contract.roles.filter(r=>!usable.has(r)),['color']);
  for(const table of ['mac','uia','atspi'])for(const [native,role]of Object.entries(contract[table]))assert.ok(contract.roles.includes(role),`${table} ${native} → ${role}`);
- assert.deepEqual(contract.commands.toSorted(),['choose','click','key','matches','observe','open','press','screenshot','scroll','setText','status','type','windows']);
+ assert.deepEqual(contract.commands.toSorted(),['choose','click','drag','key','matches','observe','open','press','screenshot','scroll','setText','status','type','windows']);
 });
 
 test('the Rust helper is looked up next to the bundled runtime first, then in a local cargo build',()=>{
@@ -64,7 +64,8 @@ test('Windows/Linux desktop actions travel the shared JSON-lines protocol to the
  assert.match(observed.text,/e1 button "Save"/);assert.match(observed.text,/e2 password "PIN" value="••••"/);assert.doesNotMatch(observed.text,/hunter/);
  await run({action:'click',ref:'e1'});await run({action:'click',x:10,y:20});
  await run({action:'type',ref:'e2',text:'1234',submit:true});await run({action:'type',text:'hi'});
- await run({action:'select',ref:'e3',option:'Two'});await run({action:'key',keys:'Mod+L'});await run({action:'scroll'});
+ await run({action:'select',ref:'e3',option:'Two'});await run({action:'key',keys:'Mod+L'});await run({action:'scroll'});await run({action:'scroll',dx:300});
+ await run({action:'drag',x:1,y:2,to_x:30,to_y:40});await assert.rejects(run({action:'drag',ref:'e1',to_ref:'e3'}),/x\/y/);
  await run({action:'open',app:'Fixture'});
  await assert.rejects(run({action:'click',ref:'e404'}),/No element e404/);
  const {sent}=await desktop.call('sent');
@@ -72,7 +73,7 @@ test('Windows/Linux desktop actions travel the shared JSON-lines protocol to the
  assert.deepEqual(acts,[
   {cmd:'press',pid:42,ref:'e1'},{cmd:'click',pid:42,x:10,y:20,title:''},
   {cmd:'setText',pid:42,ref:'e2',text:'1234'},{cmd:'key',pid:42,combo:'Enter'},{cmd:'type',pid:42,text:'hi'},
-  {cmd:'choose',pid:42,ref:'e3',option:'Two'},{cmd:'key',pid:42,combo:'Mod+L'},{cmd:'scroll',pid:42,ref:'',dy:600},
+  {cmd:'choose',pid:42,ref:'e3',option:'Two'},{cmd:'key',pid:42,combo:'Mod+L'},{cmd:'scroll',pid:42,ref:'',dy:600,dx:0},{cmd:'scroll',pid:42,ref:'',dy:0,dx:300},{cmd:'drag',pid:42,x:1,y:2,toX:30,toY:40,title:''},
   {cmd:'open',what:'Fixture'},{cmd:'press',pid:42,ref:'e404'},
  ]);
  assert.ok(sent.filter(r=>r.cmd==='observe').every(r=>r.pid===42&&r.title===''));

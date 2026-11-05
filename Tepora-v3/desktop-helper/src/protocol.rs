@@ -169,7 +169,10 @@ pub trait Backend {
     fn type_text(&mut self, pid: u32, text: &str) -> Result<()>;
     fn choose(&mut self, pid: u32, reference: &str, option: &str) -> Result<()>;
     fn key(&mut self, pid: u32, combo: &Combo) -> Result<()>;
-    fn scroll(&mut self, pid: u32, reference: &str, dy: i64) -> Result<()>;
+    /// dy scrolls down, dx right (pixels).
+    fn scroll(&mut self, pid: u32, reference: &str, dy: i64, dx: i64) -> Result<()>;
+    /// Press at (x, y), move to (to_x, to_y), release; window coordinates like click.
+    fn drag(&mut self, pid: u32, from: (f64, f64), to: (f64, f64), title: &str) -> Result<()>;
     fn screenshot(&mut self, pid: u32, title: &str) -> Result<Shot>;
     fn open(&mut self, what: &str) -> Result<()>;
 }
@@ -291,8 +294,15 @@ pub fn handle(backend: &mut dyn Backend, req: &Value) -> Result<Value> {
             if !r.is_empty() {
                 ref_index(r)?;
             }
-            let dy = req.get("dy").and_then(Value::as_i64).unwrap_or(600).clamp(-100_000, 100_000);
-            backend.scroll(pid, r, dy)?;
+            let dx = req.get("dx").and_then(Value::as_i64).unwrap_or(0).clamp(-100_000, 100_000);
+            let dy = req.get("dy").and_then(Value::as_i64).unwrap_or(if dx == 0 { 600 } else { 0 }).clamp(-100_000, 100_000);
+            backend.scroll(pid, r, dy, dx)?;
+            Ok(json!(true))
+        }
+        "drag" => {
+            let pid = pid_param(req)?;
+            let p = |k| num_param(req, k).ok_or_else(|| HelperError::new("x, y, toX and toY are required"));
+            backend.drag(pid, (p("x")?, p("y")?), (p("toX")?, p("toY")?), title)?;
             Ok(json!(true))
         }
         "screenshot" => {

@@ -504,7 +504,7 @@ impl Backend for WindowsBackend {
         self.activate_pid(pid)?;
         self.key_combo(combo)
     }
-    fn scroll(&mut self, pid: u32, reference: &str, dy: i64) -> Result<()> {
+    fn scroll(&mut self, pid: u32, reference: &str, dy: i64, dx: i64) -> Result<()> {
         let at = if reference.is_empty() { None } else { Some(self.snaps.get(pid, reference)?.clone()) };
         let win = self.window(pid, "")?;
         let (x, y) = match at.as_ref().map(Self::center) {
@@ -513,9 +513,32 @@ impl Backend for WindowsBackend {
         };
         self.activate(win.hwnd);
         unsafe { SetCursorPos(x.round() as i32, y.round() as i32)? };
-        // One wheel notch (120) scrolls about 100 px in most apps; negative dy scrolls up.
-        let delta = (-(dy as f64) * 1.2).round().clamp(-12000.0, 12000.0) as i32;
-        send(&[mouse_input(MOUSEEVENTF_WHEEL, delta)])
+        // One wheel notch (120) scrolls about 100 px in most apps; negative dy scrolls up, positive dx right.
+        let notch = |d: i64| (d as f64 * 1.2).round().clamp(-12000.0, 12000.0) as i32;
+        let mut inputs = Vec::new();
+        if dy != 0 {
+            inputs.push(mouse_input(MOUSEEVENTF_WHEEL, notch(-dy)));
+        }
+        if dx != 0 {
+            inputs.push(mouse_input(MOUSEEVENTF_HWHEEL, notch(dx)));
+        }
+        send(&inputs)
+    }
+    fn drag(&mut self, pid: u32, from: (f64, f64), to: (f64, f64), title: &str) -> Result<()> {
+        let win = self.window(pid, title)?;
+        let wf = frame_rect(win.hwnd).or_else(|| self.frames.get(&pid).map(|f| f.0)).ok_or_else(|| HelperError::new("The window has no frame."))?;
+        let scale = scale_of(win.hwnd);
+        let ((ax, ay), (bx, by)) = (to_screen(&wf, scale, from.0, from.1), to_screen(&wf, scale, to.0, to.1));
+        self.activate(win.hwnd);
+        unsafe { SetCursorPos(ax.round() as i32, ay.round() as i32)? };
+        std::thread::sleep(Duration::from_millis(30));
+        send(&[mouse_input(MOUSEEVENTF_LEFTDOWN, 0)])?;
+        for i in 1..=5 {
+            let t = i as f64 / 5.0;
+            unsafe { SetCursorPos((ax + (bx - ax) * t).round() as i32, (ay + (by - ay) * t).round() as i32)? };
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        send(&[mouse_input(MOUSEEVENTF_LEFTUP, 0)])
     }
     fn screenshot(&mut self, pid: u32, title: &str) -> Result<Shot> {
         let win = self.window(pid, title)?;
