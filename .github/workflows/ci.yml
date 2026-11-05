@@ -40,7 +40,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -69,6 +69,15 @@ jobs:
         run: |
           node tests/browser-monitor.mjs
           node tests/browser-ui-layout.mjs
+      # Desktop control on a real X11 display + AT-SPI bus (helper unit tests already run inside quality).
+      - name: Desktop helper X11 / AT-SPI smoke
+        if: runner.os == 'Linux'
+        working-directory: Tepora-v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb at-spi2-core libgtk-3-0 dbus gcc
+          cargo build --release --locked --manifest-path desktop-helper/Cargo.toml
+          dbus-run-session -- desktop-helper/smoke/run-x11-smoke.sh
       - name: Validation evidence
         if: always()
         uses: actions/upload-artifact@v7
