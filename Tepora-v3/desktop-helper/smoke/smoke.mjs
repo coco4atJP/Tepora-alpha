@@ -17,13 +17,15 @@ try{
  assert.doesNotMatch(o,/hunter2/,'password values are never read');
  const ref=re=>row(o,re).split(' ')[0];
  const [entry,check,combo,button]=[/ textbox /,/ checkbox /,/ combobox /,/ button "Press me"/].map(ref);
- assert.match(row((await run({action:'type',ref:entry,text:'via AT-SPI'})).text,new RegExp('^'+entry+' ')),/value="via AT-SPI"/);
- assert.match(row((await run({action:'click',ref:check})).text,new RegExp('^'+check+' ')),/\[checked\]/);
- assert.match(row((await run({action:'select',ref:combo,option:'Three'})).text,new RegExp('^'+combo+' ')),/value="Three"/);
+ assert.match(row((await run({action:'type',ref:entry,text:'via AT-SPI'})).text,new RegExp('^(?:[~+] )?'+entry+' ')),/value="via AT-SPI"/);
+ assert.match(row((await run({action:'click',ref:check})).text,new RegExp('^(?:[~+] )?'+check+' ')),/\[checked\]/);
+ assert.match(row((await run({action:'select',ref:combo,option:'Three'})).text,new RegExp('^(?:[~+] )?'+combo+' ')),/value="Three"/);
  assert.match((await run({action:'click',ref:button})).text,/Clicked 1/);
  // XTest: select all in the focused entry and type over it, including a character with no keycode.
  await run({action:'click',ref:entry});await run({action:'key',keys:'Mod+A'});
- assert.match(row((await run({action:'type',text:'Typed ü!'})).text,new RegExp('^'+entry+' ')),/value="Typed ü!"/);
+ assert.match(row((await run({action:'type',text:'Typed ü!'})).text,new RegExp('^(?:[~+] )?'+entry+' ')),/value="Typed ü!"/);
+ // Action results show what changed; horizontal scroll and drag reach XTest.
+ await run({action:'scroll',dx:120});await run({action:'drag',x:20,y:20,to_x:60,to_y:20});
  const shot=await run({action:'screenshot'});
  assert.equal(shot.images[0].mime,'image/jpeg');assert.ok(shot.images[0].base64.length>1000);
  console.log('X11 AT-SPI smoke test passed.');
