@@ -97,7 +97,6 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
  const desktopToggle=(desktop,on)=>{const t=desktopToggleText(desktop);return t.note?`<p class="small-text">${t.note}</p>`:toggle(t.label,'desktop',on,t.hint);};
  async function computerSheet(){computer=await bridge.request('/api/computer');const c=computer.config;
   openSheet('コンピューター操作',`<form id="computer-form">${toggle('コンピューター操作を使う','enabled',c.enabled,`作業担当がブラウザ${computer.desktop.supported?'（とこのPCのアプリ）':''}を、人と同じように操作します。`)}
-  <label>操作のしかた<select name="control">${options([['both','判断モデルが優先・必要なら直接操作（おすすめ）'],['decision','判断モデルだけが操作する'],['direct','作業担当が直接操作する']],c.control)}</select></label>
   <p class="small-text">判断モデル: ${computer.decision?'接続済み':'未接続 — つなぐまでは、作業担当のモデルが同じ候補から操作を選びます'}。判断モデルは画面にある操作から選ぶだけで、文章は書きません。</p>
   ${toggle('ブラウザを見えないまま動かす','headless',c.headless,'見える状態にすると操作の様子を見られ、ログインを手で済ませられます。ログインは見えないときにも引き継がれます。')}
   ${field('ブラウザの場所（空なら自動）','browserExecutable',c.browserExecutable||'',computer.browser.executable?`自動: ${computer.browser.executable}`:'Chrome / Edge / Brave / Chromium が見つかりません')}
@@ -160,7 +159,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
     const routes=Object.fromEntries(Object.entries(config.routes).filter(([role])=>!Object.hasOwn(roleNames,role)));for(const role of Object.keys(roleNames))if(d[role])routes[role]={primary:d[role],fallbacks:d[`${role}-fallbacks`].split(',').map(x=>x.trim()).filter(Boolean)};
     config=await bridge.request('/api/providers','PUT',{expectedRevision:config.revision,config:{profiles:config.profiles.map(editable),routes}});
    }else if(formId==='computer-form'){
-    computer=await bridge.request('/api/computer','PATCH',{expectedRevision:computer.config.revision,patch:{enabled:!!d.enabled,control:d.control,headless:!!d.headless,browserExecutable:d.browserExecutable||'',desktop:!!d.desktop,maxSteps:Math.max(1,Math.min(60,Number(d.maxSteps)||12))}});onChanged?.({computer});closeSheet();return;
+    computer=await bridge.request('/api/computer','PATCH',{expectedRevision:computer.config.revision,patch:{enabled:!!d.enabled,headless:!!d.headless,browserExecutable:d.browserExecutable||'',desktop:!!d.desktop,maxSteps:Math.max(1,Math.min(60,Number(d.maxSteps)||12))}});onChanged?.({computer});closeSheet();return;
    }
    onChanged?.({providers:config});draw();
   })().catch(err=>notice(err.message));

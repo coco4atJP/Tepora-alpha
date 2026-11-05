@@ -113,7 +113,9 @@ export class Desktop{
  setText(t,ref,text){return ref?this.call('setText',{pid:t.pid,ref,text}):this.call('type',{pid:t.pid,text});}
  choose(t,ref,option){return this.call('choose',{pid:t.pid,ref,option});}
  key(t,combo){return this.call('key',{pid:t.pid,combo});}
- scroll(t,ref,dy){return this.call('scroll',{pid:t.pid,ref:ref||'',dy});}
+ scroll(t,ref,dy,dx=0){return this.call('scroll',{pid:t.pid,ref:ref||'',dy,dx});}
+ /** Window coordinates, like click. */
+ drag(t,from,to){return this.call('drag',{pid:t.pid,x:from.x,y:from.y,toX:to.x,toY:to.y,title:t.window||''});}
  async screenshot(t){const r=await this.call('screenshot',{pid:t.pid,title:t.window||''},30000);return {mime:'image/jpeg',base64:r.base64,width:r.width,height:r.height};}
  /** macOS: /usr/bin/open. Windows/Linux: the helper (ShellExecute, or .desktop entries and xdg-open for http(s)). */
  async open(what){
