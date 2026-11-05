@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {bundleDependencies} from './bundle-dependencies.mjs';
 import {assertNodeTarget,assertPackagingTarget} from './native-target.mjs';
 import {installNativeBinary} from './install-native-binary.mjs';
+import {buildDesktopHelper,desktopHelperNotices,helperTarget} from './build-desktop-helper.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const rust=spawnSync('rustc',['-vV'],{encoding:'utf8'});
 if(rust.status!==0)throw new Error('Install the Rust toolchain before preparing the native package.');
@@ -21,6 +22,13 @@ await mkdir(path.join(root,'desktop','resources','licenses'),{recursive:true});
 await copyFile(path.join(root,'core','native','THIRD-PARTY-LICENSES.txt'),path.join(root,'desktop','resources','licenses','RUST-CORE-LICENSES.txt'));
 const suffix=process.platform==='win32'?'.exe':'';
 await installNativeBinary(process.execPath,path.join(root,'desktop','binaries',`node-runtime-${triple}${suffix}`));
+// Windows/Linux desktop control (UI Automation / AT-SPI + XTest); macOS compiles its Swift helper on first use.
+// tauri.<os>.conf.json lists it in externalBin, so it lands next to node-runtime (process.execPath).
+if(helperTarget(triple)){
+ const helper=await buildDesktopHelper({release:true,target:triple});
+ await copyFile(helper,path.join(root,'desktop','binaries',`tepora-desktop-helper-${triple}${suffix}`));
+ await writeFile(path.join(root,'desktop','resources','licenses','DESKTOP-HELPER-LICENSES.txt'),(await desktopHelperNotices(triple)).text);
+}
 for(const dir of ['core','web','workers'])await cp(path.join(root,dir),path.join(root,'desktop','resources','v3',dir),{recursive:true,filter:src=>!src.includes('__pycache__')&&!src.endsWith('.pyc')});
 await bundleDependencies(root,path.join(root,'desktop','resources','v3'));
 const candidates=[path.join(path.dirname(process.execPath),'LICENSE'),path.resolve(path.dirname(process.execPath),'../LICENSE')];
