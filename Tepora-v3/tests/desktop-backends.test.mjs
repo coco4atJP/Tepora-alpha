@@ -38,7 +38,7 @@ test('every helper role is one decide.mjs can act on (the shared contract matche
 
 test('the Rust helper is looked up next to the bundled runtime first, then in a local cargo build',()=>{
  const crate=path.join(root,'desktop-helper');
- assert.deepEqual(helperCandidates('linux',{execPath:'/opt/tepora/node-runtime',crate}),['/opt/tepora/tepora-desktop-helper',path.join(crate,'target','release','tepora-desktop-helper'),path.join(crate,'target','debug','tepora-desktop-helper')]);
+ assert.deepEqual(helperCandidates('linux',{execPath:'/opt/tepora/node-runtime',crate}),[path.join(path.dirname('/opt/tepora/node-runtime'),'tepora-desktop-helper'),path.join(crate,'target','release','tepora-desktop-helper'),path.join(crate,'target','debug','tepora-desktop-helper')]);
  assert.ok(helperCandidates('win32',{execPath:'/opt/tepora/node-runtime.exe',crate}).every(f=>f.endsWith('tepora-desktop-helper.exe')));
 });
 
