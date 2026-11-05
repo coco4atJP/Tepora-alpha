@@ -735,7 +735,7 @@ impl State {
         }
         s["capabilities"] = capabilities;
         let computer = self.value("computer-config")?;
-        s["computer"] = json!({"config":if computer["schema"]==2{computer}else{json!({"schema":2,"revision":0,"enabled":true,"control":"both","headless":true,"browserExecutable":"","desktop":true,"maxSteps":12})},"browser":{"executable":null,"running":false,"tabs":0},"desktop":{"supported":cfg!(target_os="macos"),"running":false},"decision":false,"nativeUnavailable":true});
+        s["computer"] = json!({"config":if computer["schema"]==2{computer}else{json!({"schema":2,"revision":0,"enabled":true,"control":"both","headless":true,"browserExecutable":"","desktop":true,"maxSteps":12})},"browser":{"executable":null,"running":false,"tabs":0},"desktop":desktop_backend(env::consts::OS,|k| env::var(k).ok()),"decision":false,"nativeUnavailable":true});
         let display = self.value("display")?;
         s["display"] = if display.is_null() {
             self.defaults["display"].clone()
@@ -1178,8 +1178,51 @@ impl Backend for Workspace {
     }
 }
 
+/// The desktop backend this OS would use, in the shape `ComputerUse.snapshot().desktop` has
+/// (core/computer/desktop.mjs `desktopBackend`): Linux works in X11 sessions only, Wayland is unsupported.
+fn desktop_backend(os: &str, var: impl Fn(&str) -> Option<String>) -> Value {
+    let set = |k: &str| var(k).is_some_and(|v| !v.is_empty());
+    let (id, label) = match os {
+        "macos" => ("macos", "macOS Accessibility"),
+        "windows" => ("windows", "Windows UI Automation"),
+        "linux" => ("linux-x11", "Linux X11 (AT-SPI)"),
+        _ => ("unsupported", ""),
+    };
+    let wayland = var("XDG_SESSION_TYPE").is_some_and(|v| v.eq_ignore_ascii_case("wayland"))
+        || set("WAYLAND_DISPLAY") && !set("DISPLAY");
+    let reason = match os {
+        "macos" | "windows" => "",
+        "linux" if wayland => "wayland",
+        "linux" if !set("DISPLAY") => "no-display",
+        "linux" => "",
+        _ => "platform",
+    };
+    json!({"supported":reason.is_empty(),"backend":id,"label":label,"reason":reason,"running":false})
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn desktop_backend_matches_the_js_platform_rules() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |k: &str| pairs.iter().find(|(n, _)| *n == k).map(|(_, v)| v.to_string())
+        };
+        let b = super::desktop_backend("macos", env(&[]));
+        assert_eq!((b["supported"].as_bool(), b["backend"].as_str()), (Some(true), Some("macos")));
+        assert_eq!(super::desktop_backend("windows", env(&[]))["label"], "Windows UI Automation");
+        let x11 = super::desktop_backend("linux", env(&[("DISPLAY", ":0"), ("XDG_SESSION_TYPE", "x11")]));
+        assert_eq!((x11["supported"].as_bool(), x11["backend"].as_str()), (Some(true), Some("linux-x11")));
+        for (pairs, reason) in [
+            (&[("XDG_SESSION_TYPE", "wayland"), ("DISPLAY", ":0")][..], "wayland"),
+            (&[("WAYLAND_DISPLAY", "wayland-0")][..], "wayland"),
+            (&[][..], "no-display"),
+        ] {
+            let pairs: &'static [(&'static str, &'static str)] = pairs;
+            let b = super::desktop_backend("linux", env(pairs));
+            assert_eq!((b["supported"].as_bool(), b["reason"].as_str()), (Some(false), Some(reason)));
+        }
+        assert_eq!(super::desktop_backend("freebsd", env(&[]))["reason"], "platform");
+    }
     use super::*;
     use crate::network::{Admitted, ByteStream, NetworkFuture, NetworkRequest, RequestCancellation, Resolver, Transport, TransportResponse};
     use std::sync::atomic::{AtomicUsize, Ordering};
