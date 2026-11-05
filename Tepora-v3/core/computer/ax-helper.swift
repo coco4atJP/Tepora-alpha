@@ -201,10 +201,10 @@ func choose(_ pid: Int32, _ ref: String, _ option: String) throws {
     AXUIElementPerformAction(el, "AXCancel" as CFString)
     throw HelperError("No option \"\(option)\" in \(ref).")
 }
-func scroll(_ pid: Int32, _ ref: String, _ dy: Int) throws {
+func scroll(_ pid: Int32, _ ref: String, _ dy: Int, _ dx: Int) throws {
     var start: AXUIElement? = ref.isEmpty ? nil : try target(pid, ref)
     if start == nil, let refs = snapshots[pid], let first = refs.first { start = first }
-    var el = start
+    var el = dx == 0 ? start : nil
     while let e = el {
         if text(e, kAXRoleAttribute as String) == "AXScrollArea", let bar = element(attr(e, kAXVerticalScrollBarAttribute as String)),
            let v = (attr(bar, kAXValueAttribute as String) as? NSNumber)?.doubleValue {
@@ -215,7 +215,7 @@ func scroll(_ pid: Int32, _ ref: String, _ dy: Int) throws {
     }
     let wf = windowFrames[pid] ?? .zero
     activate(pid)
-    let ev = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(-dy), wheel2: 0, wheel3: 0)
+    let ev = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: Int32(-dy), wheel2: Int32(-dx), wheel3: 0)
     ev?.location = CGPoint(x: wf.midX, y: wf.midY); ev?.post(tap: .cghidEventTap)
 }
 func windows() -> [[String: Any]] {
@@ -250,6 +250,20 @@ func screenshot(_ pid: Int32, _ title: String) throws -> [String: Any] {
     }
     return ["base64": data.base64EncodedString(), "width": Int(wf.width), "height": Int(wf.height)]
 }
+func dragPoints(_ pid: Int32, _ x: Double, _ y: Double, _ toX: Double, _ toY: Double, _ title: String) throws {
+    let win = try appWindow(pid, title)
+    let wf = frame(win) ?? windowFrames[pid] ?? .zero
+    activate(pid)
+    let src = CGEventSource(stateID: .hidSystemState), a = CGPoint(x: wf.minX + x, y: wf.minY + y), b = CGPoint(x: wf.minX + toX, y: wf.minY + toY)
+    CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: a, mouseButton: .left)?.post(tap: .cghidEventTap)
+    CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left)?.post(tap: .cghidEventTap)
+    for i in 1...5 {
+        let t = Double(i) / 5, p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+        CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
+        usleep(20000)
+    }
+    CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: b, mouseButton: .left)?.post(tap: .cghidEventTap)
+}
 func clickPoint(_ pid: Int32, _ x: Double, _ y: Double, _ title: String) throws {
     let win = try appWindow(pid, title)
     let wf = frame(win) ?? windowFrames[pid] ?? .zero
@@ -275,7 +289,8 @@ func handle(_ req: [String: Any]) throws -> Any {
     case "type": typeText(pid, req["text"] as? String ?? ""); return true
     case "choose": try choose(pid, ref, req["option"] as? String ?? ""); return true
     case "key": try key(pid, req["combo"] as? String ?? ""); return true
-    case "scroll": try scroll(pid, ref, req["dy"] as? Int ?? 600); return true
+    case "scroll": try scroll(pid, ref, req["dy"] as? Int ?? 600, req["dx"] as? Int ?? 0); return true
+    case "drag": try dragPoints(pid, req["x"] as? Double ?? 0, req["y"] as? Double ?? 0, req["toX"] as? Double ?? 0, req["toY"] as? Double ?? 0, title); return true
     case "screenshot": return try screenshot(pid, title)
     default: throw HelperError("Unknown command \(cmd)")
     }

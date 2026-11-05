@@ -9,7 +9,7 @@ import {NetworkPolicy} from '../core/network-policy.mjs';
 import {ProviderRegistry} from '../core/provider-registry.mjs';
 import {Capabilities} from '../core/capabilities.mjs';
 import {AgentRuntime} from '../core/agent/runtime.mjs';
-import {ComputerUse,renderObservation} from '../core/computer/index.mjs';
+import {ComputerUse,renderObservation,renderChanges,renderRun,computerDescription,computerTool} from '../core/computer/index.mjs';
 import {findBrowser,keyEvents} from '../core/computer/browser.mjs';
 import {shortlist,checkAll,matchField,runGoal} from '../core/computer/decide.mjs';
 import {scriptedModel,toolResults} from './helpers/scripted-model.mjs';
@@ -127,4 +127,44 @@ test('browser: "do" without a decision model — the agent\'s own model chooses 
 test('observation text lists controls in view and the screen text',()=>{
  const text=renderObservation({url:'https://e.x/',title:'T',text:'こんにちは',scroll:{y:0,height:2000,viewport:900},elements:[{ref:'e1',role:'button',name:'送る',inView:true},{ref:'e2',role:'link',name:'下',inView:false,href:'/x'}]});
  assert.match(text,/Screen: T — https:\/\/e\.x\//);assert.match(text,/e1 button "送る"/);assert.doesNotMatch(text,/e2 link/);assert.match(text,/1 more off screen/);assert.match(text,/こんにちは/);
+});
+
+test('the tool definition does not depend on settings, and lists drag and horizontal scroll',()=>{
+ const backend={supported:false};assert.equal(computerDescription(backend),computerDescription(backend));
+ const fake={available:()=>true,config:()=>({enabled:true})},tool=computerTool(fake);
+ assert.ok(tool.parameters.properties.action.enum.includes('drag'));for(const k of ['dx','to_ref','to_x','to_y'])assert.ok(tool.parameters.properties[k],k);
+ assert.match(tool.description,/drag/);assert.match(tool.description,/dx right/);assert.doesNotMatch(tool.description,/control setting|only "do"/);
+});
+
+test('"do" prefers the decision model and falls back to the chat model when it fails, is paused or is unsure',async()=>{
+ const criteria={click_a1:'click button "OK"',wait:'wait'};
+ const cu=Object.create(ComputerUse.prototype);cu.registry={invoke:async()=>({content:'click_a1'})};
+ let answer=null,available=true;cu.decisions={available:()=>available,ask:async()=>answer};
+ assert.match((await cu.chooser({kind:'worker'})('{}',criteria)).method,/chat model.*decision model failed/);
+ answer={answers:{action:{choice:'click_a1',probabilities:{click_a1:0.95,wait:0.05}}}};
+ assert.equal((await cu.chooser({kind:'worker'})('{}',criteria)).method,'decision model');
+ available=false;assert.match((await cu.chooser({kind:'worker'})('{}',criteria)).method,/paused or not set/);
+ available=true;answer={answers:{action:{choice:'click_a1',probabilities:{click_a1:0.5,wait:0.45}}}};
+ const choose=cu.chooser({kind:'worker'});
+ assert.match((await choose('{}',criteria)).method,/unsure/);assert.equal((await choose('{}',criteria)).method,'decision model','one re-pick per goal');
+});
+
+test('a failed "do" reports a suggestion and the screen revision; action results show what changed',()=>{
+ const o={url:'https://e.x/',title:'T',text:'a',elements:[{ref:'e1',role:'button',name:'OK',inView:true}]};
+ const text=renderRun({status:'uncertain',steps:[],observation:o});assert.match(text,/Next: Observe/);assert.match(text,/revision/);
+ const next={...o,text:'b',elements:[{ref:'e1',role:'button',name:'OK',inView:true,disabled:true},{ref:'e2',role:'link',name:'New',inView:true}]};
+ const diff=renderChanges(next,o);assert.match(diff,/~ e1 button "OK" \[disabled\]/);assert.match(diff,/\+ e2 link "New"/);assert.match(diff,/Text on screen now:\nb/);
+ assert.equal(renderChanges({...next,url:'https://e.x/2'},o),null);
+});
+
+test('browser: drag and horizontal scroll',{skip:!browser},async t=>{
+ const server=http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});r.end(`<!doctype html><title>D</title><body style="margin:0;width:5000px"><div id=box style="width:100px;height:100px;background:red" onmousedown="this.dataset.d=1"></div><p id=s>none</p>
+<script>addEventListener('mouseup',e=>{if(box.dataset.d)s.textContent='dropped at '+e.clientX+','+e.clientY});</script></body>`);});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
+ const f=await harness(t,()=>({content:'ok'}));const tool=computerTool(f.computer),ctx={session:{id:'drag',kind:'worker'},cwd:f.dir};
+ await tool.run({action:'open',url:`http://127.0.0.1:${server.address().port}/`},ctx);
+ const r=await tool.run({action:'drag',x:50,y:50,to_x:300,to_y:120},ctx);assert.match(r.text,/dropped at 300,120/);
+ const s=await tool.run({action:'scroll',dx:400},ctx);assert.ok(s.data.revision);
+ const page=await f.computer.page('drag');await until(async()=>(await page.send('Runtime.evaluate',{expression:'scrollX',returnByValue:true})).result.value>0,5000);
+ await f.computer.release('drag');
 });

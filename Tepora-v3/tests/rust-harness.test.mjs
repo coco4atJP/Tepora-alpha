@@ -34,7 +34,7 @@ test('Rust harness JSON repair and unrepaired V8 feedback match frozen source',(
 
 test('Rust harness prompts, all notices, personas and silent streaming detection preserve actual cached prefix',()=>{
  for(const kind of ['main','worker'])for(const tools of [[],['reflect','memory_search'],['exec','computer','skill','reflect','memory_search']])for(const p of [null,{name:'ユキ 🦊',instructions:'変えない\n\ud800',style:'short'},{name:'user',instructions:'instruction',voice:{tone:'casual',callName:' A\n B',proactive:'quiet'}}]){
-  const session={kind,cwd:'/tmp/work'};const options={tools,persona:p,skills:[{name:'code',description:'test'}],sandbox:{mode:'off'},computer:{backend:'browser',headless:true,control:'decision'}};
+  const session={kind,cwd:'/tmp/work'};const options={tools,persona:p,skills:[{name:'code',description:'test'}],sandbox:{mode:'off'},computer:{backend:'browser',headless:true}};
   equal(native('prompts.systemPrompt',{session,...options,environment}),prompts.systemPrompt(session,options));
  }
  for(const name of Object.keys(prompts.NOTICE)){

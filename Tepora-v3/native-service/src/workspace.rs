@@ -735,7 +735,7 @@ impl State {
         }
         s["capabilities"] = capabilities;
         let computer = self.value("computer-config")?;
-        s["computer"] = json!({"config":if computer["schema"]==2{computer}else{json!({"schema":2,"revision":0,"enabled":true,"control":"both","headless":true,"browserExecutable":"","desktop":true,"maxSteps":12})},"browser":{"executable":null,"running":false,"tabs":0},"desktop":desktop_backend(env::consts::OS,|k| env::var(k).ok()),"decision":false,"nativeUnavailable":true});
+        s["computer"] = json!({"config":if computer["schema"]==2{computer}else{json!({"schema":2,"revision":0,"enabled":true,"headless":true,"browserExecutable":"","desktop":true,"maxSteps":12})},"browser":{"executable":null,"running":false,"tabs":0},"desktop":desktop_backend(env::consts::OS,|k| env::var(k).ok()),"decision":false,"nativeUnavailable":true});
         let display = self.value("display")?;
         s["display"] = if display.is_null() {
             self.defaults["display"].clone()

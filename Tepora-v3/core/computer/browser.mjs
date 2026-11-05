@@ -237,9 +237,17 @@ export class Page{
    const o=[...el.options].find(o=>o.text.trim()===want||o.value===want)||[...el.options].find(o=>o.text.includes(want));if(!o)return 'no option '+want;el.value=o.value;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return 'ok';`);
   if(r!=='ok')throw new Error(r==='not a select'?`${ref} is not a drop-down; click it and choose from the list instead.`:`No option "${option}" in ${ref}.`);
  }
- async scroll({ref,dy=600,x,y}={}){
+ async scroll({ref,dy=600,dx=0,x,y}={}){
   const at=ref?await this.locate(ref):{x:x??400,y:y??400};
-  await this.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:at.x,y:at.y,deltaX:0,deltaY:dy});
+  await this.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:at.x,y:at.y,deltaX:dx,deltaY:dy});
+ }
+ /** Press at `from`, move to `to` in a few steps, release (refs or viewport points). */
+ async drag(from,to){
+  const a=typeof from==='string'?await this.locate(from):from,b=typeof to==='string'?await this.locate(to):to;
+  await this.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x,y:a.y});
+  await this.send('Input.dispatchMouseEvent',{type:'mousePressed',x:a.x,y:a.y,button:'left',buttons:1,clickCount:1});
+  for(let i=1;i<=5;i++)await this.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+(b.x-a.x)*i/5,y:a.y+(b.y-a.y)*i/5,button:'left',buttons:1});
+  await this.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:b.x,y:b.y,button:'left',buttons:0,clickCount:1});
  }
  async upload(ref,files){
   const {root}=await this.send('DOM.getDocument',{depth:-1,pierce:true});

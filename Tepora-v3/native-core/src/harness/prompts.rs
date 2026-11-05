@@ -83,24 +83,12 @@ fn system_prompt(p: &Value) -> String {
     }
     if truthy(computer) && has("computer") {
         env.push(format!(
-            "- Computer use: {}{}{}.",
+            "- Computer use: {}{}.",
             text(computer, "backend"),
             if truth(computer, "headless") {
                 " (the browser runs headless: the user does not see it)"
             } else {
                 ""
-            },
-            if computer["control"] != "both" {
-                format!(
-                    "; only {} allowed",
-                    if computer["control"] == "decision" {
-                        "\"do\""
-                    } else {
-                        "direct actions"
-                    }
-                )
-            } else {
-                String::new()
             }
         ));
     }
@@ -147,7 +135,7 @@ fn system_prompt(p: &Value) -> String {
         ""
     };
     let worker_computer = if has("computer") {
-        r###"- Computer use: for a multi-step goal on a screen, prefer computer action "do" — one small goal at a time, with done_when, inputs for any text to enter and checks that prove completion; the decision model operates and reports. Plan the sequence yourself and keep each goal small (one form, one search, one dialog). When "do" is uncertain or blocked, look (observe or screenshot) and act directly with click/type/key on refs from the latest observation, or x/y from a screenshot. Check the result after each step.
+        r###"- Computer use: for a multi-step goal on a screen, prefer computer action "do" — one small goal at a time, with done_when, inputs for any text to enter and checks that prove completion; the decision model (or, without one, your own model) operates and reports. Plan the sequence yourself and keep each goal small (one form, one search, one dialog). When "do" does not finish, follow its Next line: observe, then act directly with click/type/key/scroll/drag on refs from the latest observation; take a screenshot only when the screen itself must be seen (canvas, image, map, drag positions) and use its x/y. Refs from an earlier observation are stale once you observe again. Check the result after each step.
 "###
     } else {
         ""

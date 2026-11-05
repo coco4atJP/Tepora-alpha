@@ -21,7 +21,7 @@ previewState.capabilities||={schema:1,revision:0,profiles:[],routes:{}};previewS
 previewState.network||={schema:1,revision:0,mode:'online',internetTools:false};
 previewState.providers||={schema:1,revision:0,profiles:[],routes:{},offlineFloor:{configured:false,verified:false,providers:[]}};
 previewState.agent={settings:{sandbox:{mode:'off',network:true,writable:[]},webSearch:{provider:'auto',searxngUrl:''},heartbeat:{enabled:false,minutes:30,text:''},policy:{rules:[]},...previewState.agent?.settings}};
-if(previewState.computer?.config?.schema!==2)previewState.computer={config:{schema:2,revision:0,enabled:true,control:'both',headless:true,browserExecutable:'',desktop:true,maxSteps:12},browser:{executable:'(preview)',running:false,tabs:0},desktop:{supported:false,backend:'unsupported',label:'',reason:'platform',running:false},decision:false};
+if(previewState.computer?.config?.schema!==2)previewState.computer={config:{schema:2,revision:0,enabled:true,headless:true,browserExecutable:'',desktop:true,maxSteps:12},browser:{executable:'(preview)',running:false,tabs:0},desktop:{supported:false,backend:'unsupported',label:'',reason:'platform',running:false},decision:false};
 previewState.settings={...previewDefaults,...previewState.settings};
 previewState.dialogue||={session:{id:'preview-dialogue',revision:0,character:{name:'Tepora',instructions:'',voice:defaultVoice()}},messages:[],personas:{revision:0,character:{name:'Tepora',instructions:'穏やかに会話し、作業を別の担当へ任せます。',voice:defaultVoice()},worker:{name:'作業担当',instructions:'結果と検証の範囲を区別して報告します。'}}};
 previewState.jobs=previewState.jobs.map(j=>['queued','running','waiting_approval'].includes(j.status)?{...j,status:'interrupted',note:'プレビューを再読み込みしました。'}:j);

@@ -306,7 +306,7 @@ impl Backend for LinuxBackend {
         self.activate(pid, "")?;
         self.x()?.key(combo)
     }
-    fn scroll(&mut self, pid: u32, reference: &str, dy: i64) -> Result<()> {
+    fn scroll(&mut self, pid: u32, reference: &str, dy: i64, dx: i64) -> Result<()> {
         let at = if reference.is_empty() { None } else { Some(self.snaps.get(pid, reference)?.clone()) };
         let point = match at.and_then(|o| self.a11y.as_ref().and_then(|a| a.extents(&o))) {
             Some(r) => r.mid(),
@@ -314,7 +314,12 @@ impl Backend for LinuxBackend {
         };
         let point = if point == (0.0, 0.0) { self.window_rect(pid, "")?.mid() } else { point };
         self.activate(pid, "")?;
-        self.x()?.wheel(point.0, point.1, dy)
+        self.x()?.wheel(point.0, point.1, dy, dx)
+    }
+    fn drag(&mut self, pid: u32, from: (f64, f64), to: (f64, f64), title: &str) -> Result<()> {
+        let wf = self.window_rect(pid, title).or_else(|e| self.frames.get(&pid).copied().ok_or(e))?;
+        self.activate(pid, title)?;
+        self.x()?.drag(to_screen(&wf, 1.0, from.0, from.1), to_screen(&wf, 1.0, to.0, to.1))
     }
     fn screenshot(&mut self, pid: u32, title: &str) -> Result<Shot> {
         let wf = self.window_rect(pid, title)?;

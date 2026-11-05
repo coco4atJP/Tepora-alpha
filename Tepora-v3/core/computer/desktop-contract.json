@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "about": "The desktop backend contract shared by every OS helper (macOS ax-helper.swift, Windows/Linux tepora-desktop-helper). One JSON request per line on stdin, one JSON reply per line on stdout: {\"id\":1,\"cmd\":\"observe\",\"pid\":123,\"title\":\"\"} -> {\"id\":1,\"ok\":true,\"result\":{...}} or {\"id\":1,\"ok\":false,\"error\":\"...\"}. Roles are the macOS helper's table (ax-helper.swift roles); the other tables map native roles onto the same names.",
-  "commands": ["status", "windows", "observe", "matches", "press", "click", "setText", "type", "choose", "key", "scroll", "screenshot", "open"],
+  "about": "The desktop backend contract shared by every OS helper (macOS ax-helper.swift, Windows/Linux tepora-desktop-helper). One JSON request per line on stdin, one JSON reply per line on stdout: {\"id\":1,\"cmd\":\"observe\",\"pid\":123,\"title\":\"\"} -> {\"id\":1,\"ok\":true,\"result\":{...}} or {\"id\":1,\"ok\":false,\"error\":\"...\"}. scroll takes dy (down) and dx (right) in pixels; drag takes x, y, toX, toY in window coordinates like click. Roles are the macOS helper's table (ax-helper.swift roles); the other tables map native roles onto the same names.",
+  "commands": ["status", "windows", "observe", "matches", "press", "click", "setText", "type", "choose", "key", "scroll", "drag", "screenshot", "open"],
   "roles": ["button", "checkbox", "radio", "combobox", "textbox", "password", "searchbox", "link", "menuitem", "menubutton", "slider", "disclosure", "cell", "row", "tab", "switch", "date", "color", "image"],
   "valueRoles": ["textbox", "password", "searchbox", "combobox", "slider", "date"],
   "toggleRoles": ["checkbox", "radio", "switch"],
