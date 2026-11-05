@@ -1,5 +1,12 @@
 {
   "bundle": {
-    "targets": ["deb", "appimage"]
+    "targets": [
+      "deb",
+      "appimage"
+    ],
+    "externalBin": [
+      "binaries/node-runtime",
+      "binaries/tepora-desktop-helper"
+    ]
   }
 }

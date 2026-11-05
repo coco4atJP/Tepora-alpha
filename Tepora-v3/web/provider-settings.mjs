@@ -94,15 +94,16 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   const models=response.models||[];
   openSheet('接続先のモデルを選ぶ',`<p class="small-text">${escape(response.note||'一覧は能力・利用資格の保証ではありません。')}</p>${models.length?`<form id="provider-model-form" data-profile="${escape(profileId||'')}" data-account="${escape(accountId||p?.accountId||'')}"><label>利用するモデル<select name="model" required>${options(models.map(m=>[m.id,m.name+' · '+m.id]),p?.model||models[0].id)}</select></label>${field('接続先の表示名','name',p?.name||'ChatGPTプラン')}<button type="submit" class="button">このモデルを登録</button></form>`:'<p>表示できるモデルがありません。アカウントの利用条件・権限を確認してください。</p>'}`,'provider-model');
  }
+ const desktopToggle=(desktop,on)=>{const t=desktopToggleText(desktop);return t.note?`<p class="small-text">${t.note}</p>`:toggle(t.label,'desktop',on,t.hint);};
  async function computerSheet(){computer=await bridge.request('/api/computer');const c=computer.config;
-  openSheet('コンピューター操作',`<form id="computer-form">${toggle('コンピューター操作を使う','enabled',c.enabled,'作業担当がブラウザ（とMacのアプリ）を、人と同じように操作します。')}
+  openSheet('コンピューター操作',`<form id="computer-form">${toggle('コンピューター操作を使う','enabled',c.enabled,`作業担当がブラウザ${computer.desktop.supported?'（とこのPCのアプリ）':''}を、人と同じように操作します。`)}
   <label>操作のしかた<select name="control">${options([['both','判断モデルが優先・必要なら直接操作（おすすめ）'],['decision','判断モデルだけが操作する'],['direct','作業担当が直接操作する']],c.control)}</select></label>
   <p class="small-text">判断モデル: ${computer.decision?'接続済み':'未接続 — つなぐまでは、作業担当のモデルが同じ候補から操作を選びます'}。判断モデルは画面にある操作から選ぶだけで、文章は書きません。</p>
   ${toggle('ブラウザを見えないまま動かす','headless',c.headless,'見える状態にすると操作の様子を見られ、ログインを手で済ませられます。ログインは見えないときにも引き継がれます。')}
   ${field('ブラウザの場所（空なら自動）','browserExecutable',c.browserExecutable||'',computer.browser.executable?`自動: ${computer.browser.executable}`:'Chrome / Edge / Brave / Chromium が見つかりません')}
-  ${computer.desktop.supported?toggle('Macのアプリも操作する','desktop',c.desktop,'アクセシビリティの許可が必要です（システム設定 → プライバシーとセキュリティ → アクセシビリティで、Teporaを動かしているアプリを許可）。初回は操作用の小さなプログラムを組み立てます（Xcodeコマンドラインツールが必要）。'):'<p class="small-text">デスクトップアプリの操作はmacOSのみ対応です。このOSではブラウザ操作だけを使います。</p>'}
+  ${desktopToggle(computer.desktop,c.desktop)}
   ${field('ひとつの目標の最大手数','maxSteps',c.maxSteps,'','number')}
-  <button class="button" type="submit">設定を保存</button></form><div class="sheet-actions">${btn('computer-release','ブラウザを閉じる','stop','button secondary')}${computer.desktop.supported?btn('computer-permissions','Macの許可を確かめる','','button secondary'):''}</div><div id="computer-permissions"></div>`,'computer');
+  <button class="button" type="submit">設定を保存</button></form><div class="sheet-actions">${btn('computer-release','ブラウザを閉じる','stop','button secondary')}${computer.desktop.supported?btn('computer-permissions',computer.desktop.backend==='macos'?'Macの許可を確かめる':'操作できるか確かめる','','button secondary'):''}</div><div id="computer-permissions"></div>`,'computer');
  }
  const actions={
   'provider-local':()=>localSetup?localSetup():editor(),
@@ -126,7 +127,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
    const p={id,name:s.model,model:s.model,baseUrl:s.baseUrl,protocol:'chat-completions',domain,apiKeyEnv:s.apiKeyEnv||'',capabilities:{text:true,tools:null,vision:null,structured:null}};
    config=await bridge.request('/api/providers','PUT',{expectedRevision:config.revision,config:{profiles:[...config.profiles.map(editable),p],routes:config.profiles.length?config.routes:{main:{primary:id,fallbacks:[]}}}});onChanged?.({providers:config});draw();},
   'computer-settings':computerSheet,'computer-release':async()=>{await bridge.request('/api/computer/release','POST',{});notice('操作権を解放しました。');},
-  'computer-permissions':async()=>{const r=await bridge.request('/api/computer/status','POST',{});const p=r.permissions||{};$('#computer-permissions').innerHTML=`<p class="small-text">${p.error?escape(p.error):`アクセシビリティ: ${p.trusted?'許可済み':'未許可'} · 画面収録: ${p.screen?'許可済み':'未許可（スクリーンショットに必要）'}`}</p>`;}
+  'computer-permissions':async()=>{const r=await bridge.request('/api/computer/status','POST',{});const p=r.permissions||{},mac=(r.desktop?.backend||'macos')==='macos';$('#computer-permissions').innerHTML=`<p class="small-text">${p.error?escape(p.error):mac?`アクセシビリティ: ${p.accessibility??p.trusted?'許可済み':'未許可'} · 画面収録: ${p.capture??p.screen?'許可済み':'未許可（スクリーンショットに必要）'}`:`アクセシビリティ: ${p.accessibility?'使用可':'使用不可'} · 入力: ${p.input?'使用可':'使用不可'} · 画面の取得: ${p.capture?'使用可':'使用不可'}${p.problem?` — ${escape(p.problem)}`:''}`}</p>`;}
  };
  document.addEventListener('change',e=>{if(e.target.id==='internet-tools'){actions['network-web']().catch(err=>{e.target.checked=!e.target.checked;notice(err.message);});return;}
   if(e.target.dataset?.action==='route-fallback-select')updateFallbacks(e.target.dataset.role);
@@ -165,4 +166,13 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   })().catch(err=>notice(err.message));
  });
  return {open,computer:computerSheet};
+}
+/** The desktop-apps switch, worded for this computer's backend; an unsupported OS or session gets a note instead. */
+export function desktopToggleText(desktop){
+ if(!desktop?.supported)return {note:({wayland:'Waylandのセッションではデスクトップアプリをまだ操作できません（X11のセッションでサインインすると使えます）。ブラウザ操作だけを使います。','no-display':'画面（X11のディスプレイ）が見つからないため、デスクトップアプリは操作できません。ブラウザ操作だけを使います。'})[desktop?.reason]||'このOSではデスクトップアプリを操作できません。ブラウザ操作だけを使います。'};
+ return ({
+  macos:{label:'Macのアプリも操作する',hint:'アクセシビリティの許可が必要です（システム設定 → プライバシーとセキュリティ → アクセシビリティで、Teporaを動かしているアプリを許可）。初回は操作用の小さなプログラムを組み立てます（Xcodeコマンドラインツールが必要）。'},
+  windows:{label:'Windowsのアプリも操作する',hint:'UI オートメーションで操作します。管理者として動いているアプリは、Teporaも管理者で動かさないと操作できません。'},
+  'linux-x11':{label:'Linuxのアプリも操作する（X11）',hint:'AT-SPI（アクセシビリティ）とXTestで操作します。アプリによってはアクセシビリティを有効にしてから起動し直す必要があります。'},
+ })[desktop.backend]||{label:'このPCのアプリも操作する',hint:''};
 }

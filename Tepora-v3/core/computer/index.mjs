@@ -3,12 +3,13 @@ import {invariant} from '../policy.mjs';
 import {ipDomain,normalURL,NetworkBlocked} from '../network-policy.mjs';
 import {Browser,findBrowser} from './browser.mjs';
 import {runGoal,llmChooser,DO_DEFAULTS,validateChecks} from './decide.mjs';
-import {Desktop,desktopSupported} from './desktop.mjs';
+import {Desktop,desktopBackend} from './desktop.mjs';
 import {oneLine} from '../tools/format.mjs';
 import {canvasSnapshotDocument} from '../canvas-frame.mjs';
 
 /** Computer use for work agents. Two surfaces: a browser (Chromium over DevTools; headless by default, one tab
- * per session) and, on macOS, desktop apps through the Accessibility API. Two ways to drive them:
+ * per session) and desktop apps through the OS accessibility layer (macOS Accessibility, Windows UI Automation,
+ * or AT-SPI on Linux X11; see desktop.mjs). Two ways to drive them:
  *  - "do": the agent gives a small goal and the decision model operates (see decide.mjs) — preferred;
  *  - direct actions: the agent clicks, types and presses keys itself, by control ref or by coordinates.
  * Protection is the user's choice elsewhere (sandbox, approval rules); this module only keeps sessions apart. */
@@ -36,11 +37,11 @@ export class ComputerUse{
  snapshot(){
   const c=this.config();
   return {config:c,browser:{executable:findBrowser(c.browserExecutable),running:!!this.browser?.alive,tabs:this.browser?.pages.size||0},
-   desktop:{supported:desktopSupported(),running:!!this.desktop?.alive},decision:!!this.decisions?.available?.()};
+   desktop:{...desktopSnapshot(desktopBackend()),running:!!this.desktop?.alive},decision:!!this.decisions?.available?.()};
  }
- available(){const c=this.config();return c.enabled&&(!!findBrowser(c.browserExecutable)||c.desktop&&desktopSupported());}
+ available(){const c=this.config();return c.enabled&&(!!findBrowser(c.browserExecutable)||c.desktop&&desktopBackend().supported);}
  /** What the system prompt says about computer use (stable per session). */
- info(){const c=this.config();return {backend:[findBrowser(c.browserExecutable)?'browser':null,c.desktop&&desktopSupported()?'macOS apps':null].filter(Boolean).join(' + '),headless:c.headless,control:c.control};}
+ info(){const c=this.config();return {backend:[findBrowser(c.browserExecutable)?'browser':null,c.desktop&&desktopBackend().supported?desktopApps(desktopBackend()):null].filter(Boolean).join(' + '),headless:c.headless,control:c.control};}
  async page(sessionId){
   const c=this.config();invariant(c.enabled,'コンピューター操作が設定で無効になっています。',403);
   if(!this.browser||!this.browser.alive&&!this.browser.starting){
@@ -49,7 +50,7 @@ export class ComputerUse{
   return this.browser.page(sessionId);
  }
  desktopClient(){
-  const c=this.config();invariant(c.enabled&&c.desktop,'デスクトップ操作が設定で無効になっています。',403);invariant(desktopSupported(),'Desktop apps can be operated on macOS only (Accessibility API).',409);
+  const c=this.config();invariant(c.enabled&&c.desktop,'デスクトップ操作が設定で無効になっています。',403);const backend=desktopBackend();invariant(backend.supported,backend.message,409);
   if(!this.desktop||!this.desktop.alive)this.desktop=new Desktop({binDir:path.join(this.dataDir,'bin')});
   return this.desktop;
  }
@@ -98,6 +99,14 @@ export class ComputerUse{
  closeBrowser(){const b=this.browser;this.browser=null;return b?.close().catch(()=>{});}
  async close(){const done=this.closeBrowser();this.desktop?.close();this.desktop=null;await done;}
 }
+const desktopSnapshot=b=>({supported:b.supported,backend:b.id,label:b.label,reason:b.reason});
+/** "desktop apps (Windows UI Automation)": how prompts name the desktop backend. */
+export const desktopApps=b=>`desktop apps (${b.label})`;
+/** The tool description names this computer's desktop backend, or leaves desktop apps out where there is none. */
+export function computerDescription(backend=desktopBackend()){
+ const desktop=backend.supported;
+ return `Operate a web browser${desktop?` (and ${desktopApps(backend)})`:''} like a person. Prefer action "do" for any multi-step UI goal: describe one small goal (with done_when, and inputs for any text to enter), and the decision model operates the screen step by step and reports what happened. Use direct actions when you need exact control or "do" was uncertain: open (url), observe, click (ref, or x/y), type (ref + text; submit:true presses Enter), select (ref + option), key ("Enter", "Control+A", "Mod+L"), scroll (dy, optionally ref), back, screenshot (to look at the screen), upload (ref + paths). Refs like e12 come from the latest observation.${desktop?' For desktop apps set target "desktop": windows lists them, then observe/do with app (name or pid).':''}`;
+}
 /* ---------------- model-facing rendering ---------------- */
 const line=e=>`${e.ref} ${e.role} "${oneLine(e.name||'',80)}"${e.value!==undefined?` value=${JSON.stringify(oneLine(e.value,80))}`:''}${e.checked!==undefined?(e.checked?' [checked]':' [unchecked]'):''}${e.selected?' [selected]':''}${e.expanded!==undefined?(e.expanded?' [expanded]':' [collapsed]'):''}${e.disabled?' [disabled]':''}${e.focused?' [focused]':''}${e.href?` → ${oneLine(e.href,60)}`:''}${e.options?` options: ${e.options.slice(0,8).map(o=>JSON.stringify(o)).join(', ')}${e.options.length>8?'…':''}`:''}`;
 export function renderObservation(o,{all=false,max=80}={}){
@@ -112,7 +121,7 @@ export function computerTool(cu){
  return {
   name:'computer',group:'core',
   available:()=>cu.available(),
-  description:`Operate a web browser (and on macOS, desktop apps) like a person. Prefer action "do" for any multi-step UI goal: describe one small goal (with done_when, and inputs for any text to enter), and the decision model operates the screen step by step and reports what happened. Use direct actions when you need exact control or "do" was uncertain: open (url), observe, click (ref, or x/y), type (ref + text; submit:true presses Enter), select (ref + option), key ("Enter", "Control+A", "Mod+L"), scroll (dy, optionally ref), back, screenshot (to look at the screen), upload (ref + paths). Refs like e12 come from the latest observation. For desktop apps set target "desktop": windows lists them, then observe/do with app (name or pid).`,
+  description:computerDescription(),
   parameters:{type:'object',additionalProperties:false,required:['action'],properties:{
    action:{type:'string',enum:['do','open','observe','click','type','select','key','scroll','back','screenshot','upload','windows','release','dialog']},
    dialog_id:{type:'string',description:'dialog: id from the latest pending dialog observation.'},accept:{type:'boolean',description:'dialog: explicitly accept (true) or dismiss (false). text supplies an optional prompt answer.'},

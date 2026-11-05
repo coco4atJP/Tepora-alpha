@@ -636,7 +636,7 @@ function heartbeatSheet(){
  <label class="field"><span>間隔（分）</span><input type="number" name="minutes" min="5" max="1440" value="${h.minutes||30}"></label>
  <label class="field"><span>見回りで確かめること（任意）</span><textarea name="text" rows="3" maxlength="2000">${escape(h.text||'')}</textarea></label><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'heartbeat');
 }
-function computerSummary(){const c=state.computer;if(!c?.config?.enabled)return '無効';return [c.browser?.executable?`ブラウザ${c.config.headless?'（見えない）':''}`:'ブラウザなし',c.desktop?.supported&&c.config.desktop?'Macのアプリ':'',({both:'判断モデル優先・直接も可',decision:'判断モデルのみ',direct:'直接操作のみ'})[c.config.control]].filter(Boolean).join(' · ');}
+function computerSummary(){const c=state.computer;if(!c?.config?.enabled)return '無効';return [c.browser?.executable?`ブラウザ${c.config.headless?'（見えない）':''}`:'ブラウザなし',c.desktop?.supported&&c.config.desktop?({macos:'Macのアプリ',windows:'Windowsのアプリ','linux-x11':'Linuxのアプリ'})[c.desktop.backend||'macos']||'このPCのアプリ':'',({both:'判断モデル優先・直接も可',decision:'判断モデルのみ',direct:'直接操作のみ'})[c.config.control]].filter(Boolean).join(' · ');}
 function stageStudioHTML(){
  const prefs=display(),mcfg=monitorConfig(prefs),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
  const cardWidgets=order.filter(w=>w!=='clock'&&w!=='companion');

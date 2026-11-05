@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "externalBin": [
+      "binaries/node-runtime",
+      "binaries/tepora-desktop-helper"
+    ]
+  }
+}
