@@ -168,3 +168,25 @@ test('browser: drag and horizontal scroll',{skip:!browser},async t=>{
  const page=await f.computer.page('drag');await until(async()=>(await page.send('Runtime.evaluate',{expression:'scrollX',returnByValue:true})).result.value>0,5000);
  await f.computer.release('drag');
 });
+
+test('browser: drag refs keep the press on the source after the destination scrolls into view',{skip:!browser},async t=>{
+ const html=`<!doctype html><title>V</title><body style="margin:0;height:4000px">
+<div id=src data-tepora-ref=e1 style="position:absolute;top:80px;left:80px;width:100px;height:100px;background:red">S</div>
+<div id=dst data-tepora-ref=e2 style="position:absolute;top:2800px;left:80px;width:100px;height:100px;background:blue">D</div>
+<script>addEventListener('mousedown',e=>{window.__down=e.target.id},true);addEventListener('mouseup',e=>{window.__up=e.target&&e.target.id||''},true);</script></body>`;
+ const server=http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});r.end(html);});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
+ const f=await harness(t,()=>({content:'ok'}));const tool=computerTool(f.computer),ctx={session:{id:'drag-viewport',kind:'worker'},cwd:f.dir};
+ await tool.run({action:'open',url:`http://127.0.0.1:${server.address().port}/`},ctx);
+ const page=await f.computer.page('drag-viewport');
+ await page.drag('e1','e2');
+ const hit=await page.eval('({down:window.__down||null,up:window.__up||null})');
+ assert.equal(hit.down,'src','mousedown must hit the source before the destination scrolls');
+ assert.equal(hit.up,'dst');
+ // Mixed: absolute press point, then a ref that scrolls — press must still land on the source.
+ await page.eval('window.scrollTo(0,0);window.__down=null;window.__up=null;src.dataset.d=1');
+ await page.drag({x:130,y:130},'e2');
+ const mixed=await page.eval('({down:window.__down||null,up:window.__up||null})');
+ assert.equal(mixed.down,'src');assert.equal(mixed.up,'dst');
+ await f.computer.release('drag-viewport');
+});
