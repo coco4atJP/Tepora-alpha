@@ -73,6 +73,18 @@ test('cancellation during the fresh observation prevents the next action',async(
  assert.equal(actions,0);
 });
 
+test('browser drag releases the mouse when destination lookup fails',async()=>{
+ const calls=[];
+ const page=new Page({conn:{send:async(method,params={})=>{calls.push({method,params});return {};}}},'drag-release-fixture');
+ page.locate=async ref=>{if(ref==='from')return {x:10,y:20};throw new Error('Control to is no longer on the page.');};
+ await assert.rejects(page.drag('from','to'),/no longer on the page/);
+ const mouse=calls.filter(c=>c.method==='Input.dispatchMouseEvent').map(c=>c.params);
+ assert.ok(mouse.some(p=>p.type==='mousePressed'));
+ assert.equal(mouse.at(-1).type,'mouseReleased');
+ assert.equal(mouse.filter(p=>p.type==='mouseReleased').length,1);
+ assert.deepEqual({x:mouse.at(-1).x,y:mouse.at(-1).y,button:mouse.at(-1).button,buttons:mouse.at(-1).buttons},{x:10,y:20,button:'left',buttons:0});
+});
+
 test('cancellation between CDP action commands prevents the mouse press',async()=>{
  const controller=new AbortController(),calls=[];
  const page=new Page({conn:{send:async method=>{calls.push(method);controller.abort();return {};}}},'cancel-fixture');
