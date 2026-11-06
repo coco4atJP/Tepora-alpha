@@ -241,14 +241,18 @@ export class Page{
   const at=ref?await this.locate(ref):{x:x??400,y:y??400};
   await this.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:at.x,y:at.y,deltaX:dx,deltaY:dy});
  }
- /** Press at `from`, then resolve `to` (so locate's scroll cannot invalidate the press), move, release. */
+ /** Press at `from`, then resolve `to` (so locate's scroll cannot invalidate the press), move, release. Always release even if destination lookup fails. */
  async drag(from,to){
   const a=typeof from==='string'?await this.locate(from):from;
   await this.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x,y:a.y});
   await this.send('Input.dispatchMouseEvent',{type:'mousePressed',x:a.x,y:a.y,button:'left',buttons:1,clickCount:1});
-  const b=typeof to==='string'?await this.locate(to):to;
-  for(let i=1;i<=5;i++)await this.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+(b.x-a.x)*i/5,y:a.y+(b.y-a.y)*i/5,button:'left',buttons:1});
-  await this.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:b.x,y:b.y,button:'left',buttons:0,clickCount:1});
+  let b=a;
+  try{
+   b=typeof to==='string'?await this.locate(to):to;
+   for(let i=1;i<=5;i++)await this.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+(b.x-a.x)*i/5,y:a.y+(b.y-a.y)*i/5,button:'left',buttons:1});
+  }finally{
+   await this.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:b.x,y:b.y,button:'left',buttons:0,clickCount:1});
+  }
  }
  async upload(ref,files){
   const {root}=await this.send('DOM.getDocument',{depth:-1,pierce:true});
