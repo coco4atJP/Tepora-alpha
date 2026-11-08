@@ -11,7 +11,7 @@ import {renderReflection} from './metacog.mjs';
 /** After a checkpoint the context should be well under half the budget (system + checkpoint ≤ ~0.25B,
  * verbatim tail ≈ 0.15B), leaving ~0.4B of room before the next one: compaction is a model call plus a cache
  * rebuild, so it must be rare. */
-export const COMPACTION={maxImages:6,softClear:0.72,minClear:0.15,minClearTokens:500,hard:0.8,tail:0.15,idle:0.55,summaryShare:0.08,summaryMin:600,summaryMax:8000,ledgerShare:0.1,ledgerMax:8000,instructionShare:0.06,mainInstructions:12,hotSteps:2};
+export const COMPACTION={maxImages:6,keepImages:3,softClear:0.72,minClear:0.15,minClearTokens:500,hard:0.8,tail:0.15,idle:0.55,summaryShare:0.08,summaryMin:600,summaryMax:8000,ledgerShare:0.1,ledgerMax:8000,instructionShare:0.06,mainInstructions:12,hotSteps:2};
 export const ledgerLimits=B=>({instructionTokens:Math.round(Math.min(6000,Math.max(600,B*COMPACTION.instructionShare))),evidence:Math.round(Math.min(40,Math.max(8,B*0.03/30))),maxTokens:Math.round(Math.min(COMPACTION.ledgerMax,Math.max(500,B*COMPACTION.ledgerShare)))});
 
 /* ---------------- ledger: exact state, derived from the log, never written by a model ---------------- */
@@ -131,7 +131,10 @@ function chunks(text,maxTokens){
  if(cur.length)out.push(cur.join('\n'));return out;
 }
 
-const countImages=rendered=>rendered.reduce((n,x)=>n+(Array.isArray(x.message.content)?x.message.content.filter(p=>p.type==='image_url').length:0),0);
+const imagesIn=x=>Array.isArray(x.message.content)?x.message.content.filter(p=>p.type==='image_url').length:0;
+const countImages=rendered=>rendered.reduce((n,x)=>n+imagesIn(x),0);
+/** The seq of the entry holding the COMPACTION.keepImages-th newest image: an image clear stops below it. */
+const keepImagesFrom=r=>{let n=0;for(let i=r.length-1;i>=0;i--){n+=imagesIn(r[i]);if(n>=COMPACTION.keepImages)return r[i].entry.seq;}return -Infinity;};
 /* ---------------- compactor ---------------- */
 export class Compactor{
  constructor({sessions,assembler,registry,emit=()=>{}}){Object.assign(this,{sessions,assembler,registry,emit});}
@@ -141,10 +144,11 @@ export class Compactor{
   const used=built.tokens*ratio;
   if(force)return {action:'compact',used,forced:true};
   if(idle)return used>COMPACTION.idle*B?{action:'compact',used}:{action:'none',used};
-  // Screenshots pile up fast in computer use: past a handful in view, clear them in one batch even below the
-  // usual threshold (the newest stays, as ephemeral results do).
+  // Screenshots pile up fast in computer use: past COMPACTION.maxImages in view, clear the older ones in one batch
+  // even below the usual threshold, keeping the newest COMPACTION.keepImages. Clearing in batches (not one image per
+  // turn) keeps the cached prompt prefix intact until the next batch.
   const images=countImages(built.rendered);
-  if(images>COMPACTION.maxImages){const c=this.clearCandidate(built,ratio);if(c&&c.images<images)return {action:'clear',used,...c,images};}
+  if(images>COMPACTION.maxImages){const c=this.clearCandidate(built,ratio,keepImagesFrom(built.rendered));if(c&&c.images<images)return {action:'clear',used,...c,images};}
   if(used<=COMPACTION.softClear*B)return {action:'none',used};
   const clear=this.clearCandidate(built,ratio);
   const minClear=Math.max(COMPACTION.minClear*B,COMPACTION.minClearTokens);
@@ -156,10 +160,10 @@ export class Compactor{
  /** Moving the clear watermark up to the hot window (the last COMPACTION.hotSteps steps stay verbatim):
   * what it would save, measured by rendering both ways. Results, superseded ephemeral results, handled
   * reports and long arguments of old calls all shrink in the same batch, so the cache breaks once. */
- clearCandidate(built,ratio){
+ clearCandidate(built,ratio,keepFrom=Infinity){
   const r=built.rendered,assistants=r.filter(x=>x.entry.type==='assistant');
   const hot=assistants.length>=COMPACTION.hotSteps?assistants[assistants.length-COMPACTION.hotSteps].entry.seq:Infinity;
-  const below=r.filter(x=>x.entry.seq>built.view.clearUpTo&&x.entry.seq<hot);
+  const below=r.filter(x=>x.entry.seq>built.view.clearUpTo&&x.entry.seq<Math.min(hot,keepFrom));
   if(!below.length)return null;
   const upTo=below.at(-1).entry.seq,before=r.reduce((n,x)=>n+x.tokens,0);
   const preview=this.assembler.renderEntries(built.view,{clearUpTo:upTo,vision:built.vision}),after=preview.reduce((n,x)=>n+x.tokens,0);

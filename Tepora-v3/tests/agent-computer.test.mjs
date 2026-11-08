@@ -155,6 +155,7 @@ test('a failed "do" reports a suggestion and the screen revision; action results
  const next={...o,text:'b',elements:[{ref:'e1',role:'button',name:'OK',inView:true,disabled:true},{ref:'e2',role:'link',name:'New',inView:true}]};
  const diff=renderChanges(next,o);assert.match(diff,/~ e1 button "OK" \[disabled\]/);assert.match(diff,/\+ e2 link "New"/);assert.match(diff,/Text on screen now:\nb/);
  assert.equal(renderChanges({...next,url:'https://e.x/2'},o),null);
+ assert.match(renderChanges({...next,newTab:true},o),/A new tab opened from this page; you are now in it\./,'a diff keeps the new-tab notice');
 });
 
 test('browser: drag and horizontal scroll',{skip:!browser},async t=>{

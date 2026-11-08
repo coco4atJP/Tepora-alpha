@@ -123,7 +123,7 @@ export function renderChanges(o,prev,{max=30}={}){
  for(const l of lines.values())out.push(`- ${l}`);
  const text=o.text!==prev.text?`Text on screen now:\n${oneLine(o.text||'',600)}`:null;
  return [`Screen: ${o.url?`${o.title||'(untitled)'} — ${o.url}`:`${o.app||''}${o.title?` — ${o.title}`:''}`}`,o.scroll?`Scroll: ${o.scroll.y} of ${Math.max(0,o.scroll.height-o.scroll.viewport)} px`:null,
-  o.dialog?`Dialog open: ${o.dialog}`:null,...(o.dialogs||[]).map(d=>`Pending ${d.type} dialog (${d.id}): ${d.message}\nRespond with action "dialog", dialog_id "${d.id}", and accept true or false.`),
+  o.dialog?`Dialog open: ${o.dialog}`:null,...(o.dialogs||[]).map(d=>`Pending ${d.type} dialog (${d.id}): ${d.message}\nRespond with action "dialog", dialog_id "${d.id}", and accept true or false.`),o.newTab?'A new tab opened from this page; you are now in it.':null,
   out.length?`Changed controls (+ new, ~ changed, - gone)${out.length>max?`, ${max} of ${out.length}`:''}:\n${out.slice(0,max).join('\n')}`:'No control changed.',text,'(observe for the full list)'].filter(Boolean).join('\n');
 }
 export function renderObservation(o,{all=false,max=80}={}){
@@ -162,6 +162,9 @@ export function computerTool(cu){
    const look=(o,what,full)=>{const prev=seen.get(key);seen.set(key,o);const changes=full?null:renderChanges(o,prev);
     return {text:`${what?what+'\n\n':''}${changes??renderObservation(o,{all:full===true})}`,data:{url:o.url,title:o.title,app:o.app,revision:fingerprint(o)}};};
    if(a.action==='release')seen.delete(key);
+   // Refs are bound to the latest observation (its revision): a ref it does not list is stale, not a guess.
+   if(['click','type','select','drag','scroll','upload'].includes(a.action))for(const ref of [a.ref,a.to_ref].filter(Boolean)){const o=seen.get(key);
+    invariant(o?.elements?.some(e=>e.ref===ref),`Stale ref ${ref}: it is not in the latest observation${o?` (revision ${fingerprint(o)})`:''}. Observe again, then act on a current ref.`,409);}
    if(a.target==='desktop')return desktopAction(cu,a,ctx,look);
    const id=ctx.session.id;
    if(a.action==='release'){await cu.release(id);return {text:'Released the browser tab.'};}

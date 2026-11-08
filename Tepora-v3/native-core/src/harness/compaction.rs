@@ -788,17 +788,30 @@ fn chunks(p: &Value) -> Value {
     }
     json!(out)
 }
+fn images_in(x: &Value) -> usize {
+    arr(&x["message"], "content")
+        .iter()
+        .filter(|p| p["type"] == "image_url")
+        .count()
+}
 fn count_images(r: &[Value]) -> usize {
-    r.iter()
-        .map(|x| {
-            arr(&x["message"], "content")
-                .iter()
-                .filter(|p| p["type"] == "image_url")
-                .count()
-        })
-        .sum()
+    r.iter().map(images_in).sum()
+}
+/// The seq of the entry holding the 3rd newest image (COMPACTION.keepImages): an image clear stops below it.
+fn keep_images_from(r: &[Value]) -> f64 {
+    let mut n = 0;
+    for x in r.iter().rev() {
+        n += images_in(x);
+        if n >= 3 {
+            return num(&x["entry"], "seq", f64::NAN);
+        }
+    }
+    f64::NEG_INFINITY
 }
 fn clear_candidate(p: &Value) -> CoreResult<Value> {
+    clear_candidate_before(p, f64::INFINITY)
+}
+fn clear_candidate_before(p: &Value, before: f64) -> CoreResult<Value> {
     let b = &p["built"];
     let r = arr(b, "rendered");
     let assistants: Vec<_> = r
@@ -814,7 +827,7 @@ fn clear_candidate(p: &Value) -> CoreResult<Value> {
         .iter()
         .filter(|x| {
             let seq = num(&x["entry"], "seq", f64::NAN);
-            seq > num(&b["view"], "clearUpTo", 0.) && seq < hot
+            seq > num(&b["view"], "clearUpTo", 0.) && seq < hot.min(before)
         })
         .collect();
     let Some(last) = below.last() else {
@@ -891,7 +904,7 @@ fn plan(p: &Value) -> CoreResult<Value> {
     }
     let images = count_images(arr(&p["built"], "rendered"));
     if images > 6 {
-        let c = clear_candidate(p)?;
+        let c = clear_candidate_before(p, keep_images_from(arr(&p["built"], "rendered")))?;
         if !c.is_null() && num(&c, "images", 0.) < (images as f64) {
             let mut out = json!({"action":"clear","used":used});
             for (k, v) in entries(&c) {
