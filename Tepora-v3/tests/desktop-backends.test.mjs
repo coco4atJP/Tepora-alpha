@@ -67,14 +67,14 @@ test('Windows/Linux desktop actions travel the shared JSON-lines protocol to the
  await run({action:'select',ref:'e3',option:'Two'});await run({action:'key',keys:'Mod+L'});await run({action:'scroll'});await run({action:'scroll',dx:300});
  await run({action:'drag',x:1,y:2,to_x:30,to_y:40});await assert.rejects(run({action:'drag',ref:'e1',to_ref:'e3'}),/x\/y/);
  await run({action:'open',app:'Fixture'});
- await assert.rejects(run({action:'click',ref:'e404'}),/No element e404/);
+ await assert.rejects(run({action:'click',ref:'e404'}),e=>e.status===409&&/Stale ref e404: it is not in the latest observation \(revision [0-9a-f]+\)\. Observe again/.test(e.message));
  const {sent}=await desktop.call('sent');
  const acts=sent.filter(r=>!['windows','observe','status'].includes(r.cmd));
  assert.deepEqual(acts,[
   {cmd:'press',pid:42,ref:'e1'},{cmd:'click',pid:42,x:10,y:20,title:''},
   {cmd:'setText',pid:42,ref:'e2',text:'1234'},{cmd:'key',pid:42,combo:'Enter'},{cmd:'type',pid:42,text:'hi'},
   {cmd:'choose',pid:42,ref:'e3',option:'Two'},{cmd:'key',pid:42,combo:'Mod+L'},{cmd:'scroll',pid:42,ref:'',dy:600,dx:0},{cmd:'scroll',pid:42,ref:'',dy:0,dx:300},{cmd:'drag',pid:42,x:1,y:2,toX:30,toY:40,title:''},
-  {cmd:'open',what:'Fixture'},{cmd:'press',pid:42,ref:'e404'},
+  {cmd:'open',what:'Fixture'},
  ]);
  assert.ok(sent.filter(r=>r.cmd==='observe').every(r=>r.pid===42&&r.title===''));
 });

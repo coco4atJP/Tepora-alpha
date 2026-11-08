@@ -310,7 +310,7 @@ test('plugin hooks: block or rewrite a call, redact its result, and send an agen
  assert.deepEqual((await reg.loadPlugins()).hooks,1);assert.ok(reg.has('house_time'));assert.equal((await reg.hook('afterTool',{text:'x'})).text,'x (checked)');
 });
 
-test('screenshots past a handful clear in one batch, but only when that actually removes some',async t=>{
+test('screenshots past a handful clear in one batch down to the newest three, then wait for the next batch',async t=>{
  const {rt}=await bare(t);const s=rt.sessions.create({kind:'worker',title:'w',cwd:os.tmpdir()});
  rt.sessions.append(s.id,'input',{text:'operate the screen',kind:'task',from:'user'});
  const shot={mime:'image/png',base64:PNG,width:1,height:1,name:'screen'};
@@ -318,6 +318,13 @@ test('screenshots past a handful clear in one batch, but only when that actually
  const built=rt.assembler.build(s.id,{system:'sys'});
  assert.equal(built.messages.filter(m=>Array.isArray(m.content)).length,9,'superseded screenshots stay until a clear');
  const plan=rt.compactor.plan(built,100000,1);assert.equal(plan.action,'clear');rt.compactor.clear(s,plan.upTo);
- const after=rt.assembler.build(s.id,{system:'sys'});assert.ok(after.messages.filter(m=>Array.isArray(m.content)).length<=2,'only the newest screenshots remain');
+ const shots=b=>b.messages.filter(m=>Array.isArray(m.content)).length;
+ const after=rt.assembler.build(s.id,{system:'sys'});assert.equal(shots(after),3,'the newest three screenshots remain');
  assert.equal(rt.compactor.plan(after,100000,1).action,'none','no clear while nothing more can be removed');
+ // Not one image per turn: the prompt stays a cached prefix until the count passes the limit again, then one batch.
+ for(let i=9;i<12;i++)step(rt,s.id,i,'computer',{action:'screenshot'},'Screenshot',{ephemeralKey:'computer:browser',images:[shot]});
+ const six=rt.assembler.build(s.id,{system:'sys'});assert.equal(shots(six),6);assert.equal(rt.compactor.plan(six,100000,1).action,'none','no clear at the limit');
+ step(rt,s.id,12,'computer',{action:'screenshot'},'Screenshot',{ephemeralKey:'computer:browser',images:[shot]});
+ const next=rt.compactor.plan(rt.assembler.build(s.id,{system:'sys'}),100000,1);assert.equal(next.action,'clear');rt.compactor.clear(s,next.upTo);
+ assert.equal(shots(rt.assembler.build(s.id,{system:'sys'})),3,'one batch back down to three');
 });
