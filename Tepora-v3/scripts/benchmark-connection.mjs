@@ -38,7 +38,7 @@ try{
  const refreshed=await api('/api/pi/models/refresh','POST',{provider:'opencode-go',accountId:account.id,consent:true});
  for(const id of ids){
   const m=refreshed.models.find(x=>x.id===id);
-  if(!m){checks.push({model:id,status:'blocked',reason:'Not in pi-ai 1.4.0 catalog, including explicit refresh',related:refreshed.models.filter(x=>x.id.includes(id.split('-')[0])).map(x=>({id:x.id,baseUrl:x.baseUrl}))});continue;}
+  if(!m){checks.push({model:id,status:'blocked',reason:'Not in pi-ai 1.5.0 catalog, including explicit refresh',related:refreshed.models.filter(x=>x.id.includes(id.split('-')[0])).map(x=>({id:x.id,baseUrl:x.baseUrl}))});continue;}
   for(const baseUrl of [...new Set([m.baseUrl,'https://opencode.ai/inference/go/openai/v1'])]){
    const profile={id:'pi-audit',name:'Pi connection audit',engine:'pi-ai',piProvider:'opencode-go',authMode:'pi-key',accountId:account.id,protocol:m.protocol,model:id,baseUrl,domain:'cloud',maxTokens:512,timeoutMs:30000,firstByteTimeoutMs:30000,idleTimeoutMs:30000,capabilities:{tools:true}};
    const old=await api('/api/providers');await api('/api/providers','PUT',{expectedRevision:old.revision,config:{profiles:[profile],routes:{main:{primary:profile.id}}}});
@@ -49,6 +49,6 @@ try{
    checks.push(check);console.log(JSON.stringify(check));
   }
  }
- const report={at:new Date().toISOString(),engine:'pi-ai',sdkVersion:'1.4.0',account:{provider:account.provider,type:account.type,connected:account.connected},credentialFingerprint:createHash('sha256').update(keys.opencode).digest('hex').slice(0,12),catalogCount:refreshed.models.length,checks,dispatches,consoleLogsVerified:false};
+ const report={at:new Date().toISOString(),engine:'pi-ai',sdkVersion:'1.5.0',account:{provider:account.provider,type:account.type,connected:account.connected},credentialFingerprint:createHash('sha256').update(keys.opencode).digest('hex').slice(0,12),catalogCount:refreshed.models.length,checks,dispatches,consoleLogsVerified:false};
  await writeFile(path.join(out,'connection.json'),redact(report,secretValues));console.log(JSON.stringify({report:path.join(out,'connection.json'),dispatches:dispatches.length}));
 }finally{if(app){await app.computer.close();await app.close();}await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:200});}

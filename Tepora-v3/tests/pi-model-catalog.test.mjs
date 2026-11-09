@@ -23,9 +23,9 @@ test('malformed, duplicate and oversized metadata fails before publication',()=>
  assert.throws(()=>checkedPiModels('fixture',[{...model(),compat:{huge:'x'.repeat(16001)}}],catalog));
 });
 test('empty snapshots stay authoritative and SDK version changes require refresh',()=>{
- const snapshot={schema:1,version:'1.4.0',at:'2026-10-17T00:00:00.000Z',models:[]};assert.deepEqual(storedPiCatalog(snapshot,'fixture',catalog,'1.4.0'),snapshot);
- assert.equal(storedPiCatalog(snapshot,'fixture',catalog,'2.0.0'),null);assert.equal(storedPiCatalog(undefined,'fixture',catalog,'1.4.0'),null);
- for(const change of [{schema:2},{at:'bad-date'},{models:null},{extra:true}])assert.throws(()=>storedPiCatalog({...snapshot,...change},'fixture',catalog,'1.4.0'));
+ const snapshot={schema:1,version:'1.5.0',at:'2026-10-17T00:00:00.000Z',models:[]};assert.deepEqual(storedPiCatalog(snapshot,'fixture',catalog,'1.5.0'),snapshot);
+ assert.equal(storedPiCatalog(snapshot,'fixture',catalog,'2.0.0'),null);assert.equal(storedPiCatalog(undefined,'fixture',catalog,'1.5.0'),null);
+ for(const change of [{schema:2},{at:'bad-date'},{models:null},{extra:true}])assert.throws(()=>storedPiCatalog({...snapshot,...change},'fixture',catalog,'1.5.0'));
 });
 test('Azure empty endpoint sentinel stays inert and never authorizes a new endpoint',()=>{
  const azure={...original,provider:'azure',baseUrl:''},azureCatalog={getProvider:id=>id==='azure'?{auth:{apiKey:{}},getModels:()=>[azure]}:catalog.getProvider(id)};

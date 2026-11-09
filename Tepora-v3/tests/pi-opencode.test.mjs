@@ -29,7 +29,7 @@ test('OpenCode Go login and explicit refresh retain current IDs; real Pi SDK car
  const end=Date.now()+8000;while(!app.pi.snapshot().pending?.prompt){assert.ok(Date.now()<end);await new Promise(r=>setTimeout(r,20));}
  const p=app.pi.snapshot().pending;await api('/api/pi/auth/respond','POST',{id:p.id,promptId:p.prompt.id,value:'synthetic-opencode-key'});await app.pi.pending.task;
  const catalog=await api('/api/pi/models/refresh','POST',{provider:'opencode-go',accountId:a.pending.accountId,consent:true});
- for(const id of ['deepseek-v4.1-flash','minimax-m3.1-flash-free','step-5-preview','mimo-v2.6-flash','muse-spark-1.3-contributor']){
+ for(const id of ['deepseek-v4.1-flash','minimax-m3.1-flash','step-5-preview','mimo-v2.6-flash','muse-spark-1.3-contributor']){
   const m=catalog.models.find(m=>m.id===id);assert.ok(m,id);assert.equal(m.protocol,id==='muse-spark-1.3-contributor'?'responses':'chat-completions');
   const old=await api('/api/providers');await api('/api/providers','PUT',{expectedRevision:old.revision,config:{profiles:[{id:'go',engine:'pi-ai',piProvider:'opencode-go',authMode:'pi-key',accountId:a.pending.accountId,model:id,protocol:m.protocol,baseUrl:m.baseUrl,domain:'cloud',maxTokens:512,capabilities:{tools:true}}],routes:{main:{primary:'go'}}}});
   const tools=[{type:'function',function:{name:'echo',parameters:{type:'object',properties:{value:{type:'string'}}}}}],user={role:'user',content:'Echo proof'};
