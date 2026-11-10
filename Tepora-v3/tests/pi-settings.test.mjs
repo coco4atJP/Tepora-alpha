@@ -18,7 +18,7 @@ async function fixture(t,{connected=true}={}){
  const bridge={async request(url,method,body){calls.push({url,method,body});
   if(url==='/api/pi/providers')return {providers:[{id:'fixture',name:'Fixture',modelCount:1,apiKeyLogin:true,available:true}]};
   if(url==='/api/providers')return {revision:1,profiles:[profile],routes:{main:{primary:profile.id,fallbacks:[]}}};
-  if(url==='/api/pi/auth')return {version:'1.4.0',supported:true,accounts:[{id:account,provider:'fixture',label:'Account',type:'api_key',connected}]};
+  if(url==='/api/pi/auth')return {version:'1.5.0',supported:true,accounts:[{id:account,provider:'fixture',label:'Account',type:'api_key',connected}]};
   if(url.startsWith('/api/pi/models?'))return {models:url.includes('accountId=')?[baseline]:[{...baseline,id:'manual-model'}]};
   if(url==='/api/pi/models/refresh')return {models:[{...baseline,id:'new-model'}],note:'Synthetic saved snapshot'};
   throw Error('Unexpected fixture request '+url);

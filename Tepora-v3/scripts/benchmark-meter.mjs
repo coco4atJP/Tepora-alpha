@@ -2,8 +2,8 @@ import {checkedRequest} from '../core/network-policy.mjs';
 
 // Prices checked against the official provider docs on 2026-10-21. Per million tokens.
 export const BENCHMARK_MODELS=[
- {id:'deepseek-v4.1-flash',input:0.30,output:1.20,cache:0.006},
- {id:'minimax-m3.1-flash-free',input:0,output:0,cache:0},
+ {id:'deepseek-v4.1-flash',input:0.15,output:0.6,cache:0.003},
+ {id:'minimax-m3.1-flash',input:0.15,output:0.6,cache:0.015},
  {id:'step-5-preview',input:1,output:2.70,cache:0.10},
  {id:'mimo-v2.6-flash',input:.14,output:.28,cache:.0028},
  {id:'muse-spark-1.3-contributor',input:.10,output:.20,cache:.002,protocol:'responses'}

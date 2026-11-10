@@ -4,7 +4,7 @@
 
 ## 対象と判定
 
-主モデルは OpenCode Go の `deepseek-v4.1-flash`、`minimax-m3.1-flash-free`、`step-5-preview`、`mimo-v2.6-flash`、`muse-spark-1.3-contributor`。Teporaの公開認証APIで一時キーをpi-aiへ登録し、モデル一覧を明示更新して `engine: pi-ai` / `piProvider: opencode-go` / `authMode: pi-key` のプロフィールを保存します。MuseはResponses API、他の4モデルはChat Completionsを実際のSDK Workerとネットワーク検査で通します。HTTP transportはOpenCodeの認証を補わず、SDKから来たキー・会話ヘッダー・クライアント名を照合します。Museの入出力が学習に利用されるContributor枠でも、送信内容はこの試験の合成データに限定します。
+主モデルは OpenCode Go の `deepseek-v4.1-flash`、`minimax-m3.1-flash`、`step-5-preview`、`mimo-v2.6-flash`、`muse-spark-1.3-contributor`。Teporaの公開認証APIで一時キーをpi-aiへ登録し、モデル一覧を明示更新して `engine: pi-ai` / `piProvider: opencode-go` / `authMode: pi-key` のプロフィールを保存します。MuseはResponses API、他の4モデルはChat Completionsを実際のSDK Workerとネットワーク検査で通します。HTTP transportはOpenCodeの認証を補わず、SDKから来たキー・会話ヘッダー・クライアント名を照合します。Museの入出力が学習に利用されるContributor枠でも、送信内容はこの試験の合成データに限定します。
 
 Computer Useでは主モデルが目標と入力を渡し、TypeSafeの `jev-latest` が実Chrome上の操作候補を選びます。Jevを採点用モデルとしては使いません。Jevによる完了判定の補助呼び出しは、Computer Useの操作決定と別に集計します。chat modelへの操作フォールバックをJev成功とは数えません。
 
