@@ -6,6 +6,7 @@ The shared Rust state core adds two read operations:
 
 - `session.page` seeks to a sequence boundary and returns the newest requested rows in ascending order. Both the ordinary Node HTTP host and opt-in native host use it for normal `before` pages. The existing 500-entry HTTP cap and tool/checkpoint public projection stay unchanged.
 - `session.contextEntries` returns the latest checkpoint and its complete live tail in one SQLite read snapshot. The native agent's ordinary context effect uses this owned snapshot; it does not impose a new token/history truncation policy.
+- A work agent's checkpoint is a handoff (`<handoff>`): its `upTo` is the last assistant/tool entry, so the live tail after it holds only input that arrived later. The context window then starts from the original task, the exact ledger and the brief; everything before stays stored and is reached through `recall`/`history_search`, not through the live window. The main session's checkpoints keep their verbatim tail as before.
 
 The Node route retains its existing query coercion. Positive safe-integer limits use bounded SQL. Zero, negative, fractional, NaN and infinite inputs retain the previous slice/error behavior; unusual JavaScript limits deliberately fall back to the previous implementation. Explicit zero/negative requests can still return many rows. Native validation is unchanged.
 

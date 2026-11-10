@@ -2,16 +2,22 @@
 // Production imports are forbidden. Only imports/environment shims were adjusted.
 import {rawTokens} from './tokens.mjs';
 const SMALL_RESULT_TOKENS=300;
-import {compactionInstruction,SUMMARIZER_SYSTEM,summarizerRequest,SUMMARY_HEADINGS,NOTICE} from './prompts.mjs';
+import {compactionInstruction,SUMMARIZER_SYSTEM,summarizerRequest,headingsFor,NOTICE} from './prompts.mjs';
 import {fitTokens,oneLine} from './format.mjs';
 const marks={pending:'[ ]',in_progress:'[>]',done:'[x]',blocked:'[!]'}; const renderTodo=items=>items.length?items.map((t,i)=>`${marks[t.status]||'[ ]'} ${i+1}. ${t.text}`).join('\n'):'(empty)';
 import {renderReflection} from './metacog.mjs';
 
-/** Thresholds as fractions of the message budget B (window − output reserve − tool definitions). */
-/** After a checkpoint the context should be well under half the budget (system + checkpoint ≤ ~0.25B,
- * verbatim tail ≈ 0.15B), leaving ~0.4B of room before the next one: compaction is a model call plus a cache
- * rebuild, so it must be rare. */
-export const COMPACTION={maxImages:6,keepImages:3,softClear:0.72,minClear:0.15,minClearTokens:500,hard:0.8,tail:0.15,idle:0.55,summaryShare:0.08,summaryMin:600,summaryMax:8000,ledgerShare:0.1,ledgerMax:8000,instructionShare:0.06,mainInstructions:12,hotSteps:2};
+/** Thresholds as fractions of the message budget B (window − output reserve − tool definitions), so they follow the
+ * model's context window. The character's checkpoint keeps a verbatim tail (≈ 0.15B) after system + checkpoint
+ * (≤ ~0.25B). A work agent instead hands off (arXiv 2611.05306, EoCC): past the same threshold it writes a brief and
+ * continues in a fresh conversation of task + ledger + brief only; it also hands off after each finished checklist
+ * step (SAC-like). The brief is smaller than the character's summary (0.06B, 400–4000 tokens) so a fresh conversation
+ * starts well under a quarter of the budget even on a 16k window, leaving room for real progress (App. D). */
+export const COMPACTION={maxImages:6,keepImages:3,softClear:0.72,minClear:0.15,minClearTokens:500,hard:0.8,tail:0.15,idle:0.55,summaryShare:0.08,summaryMin:600,summaryMax:8000,briefShare:0.06,briefMin:400,briefMax:4000,ledgerShare:0.1,ledgerMax:8000,instructionShare:0.06,mainInstructions:12,hotSteps:2};
+export const briefBudget=B=>Math.round(Math.min(COMPACTION.briefMax,Math.max(COMPACTION.briefMin,B*COMPACTION.briefShare)));
+/** Checklist items done, and whether a step finished since the last handoff with work still open. */
+const doneSteps=todo=>(todo||[]).filter(t=>t.status==='done').length;
+const stepFinished=(todo,checkpoint)=>{const done=doneSteps(todo);return done>(checkpoint?.stepsDone||0)&&done<(todo||[]).length;};
 export const ledgerLimits=B=>({instructionTokens:Math.round(Math.min(6000,Math.max(600,B*COMPACTION.instructionShare))),evidence:Math.round(Math.min(40,Math.max(8,B*0.03/30))),maxTokens:Math.round(Math.min(COMPACTION.ledgerMax,Math.max(500,B*COMPACTION.ledgerShare)))});
 
 /* ---------------- ledger: exact state, derived from the log, never written by a model ---------------- */
@@ -49,13 +55,13 @@ export function foldLedger(previous,entries,{kind,instructionTokens=4000,evidenc
 }
 const fmtBytes=n=>n===undefined?'':n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 /** Sections in priority order; when over `maxTokens` the least important (evidence index first) shrink. */
-export function renderLedger(l,{todo=null,reflection=null,live={},maxTokens=Infinity}={}){
+export function renderLedger(l,{todo=null,reflection=null,live={},maxTokens=Infinity,task=true}={}){
  let evidence=l.evidence.length,files=60;
- for(;;){const text=ledgerSections(l,{todo,reflection,live,evidence,files});if(rawTokens(text)<=maxTokens||evidence===0&&files<=5)return text;if(evidence>0)evidence=Math.floor(evidence/2);else files=Math.max(5,Math.floor(files/2));}
+ for(;;){const text=ledgerSections(l,{todo,reflection,live,evidence,files,task});if(rawTokens(text)<=maxTokens||evidence===0&&files<=5)return text;if(evidence>0)evidence=Math.floor(evidence/2);else files=Math.max(5,Math.floor(files/2));}
 }
-function ledgerSections(l,{todo,reflection,live,evidence,files:fileCount}){
+function ledgerSections(l,{todo,reflection,live,evidence,files:fileCount,task}){
  const s=[];
- if(l.task)s.push(`### Task (verbatim, #${l.task.seq})\n${l.task.text}`);
+ if(task&&l.task)s.push(`### Task (verbatim, #${l.task.seq})\n${l.task.text}`);
  if(l.instructions.length)s.push(`### Instructions received (verbatim, oldest first${l.omittedInstructions?`; ${l.omittedInstructions} older ones only in the summary and recall`:''})\n`+l.instructions.map(i=>`- #${i.seq} ${i.header||'['+i.from+']'} ${i.text}`).join('\n'));
  if(todo?.length)s.push(`### Checklist\n${renderTodo(todo)}`);
  if(reflection)s.push(`### Self-assessment (your reflect notes, verbatim)\n${renderReflection(reflection)}`);
@@ -82,6 +88,36 @@ ${chapters}
 ## Summary
 ${summary}
 </checkpoint>`;
+}
+/** A work agent's fresh conversation: exactly the original task, the exact ledger and the brief it wrote. */
+export function handoffText({upTo,at,method,reason,task,ledger,brief}){
+ return `<handoff covers="#1–#${upTo}" made="${at}" method="${method}" reason="${reason}">
+This is a fresh conversation continuing the task below. Earlier conversations are stored in full: recall("#n") reads any entry exactly and history_search finds older details.
+
+## Original task (verbatim${task?`, #${task.seq}`:''})
+${task?task.text:'(not recorded)'}
+
+## Ledger (exact, kept by the harness)
+${ledger}
+
+## Brief (written at the handoff)
+${brief}
+</handoff>`;
+}
+/** What `fork` hands a new agent: its requester's ledger and latest brief in the handoff shape, plus the turns since
+ * that brief (a requester has not written a brief for this moment). References point into the requester's log. */
+export function forkContext({parentId,kind,checkpoint=null,entries=[],todo=null,reflection=null}){
+ const ledger=foldLedger(checkpoint?.ledger,entries,{kind,instructionTokens:1500,evidence:8});
+ const recent=entries.filter(e=>['input','assistant'].includes(e.type)).slice(-30);
+ return `--- Context from your requester (quoted, for reference; #n refers to its log: recall("${parentId}#n")) ---
+## Requester's ledger
+${renderLedger(ledger,{todo,reflection,maxTokens:2500})}
+
+## Requester's brief${checkpoint?` (#${checkpoint.seq})`:''}
+${checkpoint?.summary?fitTokens(checkpoint.summary,2500,'#'+checkpoint.seq).text:'(none yet)'}${recent.length?`
+
+## Since the brief
+${fitTokens(transcriptText(recent),2500,'recent').text}`:''}`;
 }
 /** Chapters keep each stretch's account as it was written when its details were fresh, so repeated compaction
  * does not wear old facts down (a summary of a summary of a summary). The newest fit a budget; older ones stay
@@ -110,9 +146,9 @@ export function missingIdentifiers(entries,known,limit=25){
  }
  return [...seen].filter(([id])=>!known.includes(id)).slice(-limit).map(([id,seq])=>`- ${id} (#${seq})`);
 }
-export function validSummary(text,maxTokens){
+export function validSummary(text,maxTokens,kind='worker'){
  const t=String(text||'').trim();if(t.length<60)return false;
- const headings=(t.match(/^#{1,3} +\S/gm)||[]).length,named=SUMMARY_HEADINGS.filter(h=>t.toLowerCase().includes(h.toLowerCase())).length;
+ const headings=(t.match(/^#{1,3} +\S/gm)||[]).length,named=headingsFor(kind).filter(h=>t.toLowerCase().includes(h.toLowerCase())).length;
  return (named>=5||headings>=5)&&rawTokens(t)<=maxTokens*2;
 }
 /** A transcript rendering for out-of-context summarisation: bounded per entry, with references. */
@@ -140,10 +176,13 @@ export class Compactor{
  constructor({sessions,assembler,registry,emit=()=>{}}){Object.assign(this,{sessions,assembler,registry,emit});}
  summaryBudget(B){return Math.round(Math.min(COMPACTION.summaryMax,Math.max(COMPACTION.summaryMin,B*COMPACTION.summaryShare)));}
  /** Decide what to do before a model call. `ratio` converts raw estimates into the model's tokens. */
- plan(built,B,ratio,{idle=false,force=false}={}){
+ plan(built,B,ratio,{idle=false,force=false,session=null}={}){
   const used=built.tokens*ratio;
   if(force)return {action:'compact',used,forced:true};
   if(idle)return used>COMPACTION.idle*B?{action:'compact',used}:{action:'none',used};
+  // Step handoff: a work agent that finished a checklist step starts the next one in a fresh conversation, when the
+  // conversation it drops is larger than the brief it writes.
+  if(session&&session.kind!=='main'&&stepFinished(session.todo,built.view.checkpoint)&&built.rendered.reduce((n,x)=>n+x.tokens,0)*ratio>=2*briefBudget(B))return {action:'compact',used,reason:'step'};
   // Screenshots pile up fast in computer use: past COMPACTION.maxImages in view, clear the older ones in one batch
   // even below the usual threshold, keeping the newest COMPACTION.keepImages. Clearing in batches (not one image per
   // turn) keeps the cached prompt prefix intact until the next batch.
@@ -175,6 +214,12 @@ export class Compactor{
   this.sessions.update(session.id,{stats:{...this.sessions.get(session.id).stats,clears:(session.stats?.clears||0)+1}});
   this.emit('compaction',{sessionId:session.id,action:'clear',upTo});return e;
  }
+ /** A handoff drops the whole conversation: the boundary is the end of the last step. Only input that arrived
+  * after it (a new instruction, a harness notice) stays in view. */
+ handoffBoundary(built){
+  const r=built.rendered,last=r.findLastIndex(x=>['assistant','tool'].includes(x.entry.type));
+  return last<0?null:{upTo:r[last].entry.seq,tailFrom:r[last+1]?.entry.seq??null};
+ }
  /** Where the verbatim tail starts: about COMPACTION.tail of the budget, beginning at a turn boundary. */
  boundary(built,B,ratio,tailShare=COMPACTION.tail){
   const r=built.rendered;if(r.length<2)return null;
@@ -188,24 +233,26 @@ export class Compactor{
   if(i<=0)return null;
   return {upTo:r[i-1].entry.seq,tailFrom:r[i].entry.seq};
  }
- /** Summarise into a checkpoint. Never throws for a model failure: degrades to a deterministic summary. */
+ /** Summarise into a checkpoint (the character) or hand off to a fresh conversation (a work agent). Never throws
+  * for a model failure: degrades to a deterministic summary. */
  async compact(session,{built,B,ratio,system,toolDefs,chain,signal,reason='budget',tailShare,todo=null,reflection=null,live={},cacheRetention='short'}){
-  const bound=this.boundary(built,B,ratio,tailShare);
+  const kind=session.kind,handoff=kind!=='main';
+  const bound=handoff?this.handoffBoundary(built):this.boundary(built,B,ratio,tailShare);
   if(!bound)return null;
   const prev=built.view.checkpoint,from=(prev?.upTo||0)+1;
   const folded=this.sessions.entries(session.id,{from,to:bound.upTo}).filter(e=>['input','notice','assistant','tool'].includes(e.type));
   const limits=ledgerLimits(B);
   const ledger=foldLedger(prev?.ledger,folded,{kind:session.kind,...limits});
-  const ledgerText=renderLedger(ledger,{todo,reflection,live,maxTokens:limits.maxTokens});
-  const maxTokens=this.summaryBudget(B);
+  const ledgerText=renderLedger(ledger,{todo,reflection,live,maxTokens:limits.maxTokens,task:!handoff});
+  const maxTokens=handoff?briefBudget(B):this.summaryBudget(B);
   let summary=null,method='in-context',usage=null;
   // 1) In-context: same prefix as the next call, so it is read from cache; the model sees every detail.
   if(reason!=='overflow'){
    for(let attempt=0;attempt<2&&!summary;attempt++){
     try{
-     const messages=[...built.messages,{role:'user',content:compactionInstruction({ledger:ledgerText,previous:!!prev,maxTokens})+(attempt?'\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed.':'')}];
+     const messages=[...built.messages,{role:'user',content:compactionInstruction({ledger:ledgerText,previous:!!prev,maxTokens,kind})+(attempt?'\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed.':'')}];
      const answer=await this.registry.invoke(chain,messages,{tools:toolDefs,toolChoice:'none',maxTokens:Math.round(maxTokens*1.5)+512,signal,cacheKey:session.id,slotKey:session.id,cacheRetention,priority:session.kind==='main'?5:0});
-     usage=answer.usage;if(answer.finish!=='length'&&validSummary(answer.content,maxTokens))summary=answer.content.trim();
+     usage=answer.usage;if(answer.finish!=='length'&&validSummary(answer.content,maxTokens,kind))summary=answer.content.trim();
     }catch(e){if(signal?.aborted)throw e;if(e.kind!=='overflow'&&e.kind!=='bad-request')break;}
    }
   }
@@ -215,8 +262,8 @@ export class Compactor{
    try{
     let rolling=prev?.summary||'';
     for(const part of chunks(transcriptText(folded,built.view.clearUpTo),Math.max(1500,Math.floor(B*0.45)))){
-     const answer=await this.registry.invoke('compaction',[{role:'system',content:SUMMARIZER_SYSTEM},{role:'user',content:summarizerRequest({previous:rolling,ledger:ledgerText,transcript:part,maxTokens})}],{maxTokens:Math.round(maxTokens*1.5)+512,signal,priority:session.kind==='main'?5:0});
-     if(validSummary(answer.content,maxTokens))rolling=answer.content.trim();else throw new Error('invalid summary');
+     const answer=await this.registry.invoke('compaction',[{role:'system',content:SUMMARIZER_SYSTEM},{role:'user',content:summarizerRequest({previous:rolling,ledger:ledgerText,transcript:part,maxTokens,kind})}],{maxTokens:Math.round(maxTokens*1.5)+512,signal,priority:session.kind==='main'?5:0});
+     if(validSummary(answer.content,maxTokens,kind))rolling=answer.content.trim();else throw new Error('invalid summary');
     }
     summary=rolling;
    }catch(e){if(signal?.aborted)throw e;}
@@ -227,15 +274,26 @@ export class Compactor{
    const steps=transcriptText(folded.filter(e=>e.type!=='tool'||e.error||!e.ephemeralKey),built.view.clearUpTo).split('\n').map(l=>oneLine(l,240));
    summary=fitTokens(`${prev?.summary?prev.summary+'\n\n':''}## Steps since the previous checkpoint (automatic list; the model summary failed)\n${steps.join('\n')}`,maxTokens,'#'+bound.upTo).text;
   }
+  const at=new Date().toISOString(),tokensBefore=Math.round(built.tokens*ratio);
+  if(handoff){
+   summary=fitTokens(summary,maxTokens*2,'#'+bound.upTo).text;
+   const extra=missingIdentifiers(folded,ledgerText+'\n'+summary);
+   const fullLedger=ledgerText+(extra.length?`\n\n### Links and paths seen in this stretch but not in the brief\n${extra.join('\n')}`:'');
+   const text=handoffText({upTo:bound.upTo,at,method,reason,task:ledger.task,ledger:fullLedger,brief:summary});
+   const cp=this.sessions.append(session.id,'checkpoint',{upTo:bound.upTo,text,summary,ledger,method,reason,previous:prev?.seq||null,tokensBefore,stepsDone:doneSteps(todo)});
+   this.sessions.append(session.id,'notice',{text:NOTICE.handedOff(bound.upTo),compaction:cp.seq});
+   const s=this.sessions.get(session.id);this.sessions.update(session.id,{stats:{...s.stats,compactions:(s.stats?.compactions||0)+1}});
+   this.emit('compaction',{sessionId:session.id,action:'compact',upTo:bound.upTo,method,reason,usage});
+   return cp;
+  }
   const split=takeDigest(summary);summary=fitTokens(split.summary,maxTokens*2,'#'+bound.upTo).text;
-  const at=new Date().toISOString();
   // This stretch's chapter: the model's digest, or a plain account when the summary came from the fallback.
   const digest=split.digest||oneLine([folded.find(e=>e.type==='input')?.text,folded.findLast(e=>e.type==='assistant'&&e.content)?.content].filter(Boolean).join(' … '),400)||'(no conversation in this stretch)';
   const chapters=[...(prev?.chapters||[]),{from,upTo:bound.upTo,at,digest}];
   const extra=missingIdentifiers(folded,ledgerText+'\n'+summary+'\n'+chapters.map(c=>c.digest).join('\n'));
   const fullLedger=ledgerText+(extra.length?`\n\n### Links and paths seen in this stretch but not in the summary\n${extra.join('\n')}`:'');
   const text=checkpointText({upTo:bound.upTo,at,ledger:fullLedger,summary,method,chapters:renderChapters(chapters,Math.round(Math.min(4000,Math.max(300,B*0.04))))});
-  const cp=this.sessions.append(session.id,'checkpoint',{upTo:bound.upTo,text,summary,ledger,chapters,method,reason,previous:prev?.seq||null,tokensBefore:Math.round(built.tokens*ratio)});
+  const cp=this.sessions.append(session.id,'checkpoint',{upTo:bound.upTo,text,summary,ledger,chapters,method,reason,previous:prev?.seq||null,tokensBefore});
   this.sessions.append(session.id,'notice',{text:NOTICE.compacted(bound.upTo),compaction:cp.seq});
   const s=this.sessions.get(session.id);this.sessions.update(session.id,{stats:{...s.stats,compactions:(s.stats?.compactions||0)+1}});
   this.emit('compaction',{sessionId:session.id,action:'compact',upTo:bound.upTo,method,reason,usage});

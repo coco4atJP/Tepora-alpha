@@ -43,9 +43,11 @@ test('Rust harness prompts, all notices, personas and silent streaming detection
  }
  for(const text of [undefined,null,'','N','NO_REP','no_reply','  "[NO_REPLY" trailing','NO_REPLYing','NO_REPLY_','NO_REPLY0','NO_REPLY🦊','\u0085NO_REPLY',' hello','【ＮＯ_REPLY']){equal(native('prompts.isSilentReply',{text}),prompts.isSilentReply(text));equal(native('prompts.mayBeSilent',{text}),prompts.mayBeSilent(text));}
  for(const tone of ['polite','soft','casual','terse','night','bad'])for(const proactive of ['quiet','normal','chatty']){const v={tone,proactive,callName:' name\u0000\t'+ '🦊'.repeat(20),lines:{secret:'not model visible'}};equal(native('prompts.voiceStyleForPrompt',{voice:v}),voice.voiceStyleForPrompt(v));const p={name:'P',instructions:'I',voice:v};equal(native('prompts.personaForPrompt',{persona:p}),persona.personaForPrompt(p));}
- for(const previous of [false,true]){const p={ledger:'ledger\nexact',previous,maxTokens:1200};equal(native('prompts.compactionInstruction',p),prompts.compactionInstruction(p));}
- for(const previous of ['', 'old summary']){const p={previous,ledger:'ledger',transcript:'transcript',maxTokens:900};equal(native('prompts.summarizerRequest',p),prompts.summarizerRequest(p));}
- equal(native('prompts.summarizerSystem'),prompts.SUMMARIZER_SYSTEM);equal(native('prompts.summaryHeadings'),prompts.SUMMARY_HEADINGS);
+ for(const kind of [undefined,'main','worker','specialist']){
+  for(const previous of [false,true]){const p={ledger:'ledger\nexact',previous,maxTokens:1200,kind};equal(native('prompts.compactionInstruction',p),prompts.compactionInstruction(p),'instruction '+kind);}
+  for(const previous of ['', 'old summary']){const p={previous,ledger:'ledger',transcript:'transcript',maxTokens:900,kind};equal(native('prompts.summarizerRequest',p),prompts.summarizerRequest(p),'summarizer '+kind);}
+ }
+ equal(native('prompts.summarizerSystem'),prompts.SUMMARIZER_SYSTEM);equal(native('prompts.summaryHeadings'),prompts.SUMMARY_HEADINGS);equal(native('prompts.mainSummaryHeadings'),prompts.MAIN_SUMMARY_HEADINGS);
 });
 
 const log=()=>[
@@ -80,7 +82,8 @@ test('Rust harness ledger folding/rendering and permanent chapter provenance mat
 
 test('Rust harness summary validation, digest extraction, exact identifiers, chunking and fallback transcript',()=>{
  const summaries=['short',prompts.SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' content').join('\n'),'intro\n# CHAPTER DIGEST\n  exact\n  text\n## Next\nbody','# Chapter digest\nall digest','## Goal\n'+ 'x'.repeat(4000)];
- for(const summary of summaries){equal(native('compaction.takeDigest',{summary}),compact.takeDigest(summary));for(const maxTokens of [20,600,8000])equal(native('compaction.validSummary',{text:summary,maxTokens}),compact.validSummary(summary,maxTokens));}
+ summaries.push(prompts.MAIN_SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' content').join('\n'));
+ for(const summary of summaries){equal(native('compaction.takeDigest',{summary}),compact.takeDigest(summary));for(const maxTokens of [20,600,8000])for(const kind of [undefined,'main','worker'])equal(native('compaction.validSummary',{text:summary,maxTokens,kind}),compact.validSummary(summary,maxTokens,kind));}
  const entries=log();for(const clearUpTo of [0,20,100])equal(native('compaction.transcriptText',{entries,clearUpTo}),compact.transcriptText(entries,clearUpTo));
  for(const known of ['','https://example.org/a /tmp/first.txt'])for(const limit of [0,2,25])equal(native('compaction.missingIdentifiers',{entries,known,limit}),compact.missingIdentifiers(entries,known,limit));
  for(const maxTokens of [0,10,100,500]){const text='日本語\n'+ 'a'.repeat(200)+'\n\n'+ 'x\ny\nz\n'.repeat(30);equal(native('compaction.chunks',{text,maxTokens}),compact.chunks(text,maxTokens));}
@@ -98,6 +101,22 @@ test('Rust harness compaction hot window, .72/.8/.55 thresholds and tail turn bo
  for(const entries of [[],[{seq:1,type:'input',text:'one'}],[{seq:1,type:'assistant',content:'a'},{seq:2,type:'tool',callId:'x',content:'b'}]]){const b=built(entries);equal(native('compaction.boundary',{built:b,B:500,ratio:1}),oracle.boundary(b,500,1));}
 });
 
+test('Rust harness handoff text, fork context, brief budget, handoff boundary and step plan match oracle',()=>{
+ for(const B of [100,1000,7500,100000,1e7])equal(native('compaction.briefBudget',{B}),compact.briefBudget(B));
+ for(const task of [null,{seq:1,text:'Task 日本語 🦊'}]){const p={upTo:32,at:'2026-01-01',method:'in-context',reason:'step',task,ledger:'ledger',brief:'## Objective\n- x'};equal(native('compaction.handoffText',p),compact.handoffText(p));}
+ const entries=log(),todo=[{text:'a',status:'done'},{text:'b',status:'pending'}],reflection={understanding:'u',verified:['v'],assumptions:['a'],confidence:.4};
+ for(const checkpoint of [null,{seq:40,upTo:10,summary:'## Objective\n- brief 日本語',ledger:compact.foldLedger(null,entries.slice(0,10),{kind:'main'})},{seq:41,upTo:33,ledger:compact.emptyLedger()}])for(const kind of ['main','worker'])for(const list of [entries,[]]){
+  const p={parentId:'parent-1',kind,checkpoint,entries:list,todo,reflection};equal(native('compaction.forkContext',p),compact.forkContext(p),'forkContext '+kind);
+ }
+ const oracle=new compact.Compactor({assembler:new ContextAssembler({})});
+ for(const list of [[],[{seq:1,type:'input',text:'one'}],entries,[...entries,{seq:34,type:'input',text:'late'}]]){const b=built(list);equal(native('compaction.handoffBoundary',{built:b}),oracle.handoffBoundary(b));}
+ const b=built(entries);
+ for(const kind of ['main','worker'])for(const todo of [null,[],[{text:'a',status:'done'},{text:'b',status:'pending'}],[{text:'a',status:'done'}]])for(const stepsDone of [undefined,0,1])for(const B of [500,5000,100000]){
+  const view={...b.view,checkpoint:stepsDone===undefined?b.view.checkpoint:{seq:1,upTo:0,stepsDone}},bb={...b,view},session={id:'s',kind,todo};
+  equal(native('compaction.plan',{built:bb,B,ratio:1,session}),oracle.plan(bb,B,1,{session}),`plan ${kind} ${JSON.stringify(todo)} ${stepsDone} ${B}`);
+ }
+});
+
 test('Rust harness compaction prepare/finalize drives genuine deterministic checkpoint identical to exhausted model fallback',async()=>{
  const entries=log();const b=built(entries);const session={id:'s',kind:'worker',stats:{}};const B=1000,ratio=1,at='2026-01-02T03:04:05.000Z';
  const prepared=native('compaction.prepare',{session,built:b,B,ratio,entries,reason:'overflow'});assert(prepared);assert.equal(prepared.inContextAttempts,0);
@@ -105,6 +124,20 @@ test('Rust harness compaction prepare/finalize drives genuine deterministic chec
  const RealDate=Date;globalThis.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[at]));}static now(){return RealDate.parse(at)}};
  const appended=[];let seq=100;const compactor=new compact.Compactor({assembler:new ContextAssembler({}),sessions:{entries:(_,{from,to})=>entries.filter(e=>e.seq>=from&&e.seq<=to),append:(_,type,body)=>{const e={...body,seq:++seq,type};appended.push(e);return e;},get:()=>session,update:()=>{}},registry:{invoke:async()=>{throw new Error('fixture provider failure')}},emit:()=>{}});
  try{const cp=await compactor.compact(session,{built:b,B,ratio,reason:'overflow'});const {seq:ignored,type,...body}=cp;equal(finished.checkpoint,body);assert.equal(finished.notice,appended[1].text);}finally{globalThis.Date=RealDate;}
+});
+
+test('Rust harness prepare/finalize match the oracle for a main checkpoint and an in-context worker step handoff',async()=>{
+ const entries=log();const b=built(entries);const B=4000,ratio=1,at='2026-01-02T03:04:05.000Z',todo=[{text:'a',status:'done'},{text:'b',status:'pending'}];
+ const RealDate=Date;globalThis.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[at]));}static now(){return RealDate.parse(at)}};
+ try{for(const [kind,reason,summary] of [['main','overflow',''],['worker','step',prompts.SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' noted, see https://example.org/a').join('\n')]]){
+  const session={id:'s',kind,stats:{},todo};
+  const prepared=native('compaction.prepare',{session,built:b,B,ratio,entries,todo,reason});assert(prepared);
+  const finished=native('compaction.finalize',{prepared,built:b,B,ratio,reason,at,summary,method:summary?'in-context':undefined});
+  const appended=[];let seq=100;const compactor=new compact.Compactor({assembler:new ContextAssembler({}),sessions:{entries:(_,{from,to})=>entries.filter(e=>e.seq>=from&&e.seq<=to),append:(_,type,body)=>{const e={...body,seq:++seq,type};appended.push(e);return e;},get:()=>session,update:()=>{}},registry:{invoke:async()=>{if(!summary)throw new Error('fixture provider failure');return {content:summary,finish:'stop'};}},emit:()=>{}});
+  const cp=await compactor.compact(session,{built:b,B,ratio,reason,todo});const {seq:ignored,type,...body}=cp;equal(finished.checkpoint,body,kind);assert.equal(finished.notice,appended[1].text);
+  if(kind==='worker'){assert.match(body.text,/^<handoff covers="#1–#33"[^>]*reason="step">/);assert.equal(body.stepsDone,1);assert.equal(body.chapters,undefined);assert.match(finished.notice,/Fresh conversation/);}
+  else{assert.match(body.text,/^<checkpoint/);assert.equal(body.stepsDone,undefined);}
+ }}finally{globalThis.Date=RealDate;}
 });
 
 test('Rust harness JS diagnostics, half ties and Unicode line/case edge regressions',()=>{

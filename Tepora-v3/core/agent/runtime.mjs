@@ -4,7 +4,7 @@ import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {SessionStore} from './sessions.mjs';
 import {ContextAssembler} from './context.mjs';
-import {Compactor,transcriptText} from './compaction.mjs';
+import {Compactor,forkContext} from './compaction.mjs';
 import {TokenCalibration} from './tokens.mjs';
 import {AgentLoop} from './loop.mjs';
 import {RuntimeHost} from './runtime-host.mjs';
@@ -190,8 +190,8 @@ export class AgentRuntime{
    cwd:cwd?path.resolve(parent?.cwd||this.workRoot,cwd):this.folder(id),toolset:toolset==='lean'?'lean':'worker',role:role==='escalation'&&this.registry.hasRoute('escalation')?'escalation':'work',task,label:persistent?(title||null):null});
   let text=task;
   if(context==='fork'&&parent){
-   const cp=this.sessions.latest(parent.id,'checkpoint'),recent=this.sessions.tail(parent.id,30).filter(e=>['input','assistant'].includes(e.type));
-   text+=`\n\n--- Context from your requester (quoted, for reference) ---\n${cp?.summary?fitTokens(cp.summary,2500,'#'+cp.seq).text+'\n':''}${fitTokens(transcriptText(recent),2500,'recent').text}`;
+   const checkpoint=this.sessions.latest(parent.id,'checkpoint');
+   text+='\n\n'+forkContext({parentId:parent.id,kind:parent.kind,checkpoint,entries:this.sessions.entries(parent.id,{from:(checkpoint?.upTo||0)+1}),todo:parent.todo||null,reflection:parent.reflection||null});
   }
   signal?.throwIfAborted();
   this.send(s.id,{text,from:from||(parent?'parent':'user'),kind:'task',source:parent?`task from "${parent.title||parent.kind}"`:'task'});

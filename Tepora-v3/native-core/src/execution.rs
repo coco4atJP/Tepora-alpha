@@ -199,8 +199,9 @@ fn before_request(run: &mut Run) -> Value {
         json!({"session":run.session,"messages":run.built["messages"]})
     )
 }
-fn compact(run: &mut Run, overflow: bool, overflows: u64) -> Value {
-    let mut fields = json!({"session":run.session,"budget":run.budget,"built":run.built,"reason":if overflow{"overflow"}else{"budget"},"overflow":overflow});
+/// `reason`: "overflow", "budget" (past the threshold) or the plan's own reason ("step": a work agent finished a checklist step).
+fn compact(run: &mut Run, overflow: bool, overflows: u64, reason: &str) -> Value {
+    let mut fields = json!({"session":run.session,"budget":run.budget,"built":run.built,"reason":reason,"overflow":overflow});
     if overflow {
         fields["tailShare"] = json!(if overflows > 1 { 0.1 } else { 0.15 });
     }
@@ -465,7 +466,7 @@ fn transition(
         Pending::Context { planned, overflow } => {
             run.built = value["built"].clone();
             if overflow {
-                compact(run, true, mem.overflows)
+                compact(run, true, mem.overflows, "overflow")
             } else if planned && value["plan"]["action"] == "clear" {
                 emit!(
                     run,
@@ -474,7 +475,8 @@ fn transition(
                     json!({"session":run.session,"upTo":value["plan"]["upTo"]})
                 )
             } else if planned && value["plan"]["action"] == "compact" {
-                compact(run, false, mem.overflows)
+                let reason = value["plan"]["reason"].as_str().unwrap_or("budget").to_owned();
+                compact(run, false, mem.overflows, &reason)
             } else {
                 before_request(run)
             }
@@ -1251,6 +1253,30 @@ mod tests {
                     json!({"continue":true})
                 }
             );
+        }
+    }
+    #[test]
+    fn planned_compaction_carries_the_plan_reason_to_the_host() {
+        for (plan, reason) in [
+            (json!({"action":"compact","used":10,"reason":"step"}), "step"),
+            (json!({"action":"compact","used":10}), "budget"),
+        ] {
+            let mut e = ExecutionEngine::new();
+            let r = e.begin(session("s"), json!({})).unwrap();
+            let g = r["generation"].as_u64().unwrap();
+            let r = resolve(&mut e, "s", g, &command(&r), session("s"));
+            let r = resolve(&mut e, "s", g, &command(&r), limits());
+            assert_eq!(command(&r)["kind"], "context");
+            let r = resolve(
+                &mut e,
+                "s",
+                g,
+                &command(&r),
+                json!({"built":built(),"plan":plan}),
+            );
+            assert_eq!(command(&r)["kind"], "compact");
+            assert_eq!(command(&r)["reason"], reason);
+            assert_eq!(command(&r)["overflow"], false);
         }
     }
     #[test]

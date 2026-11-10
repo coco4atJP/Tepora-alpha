@@ -1,5 +1,9 @@
 use super::*;
-use super::{format::fit, metacog::render_reflection, prompts::SUMMARY_HEADINGS};
+use super::{
+    format::fit,
+    metacog::render_reflection,
+    prompts::{MAIN_SUMMARY_HEADINGS, SUMMARY_HEADINGS},
+};
 fn empty() -> Value {
     json!({"task":null,"instructions":[],"omittedInstructions":0,"files":{},"reads":{},"sources":{},"searches":[],"artifacts":{},"sessions":{},"processes":{},"errors":[],"evidence":[]})
 }
@@ -8,6 +12,24 @@ fn limits(b: f64) -> Value {
 }
 fn summary_budget(b: f64) -> f64 {
     round((b * 0.08).max(600.).min(8000.))
+}
+/// A work agent's handoff brief: 0.06B, 400–4000 tokens (COMPACTION.brief*).
+fn brief_budget(b: f64) -> f64 {
+    round((b * 0.06).max(400.).min(4000.))
+}
+fn done_steps(todo: &Value) -> usize {
+    arr_value(todo)
+        .iter()
+        .filter(|t| t["status"] == "done")
+        .count()
+}
+fn arr_value(v: &Value) -> &[Value] {
+    v.as_array().map(Vec::as_slice).unwrap_or_default()
+}
+/// A checklist step finished since the last handoff while work is still open.
+fn step_finished(todo: &Value, checkpoint: &Value) -> bool {
+    let done = done_steps(todo);
+    done as f64 > num(checkpoint, "stepsDone", 0.) && done < arr_value(todo).len()
 }
 fn pick(v: &Value, keys: &[&str]) -> Map<String, Value> {
     keys.iter()
@@ -286,7 +308,8 @@ fn ledger_sections(l: &Value, p: &Value, evidence: usize, file_count: usize) -> 
     let mut s = Vec::new();
     let todo = arr(p, "todo");
     let live = &p["live"];
-    if truth(l, "task") {
+    let with_task = p.get("task").is_none_or(truthy);
+    if with_task && truth(l, "task") {
         s.push(format!(
             "### Task (verbatim, #{})\n{}",
             text(&l["task"], "seq"),
@@ -514,6 +537,62 @@ fn render_ledger(p: &Value) -> String {
 fn checkpoint(p: &Value) -> String {
     format!("<checkpoint covers=\"#1–#{}\" made=\"{}\" method=\"{}\">\nEarlier turns were compacted into this checkpoint. The full transcript is still stored: recall(\"#n\") reads any entry exactly and history_search finds older details.\n\n## Exact ledger (kept by the harness)\n{}\n{}\n## Summary\n{}\n</checkpoint>",text(p,"upTo"),text(p,"at"),text(p,"method"),text(p,"ledger"),if truth(p,"chapters"){format!("\n## Chapters (one paragraph per earlier stretch, each written once and never rewritten)\n{}\n",text(p,"chapters"))}else{String::new()},text(p,"summary"))
 }
+fn handoff(p: &Value) -> String {
+    let task = &p["task"];
+    format!("<handoff covers=\"#1–#{}\" made=\"{}\" method=\"{}\" reason=\"{}\">\nThis is a fresh conversation continuing the task below. Earlier conversations are stored in full: recall(\"#n\") reads any entry exactly and history_search finds older details.\n\n## Original task (verbatim{})\n{}\n\n## Ledger (exact, kept by the harness)\n{}\n\n## Brief (written at the handoff)\n{}\n</handoff>",
+        text(p, "upTo"), text(p, "at"), text(p, "method"), text(p, "reason"),
+        if truthy(task) { format!(", #{}", text(task, "seq")) } else { String::new() },
+        if truthy(task) { text(task, "text") } else { "(not recorded)".into() },
+        text(p, "ledger"), text(p, "brief"))
+}
+/// `fork`: the requester's ledger and latest brief in the handoff shape, plus its turns since that brief.
+fn fork_context(p: &Value) -> String {
+    let checkpoint = &p["checkpoint"];
+    let unicode = p.get("unicodeVersion").cloned().unwrap_or(json!(16));
+    let ledger = fold(&json!({"previous":checkpoint["ledger"],"entries":p["entries"],"kind":p["kind"],"instructionTokens":1500,"evidence":8,"unicodeVersion":unicode}));
+    let all = arr(p, "entries");
+    let recent: Vec<_> = all
+        .iter()
+        .filter(|e| matches!(e["type"].as_str(), Some("input" | "assistant")))
+        .cloned()
+        .collect();
+    let recent = &recent[recent.len().saturating_sub(30)..];
+    let ledger = render_ledger(&json!({"ledger":ledger,"todo":p["todo"],"reflection":p["reflection"],"maxTokens":2500,"unicodeVersion":unicode}));
+    let fitted = |s: &str, reference: &str| {
+        fit(s, 2500., reference, tokens(p))["text"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    };
+    let brief = if truth(checkpoint, "summary") {
+        fitted(&text(checkpoint, "summary"), &format!("#{}", text(checkpoint, "seq")))
+    } else {
+        "(none yet)".into()
+    };
+    let since = if recent.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\n## Since the brief\n{}",
+            fitted(
+                &transcript(&json!({"entries":recent,"unicodeVersion":unicode})),
+                "recent"
+            )
+        )
+    };
+    format!(
+        "--- Context from your requester (quoted, for reference; #n refers to its log: recall(\"{}#n\")) ---\n## Requester's ledger\n{}\n\n## Requester's brief{}\n{}{}",
+        text(p, "parentId"),
+        ledger,
+        if truthy(checkpoint) {
+            format!(" (#{})", text(checkpoint, "seq"))
+        } else {
+            String::new()
+        },
+        brief,
+        since
+    )
+}
 fn chapters(p: &Value) -> String {
     let mut shown = Vec::new();
     let mut size = 0.;
@@ -690,7 +769,12 @@ fn valid(p: &Value) -> bool {
         .filter(|&&i| heading.is_match(&t[i..]))
         .count();
     let lower = t.to_lowercase();
-    let named = SUMMARY_HEADINGS
+    let list: &[&str] = if p["kind"] == "main" {
+        &MAIN_SUMMARY_HEADINGS
+    } else {
+        &SUMMARY_HEADINGS
+    };
+    let named = list
         .iter()
         .filter(|h| lower.contains(&h.to_lowercase()))
         .count();
@@ -852,6 +936,19 @@ fn clear_candidate_before(p: &Value, before: f64) -> CoreResult<Value> {
         Value::Null
     })
 }
+/// A handoff drops the whole conversation up to the end of the last step; only later input stays in view.
+fn handoff_boundary(p: &Value) -> Value {
+    let r = arr(&p["built"], "rendered");
+    match r
+        .iter()
+        .rposition(|x| matches!(x["entry"]["type"].as_str(), Some("assistant" | "tool")))
+    {
+        None => Value::Null,
+        Some(last) => {
+            json!({"upTo":r[last]["entry"]["seq"],"tailFrom":r.get(last+1).map(|x|x["entry"]["seq"].clone()).unwrap_or(Value::Null)})
+        }
+    }
+}
 fn boundary(p: &Value) -> Value {
     let r = arr(&p["built"], "rendered");
     if r.len() < 2 {
@@ -902,6 +999,19 @@ fn plan(p: &Value) -> CoreResult<Value> {
     if truth(p, "idle") {
         return Ok(json!({"action":if used>0.55*b{"compact"}else{"none"},"used":used}));
     }
+    let session = &p["session"];
+    if truthy(session)
+        && session["kind"] != "main"
+        && step_finished(&session["todo"], &p["built"]["view"]["checkpoint"])
+        && arr(&p["built"], "rendered")
+            .iter()
+            .map(|x| num(x, "tokens", 0.))
+            .sum::<f64>()
+            * num(p, "ratio", 1.)
+            >= 2. * brief_budget(b)
+    {
+        return Ok(json!({"action":"compact","used":used,"reason":"step"}));
+    }
     let images = count_images(arr(&p["built"], "rendered"));
     if images > 6 {
         let c = clear_candidate_before(p, keep_images_from(arr(&p["built"], "rendered")))?;
@@ -946,6 +1056,10 @@ pub(super) fn call(op: &str, p: &Value) -> CoreResult<Value> {
         "foldLedger" => fold(p),
         "renderLedger" => json!(render_ledger(p)),
         "checkpointText" => json!(checkpoint(p)),
+        "handoffText" => json!(handoff(p)),
+        "forkContext" => json!(fork_context(p)),
+        "briefBudget" => json!(brief_budget(num(p, "B", f64::NAN))),
+        "handoffBoundary" => handoff_boundary(p),
         "renderChapters" => json!(chapters(p)),
         "takeDigest" => digest(&text(p, "summary")),
         "missingIdentifiers" => identifiers(p),
@@ -965,7 +1079,13 @@ pub(super) fn call(op: &str, p: &Value) -> CoreResult<Value> {
 /// Snapshot the exact work required for a checkpoint. The host performs real
 /// provider calls, checks cancellation, then invokes finalize before persisting.
 fn prepare(p: &Value) -> CoreResult<Value> {
-    let bound = boundary(p);
+    let kind = &p["session"]["kind"];
+    let handoff = kind != "main";
+    let bound = if handoff {
+        handoff_boundary(p)
+    } else {
+        boundary(p)
+    };
     if bound.is_null() {
         return Ok(Value::Null);
     }
@@ -993,19 +1113,23 @@ fn prepare(p: &Value) -> CoreResult<Value> {
     f["kind"] = p["session"]["kind"].clone();
     f["unicodeVersion"] = p.get("unicodeVersion").cloned().unwrap_or(json!(16));
     let ledger = fold(&f);
-    let mut render = json!({"ledger":ledger,"maxTokens":f["maxTokens"],"todo":p["todo"],"reflection":p["reflection"],"live":p["live"],"unicodeVersion":f["unicodeVersion"]});
+    let mut render = json!({"ledger":ledger,"maxTokens":f["maxTokens"],"todo":p["todo"],"reflection":p["reflection"],"live":p["live"],"task":!handoff,"unicodeVersion":f["unicodeVersion"]});
     let ledger_text = render_ledger(&render);
-    let max = summary_budget(b);
+    let max = if handoff {
+        brief_budget(b)
+    } else {
+        summary_budget(b)
+    };
     let transcript = transcript(
         &json!({"entries":folded,"clearUpTo":built["view"]["clearUpTo"],"unicodeVersion":f["unicodeVersion"]}),
     );
     let parts = chunks(
         &json!({"text":transcript,"maxTokens":(b*0.45).floor().max(1500.),"unicodeVersion":f["unicodeVersion"]}),
     );
-    render = json!({"ledger":ledger_text,"previous":truthy(prev),"maxTokens":max});
+    render = json!({"ledger":ledger_text,"previous":truthy(prev),"maxTokens":max,"kind":kind});
     let instruction = prompts::compaction_instruction(&render);
     Ok(
-        json!({"bound":bound,"from":from,"folded":folded,"ledger":ledger,"ledgerText":ledger_text,"maxTokens":max,"requestMaxTokens":round(max*1.5)+512.,"chunks":parts,"previousSummary":prev.get("summary").cloned().unwrap_or(json!("")),"instruction":instruction,"retryInstruction":format!("{instruction}\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed."),"summarizerSystem":prompts::SUMMARIZER_SYSTEM,"inContextAttempts":if p["reason"]=="overflow"{0}else{2},"priority":if p["session"]["kind"]=="main"{5}else{0}}),
+        json!({"kind":kind,"stepsDone":done_steps(&p["todo"]),"bound":bound,"from":from,"folded":folded,"ledger":ledger,"ledgerText":ledger_text,"maxTokens":max,"requestMaxTokens":round(max*1.5)+512.,"chunks":parts,"previousSummary":prev.get("summary").cloned().unwrap_or(json!("")),"instruction":instruction,"retryInstruction":format!("{instruction}\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed."),"summarizerSystem":prompts::SUMMARIZER_SYSTEM,"inContextAttempts":if p["reason"]=="overflow"{0}else{2},"priority":if p["session"]["kind"]=="main"{5}else{0}}),
     )
 }
 fn finalize(p: &Value) -> CoreResult<Value> {
@@ -1045,6 +1169,42 @@ fn finalize(p: &Value) -> CoreResult<Value> {
             .as_str()
             .unwrap()
             .into();
+    }
+    let at_ref = &p["at"];
+    let tokens_before = round(num(built, "tokens", 0.) * num(p, "ratio", 1.));
+    let reason = p.get("reason").cloned().unwrap_or(json!("budget"));
+    let previous = prev
+        .get("seq")
+        .filter(|v| truthy(v))
+        .cloned()
+        .unwrap_or(Value::Null);
+    if prepared["kind"] != "main" {
+        summary = fit(&summary, max * 2., &reference, tokens(p))["text"]
+            .as_str()
+            .unwrap()
+            .into();
+        let extra = identifiers(
+            &json!({"entries":folded,"known":format!("{}\n{}",text(prepared,"ledgerText"),summary)}),
+        );
+        let lines = extra.as_array().unwrap();
+        let full_ledger = format!(
+            "{}{}",
+            text(prepared, "ledgerText"),
+            if lines.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    "\n\n### Links and paths seen in this stretch but not in the brief\n{}",
+                    lines.iter().map(js).collect::<Vec<_>>().join("\n")
+                )
+            }
+        );
+        let text = handoff(
+            &json!({"upTo":prepared["bound"]["upTo"],"at":at_ref,"method":method,"reason":reason,"task":prepared["ledger"]["task"],"ledger":full_ledger,"brief":summary}),
+        );
+        return Ok(
+            json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before,"stepsDone":prepared["stepsDone"]},"notice":prompts::notice("handedOff",&[prepared["bound"]["upTo"].clone()])?}),
+        );
     }
     let split = digest(&summary);
     summary = fit(
@@ -1119,6 +1279,6 @@ fn finalize(p: &Value) -> CoreResult<Value> {
         &json!({"upTo":prepared["bound"]["upTo"],"at":p["at"],"ledger":full_ledger,"summary":summary,"method":method,"chapters":rendered}),
     );
     Ok(
-        json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"chapters":cs,"method":method,"reason":p.get("reason").cloned().unwrap_or(json!("budget")),"previous":prev.get("seq").filter(|v|truthy(v)).cloned().unwrap_or(Value::Null),"tokensBefore":round(num(built,"tokens",0.)*num(p,"ratio",1.))},"notice":prompts::notice("compacted",&[prepared["bound"]["upTo"].clone()])?}),
+        json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"chapters":cs,"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before},"notice":prompts::notice("compacted",&[prepared["bound"]["upTo"].clone()])?}),
     )
 }
