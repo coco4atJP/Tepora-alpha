@@ -14,7 +14,7 @@ test('real HTTP host: Pi catalogs, CSRF, generic auth, scoped inference and logo
  let r=await fetch(app.origin+'/api/pi/providers');assert.equal(r.status,401);await r.text();
  const launch=await fetch(app.launchUrl,{redirect:'manual'});await launch.text();const cookie=launch.headers.get('set-cookie').split(';')[0];const bootstrap=await(await fetch(app.origin+'/api/bootstrap',{headers:{Cookie:cookie}})).json();
  const request=(route,method='GET',data,headers={})=>fetch(app.origin+route,{method,headers:{Cookie:cookie,'X-Tepora-CSRF':bootstrap.csrf,'Content-Type':'application/json',...headers},...(data===undefined?{}:{body:JSON.stringify(data)})});
- const providers=await(await request('/api/pi/providers')).json();assert.equal(providers.providers.length,42);assert.equal(providers.providers.filter(p=>p.oauth).length,9);
+ const providers=await(await request('/api/pi/providers')).json();assert.equal(providers.providers.length,43);assert.equal(providers.providers.filter(p=>p.oauth).length,9);
  for(const headers of [{'X-Tepora-CSRF':'wrong'},{Origin:'https://attacker.invalid'}]){r=await request('/api/pi/auth/start','POST',{provider:'groq',type:'api_key',consent:true},headers);assert.equal(r.status,403);await r.text();}
  r=await request('/api/pi/auth/start','POST',{provider:'groq'});assert.equal(r.status,403);await r.text();
  r=await request('/api/pi/auth/start','POST',{provider:'groq',type:'api_key',consent:true});assert.equal(r.status,200);await r.json();await until(()=>app.pi.snapshot().pending?.prompt);
