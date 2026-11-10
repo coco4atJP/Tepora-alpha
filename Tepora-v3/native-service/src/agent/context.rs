@@ -339,7 +339,7 @@ pub fn context(snapshot: &ContextSnapshot) -> Result<Value, EffectError> {
     if snapshot.plan {
         out["plan"] = harness(
             "compaction.plan",
-            json!({"built":built,"B":snapshot.budget["B"],"ratio":snapshot.budget["ratio"],"force":snapshot.force,"idle":snapshot.idle,"unicodeVersion":snapshot.unicode_version}),
+            json!({"built":built,"B":snapshot.budget["B"],"ratio":snapshot.budget["ratio"],"force":snapshot.force,"idle":snapshot.idle,"session":snapshot.session,"unicodeVersion":snapshot.unicode_version}),
         )?;
     }
     Ok(out)
@@ -349,7 +349,7 @@ fn silent_sink() -> EventSink {
     // Provider-global health/cache events still go through ProviderState.
     Arc::new(|_| {})
 }
-fn valid_summary(answer: &Value, max_tokens: &Value, unicode: u32) -> Result<bool, EffectError> {
+fn valid_summary(answer: &Value, prepared: &Value, unicode: u32) -> Result<bool, EffectError> {
     if !matches!(answer["finish"].as_str(), None | Some("stop"))
         || !answer["content"].is_string()
         || !array(&answer["tool_calls"]).is_empty()
@@ -359,7 +359,7 @@ fn valid_summary(answer: &Value, max_tokens: &Value, unicode: u32) -> Result<boo
     }
     Ok(harness(
         "compaction.validSummary",
-        json!({"text":answer["content"],"maxTokens":max_tokens,"unicodeVersion":unicode}),
+        json!({"text":answer["content"],"maxTokens":prepared["maxTokens"],"kind":prepared["kind"],"unicodeVersion":unicode}),
     )? == true)
 }
 
@@ -398,7 +398,7 @@ pub async fn compact(
         match answer {
             Ok(answer) => {
                 usage = answer.get("usage").cloned().unwrap_or(Value::Null);
-                if valid_summary(&answer, &prepared["maxTokens"], snapshot.unicode_version)? {
+                if valid_summary(&answer, &prepared, snapshot.unicode_version)? {
                     summary = s(&answer, "content").trim_matches(ws).to_owned();
                     break;
                 }
@@ -421,7 +421,7 @@ pub async fn compact(
             check(cancel)?;
             let request_text = harness(
                 "prompts.summarizerRequest",
-                json!({"previous":rolling,"ledger":prepared["ledgerText"],"transcript":part,"maxTokens":prepared["maxTokens"]}),
+                json!({"previous":rolling,"ledger":prepared["ledgerText"],"transcript":part,"maxTokens":prepared["maxTokens"],"kind":prepared["kind"]}),
             )?;
             let request = InvokeRequest {
                 chain: provider.chain("compaction")?,
@@ -436,7 +436,7 @@ pub async fn compact(
             match answer {
                 Ok(answer) => {
                     // Every chunk must complete; a well-formed prefix is not a checkpoint.
-                    if valid_summary(&answer, &prepared["maxTokens"], snapshot.unicode_version)? {
+                    if valid_summary(&answer, &prepared, snapshot.unicode_version)? {
                         rolling = s(&answer, "content").trim_matches(ws).to_owned();
                     } else {
                         complete = false;
@@ -615,15 +615,16 @@ mod tests {
     }
     fn summary(label: &str) -> String {
         [
-            "Goal",
-            "User preferences and constraints",
-            "Done so far",
-            "Key facts",
-            "Decisions",
-            "Dead ends",
+            "Objective",
             "Current work",
-            "Next step",
-            "Chapter digest",
+            "Next move",
+            "Remaining plan",
+            "Completion criteria",
+            "Artifact locations",
+            "Verified facts",
+            "Unverified assumptions",
+            "Dead ends",
+            "Re-fetch commands",
         ]
         .iter()
         .map(|h| format!("## {h}\n- {label} with exact fact and source #1"))
@@ -821,11 +822,15 @@ mod tests {
             .unwrap();
         assert_eq!(result.checkpoint["method"], "in-context");
         assert_eq!(result.event["usage"]["input"], 31);
-        assert_eq!(result.notice["text"],"[harness] Earlier turns (up to #3) were compacted into the checkpoint above. Use recall(\"#n\") or history_search for exact details.");
-        assert_eq!(
-            result.checkpoint["chapters"][0]["at"],
-            "2026-10-07T10:30:00.000Z"
-        );
+        // A work agent hands off: the whole conversation leaves view and no chapters are written.
+        assert_eq!(result.notice["text"],"[harness] Fresh conversation. Your earlier conversation (up to #4) is stored but out of view; the <handoff> above holds the task, the ledger and your brief. Continue from its Next move, and use recall(\"#n\") or history_search for exact details.");
+        let text = s(&result.checkpoint, "text");
+        assert!(text.starts_with("<handoff covers=\"#1–#4\" made=\"2026-10-07T10:30:00.000Z\" method=\"in-context\" reason=\"budget\">"));
+        assert!(text.contains("## Original task (verbatim, #1)\nWrite /tmp/result.txt and verify it.\n"));
+        assert!(text.contains("## Brief (written at the handoff)\n## Objective"));
+        assert!(result.checkpoint.get("chapters").is_none());
+        assert_eq!(result.checkpoint["stepsDone"], 0);
+        assert_eq!(result.checkpoint["upTo"], 4);
         assert_eq!(result.completed_at, "2026-10-07T10:30:00.000Z");
         assert_eq!(lock(&transport.requests).len(), 2);
         let receipts = lock(&state.receipts);
@@ -834,16 +839,44 @@ mod tests {
         assert_eq!(receipts[1]["retry"], true);
         assert_eq!(receipts.iter().map(|r| r["usage"]["input"].as_f64().unwrap()).sum::<f64>(), 62.);
         let second = request_body(&transport, 1);
-        assert!(
-            second["messages"].as_array().unwrap().last().unwrap()["content"]
-                .as_str()
-                .unwrap()
-                .contains("Your previous attempt did not follow")
-        );
+        let instruction = second["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap();
+        assert!(instruction.starts_with("[harness] Handoff."));
+        assert!(instruction.contains("Your previous attempt did not follow"));
         assert_eq!(second["tool_choice"], "none");
         assert!(second["tools"].is_array());
         assert!(lock(&state.events).iter().all(|(e, _)| e != "compaction"));
         assert!(result.checkpoint.get("seq").is_none());
+    }
+    #[test]
+    fn a_finished_checklist_step_plans_a_step_handoff_for_work_agents_only() {
+        let snapshot = compaction_snapshot(vec![]);
+        for (kind, todo, action) in [
+            ("worker", json!([{"text":"read","status":"done"},{"text":"verify","status":"pending"}]), "compact"),
+            ("worker", json!([{"text":"read","status":"done"}]), "none"),
+            ("worker", json!([{"text":"read","status":"pending"}]), "none"),
+            ("main", json!([{"text":"read","status":"done"},{"text":"verify","status":"pending"}]), "none"),
+        ] {
+            let mut session = snapshot.session.clone();
+            session["kind"] = json!(kind);
+            session["todo"] = todo;
+            let out = context(&ContextSnapshot {
+                session,
+                entries: snapshot.entries.clone(),
+                budget: json!({"B":5000,"ratio":1}),
+                vision: false,
+                plan: true,
+                force: false,
+                idle: false,
+                unicode_version: 16,
+            })
+            .unwrap();
+            assert_eq!(out["plan"]["action"], action, "{kind}");
+            if action == "compact" {
+                assert_eq!(out["plan"]["reason"], "step");
+            }
+        }
     }
     #[tokio::test]
     async fn overflow_rejects_truncated_summary_but_retains_its_usage_receipt() {

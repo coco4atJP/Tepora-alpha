@@ -507,18 +507,16 @@ impl RuntimeState {
                 let pid = text(parent, "id");
                 let checkpoint =
                     services.state("session.latest", json!({"id":pid,"type":"checkpoint"}))?;
-                let recent = array(services.state("session.tail", json!({"id":pid,"limit":30}))?)
-                    .into_iter()
-                    .filter(|e| matches!(e["type"].as_str(), Some("input" | "assistant")))
-                    .collect::<Vec<_>>();
-                let transcript = pure("compaction.transcriptText", json!({"entries":recent}))?;
-                message
-                    .push_str("\n\n--- Context from your requester (quoted, for reference) ---\n");
-                if let Some(summary) = checkpoint["summary"].as_str().filter(|s| !s.is_empty()) {
-                    message.push_str(&fit(summary, 2500, &format!("#{}", checkpoint["seq"]))?);
-                    message.push('\n');
-                }
-                message.push_str(&fit(transcript.as_str().unwrap_or(""), 2500, "recent")?);
+                let entries = services.state(
+                    "session.entries",
+                    json!({"id":pid,"from":checkpoint["upTo"].as_u64().unwrap_or(0)+1}),
+                )?;
+                let context = pure(
+                    "compaction.forkContext",
+                    json!({"parentId":pid,"kind":parent["kind"],"checkpoint":checkpoint,"entries":entries,"todo":parent["todo"],"reflection":parent["reflection"],"unicodeVersion":17}),
+                )?;
+                message.push_str("\n\n");
+                message.push_str(context.as_str().unwrap_or(""));
             }
         }
         let from = args["from"]

@@ -4,24 +4,25 @@ import {writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {agentFixture} from './helpers/agent-fixture.mjs';
 import {last,toolResults} from './helpers/scripted-model.mjs';
-import {foldLedger,renderLedger,validSummary,COMPACTION} from '../core/agent/compaction.mjs';
+import {foldLedger,renderLedger,validSummary,briefBudget,forkContext,COMPACTION,Compactor} from '../core/agent/compaction.mjs';
 import {TokenCalibration,rawTokens} from '../core/agent/tokens.mjs';
-import {SUMMARY_HEADINGS} from '../core/agent/prompts.mjs';
+import {SUMMARY_HEADINGS,MAIN_SUMMARY_HEADINGS,headingsFor} from '../core/agent/prompts.mjs';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,timeout=15000,diagnose=()=>null){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out: '+JSON.stringify(diagnose()));await wait(15);}}
 function progress(f,id){const session=f.rt.sessions.get(id);return {status:session?.status,stats:session?.stats,pending:f.rt.sessions.pending(id).length,requests:f.model.requests.length,tail:f.rt.sessions.entries(id).slice(-5).map(({type,event,name,errorText})=>({type,event,name,errorText}))};}
 
 const text=m=>typeof m?.content==='string'?m.content:'';
-const isCompaction=body=>text(last(body,'user')).includes('Context compaction')&&body.tool_choice==='none';
+const isHandoff=body=>text(last(body,'user')).startsWith('[harness] Handoff.')&&body.tool_choice==='none';
+const isCompaction=body=>(isHandoff(body)||text(last(body,'user')).includes('Context compaction'))&&body.tool_choice==='none';
 const isRolling=body=>text(body.messages[0]).includes('working memory of a long-running agent');
-const summary=extra=>SUMMARY_HEADINGS.map(h=>`## ${h}\n- ${h==='Key facts'?'big.txt has 120 lines; '+extra:'noted'}`).join('\n');
+const summary=(extra,kind='worker')=>headingsFor(kind).map(h=>`## ${h}\n- ${['Key facts','Verified facts'].includes(h)?'big.txt has 120 lines; '+extra:'noted'}`).join('\n');
 const isPrefix=(a,b)=>a.messages.length<=b.messages.length&&a.messages.every((m,i)=>JSON.stringify(m)===JSON.stringify(b.messages[i]));
 const lorem=n=>Array.from({length:n},(_,i)=>`word${i%37}`).join(' ');
 
 async function bigFile(dir){const lines=Array.from({length:120},(_,i)=>`line ${i+1}: ${lorem(8)}`);await mkdir(dir,{recursive:true});await writeFile(path.join(dir,'big.txt'),lines.join('\n'));}
 
-test('long work clears old results in batches, then compacts on the cached prefix into a checkpoint that keeps the task and instructions verbatim',async t=>{
+test('long work clears old results in batches, then hands off on the cached prefix to a fresh conversation of task, ledger and brief only',async t=>{
  let steered=false,n=-1;
  const f=await agentFixture(t,(body,{index})=>{
   if(isCompaction(body))return {content:summary('compacted in context')};
@@ -47,7 +48,14 @@ test('long work clears old results in batches, then compacts on the cached prefi
  const reqs=f.model.requests,ci=reqs.findIndex(isCompaction);
  assert.ok(ci>0);assert.ok(isPrefix({messages:reqs[ci-1].messages},{messages:reqs[ci].messages.slice(0,-1).concat()})||reqs[ci].messages.length>reqs[ci-1].messages.length);
  assert.equal(JSON.stringify(reqs[ci].tools),JSON.stringify(reqs[ci-1].tools));
- const after=reqs[ci+1];assert.equal(after.messages[1].role,'user');assert.match(after.messages[1].content,/^<checkpoint/);
+ const after=reqs[ci+1];assert.equal(after.messages[1].role,'user');assert.match(after.messages[1].content,/^<handoff covers="#1–#\d+"[^>]*>/);
+ assert.match(cp.text,/## Original task \(verbatim, #1\)\nReview big\.txt thoroughly\. 結論は箇条書きで。\n\n## Ledger \(exact, kept by the harness\)\n[\s\S]*## Brief \(written at the handoff\)\n## Objective/);
+ assert.doesNotMatch(cp.text,/Recent conversation|Chapters/);
+ // EoCC: nothing of the old conversation stays in view; the fresh conversation is the system prompt, the handoff and its notice.
+ const said=reqs[ci].messages.filter(m=>m.role==='assistant').map(text).filter(Boolean);
+ assert.ok(said.length>0);assert.ok(after.messages.every(m=>!said.includes(text(m))),'no earlier assistant turn survives the handoff');
+ assert.ok(after.messages.every(m=>m.role!=='tool'),'no earlier tool result survives the handoff');
+ assert.match(text(after.messages.at(-1)),/Fresh conversation/);
  // The prefix only changes at a clear or a compaction.
  const normal=reqs.filter(b=>!isCompaction(b));let breaks=0;
  for(let i=1;i<normal.length;i++)if(!isPrefix(normal[i-1],normal[i]))breaks++;
@@ -95,7 +103,7 @@ test('recall returns the exact text of an entry that was compacted away',async t
   const results=toolResults(body),n=body.messages.filter(m=>m.role==='assistant').length;
   const lastResult=results.at(-1)?.content||'';
   if(lastResult.startsWith('#3 ')){recalled=lastResult;return {content:'got it'};}
-  if(body.messages[1]?.content?.startsWith?.('<checkpoint'))return {calls:[{name:'recall',args:{ref:'#3'}}]};
+  if(body.messages[1]?.content?.startsWith?.('<handoff'))return {calls:[{name:'recall',args:{ref:'#3'}}]};
   if(n===0)return {calls:[{name:'exec',args:{command:'printf "SECRET-VALUE-4711"'}}]};
   return {content:`Step ${n}: ${lorem(260)}`,calls:[{name:'read',args:{path:'big.txt',limit:30}}]};
  },{context:12000});
@@ -106,7 +114,8 @@ test('recall returns the exact text of an entry that was compacted away',async t
 
 test('the resident main session compacts while idle so the next spoken reply is fast',async t=>{
  const f=await agentFixture(t,body=>{
-  if(isCompaction(body))return {content:summary('idle')};
+  if(isHandoff(body))throw new Error('the main session never hands off');
+  if(isCompaction(body))return {content:summary('idle','main')};
   return {content:`返事です。${lorem(400)}`};
  },{context:12000,settings:{idleCompactSeconds:0}});
  const main=f.rt.main();
@@ -140,16 +149,20 @@ test('the ledger is exact: task, verbatim instructions, files, artifacts, sessio
 test('summary validation and token calibration',()=>{
  assert.equal(validSummary('short',1000),false);
  assert.equal(validSummary(SUMMARY_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000),true);
+ assert.equal(validSummary(MAIN_SUMMARY_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000,'main'),true);
+ // The brief is forward-looking (App. G): what is left, how to tell it is done, and where things are; no narrative.
+ for(const h of ['Current work','Remaining plan','Completion criteria','Artifact locations','Verified facts','Unverified assumptions','Dead ends','Re-fetch commands'])assert.ok(SUMMARY_HEADINGS.includes(h),h);
+ assert.ok(!SUMMARY_HEADINGS.includes('Chapter digest')&&!SUMMARY_HEADINGS.includes('Progress'));
  const c=new TokenCalibration(null);for(let i=0;i<20;i++)c.observe('m',1000,1500);
  assert.ok(c.ratio('m')>1.4&&c.ratio('m')<1.55);assert.equal(c.observe('m',100,10),c.ratio('m'));
  assert.ok(rawTokens('こんにちは世界')>=7);assert.ok(rawTokens('hello world, this is text')<12);
  assert.ok(COMPACTION.hard>COMPACTION.softClear&&COMPACTION.tail<COMPACTION.hard);
 });
 
-test('repeated compaction keeps each stretch as a chapter written once, and rescues links the summary forgot',async t=>{
- let n=-1,k=0;
+test('repeated handoffs carry the brief forward, write no chapters, and rescue links the brief forgot',async t=>{
+ let n=-1,k=0,second=null;
  const f=await agentFixture(t,body=>{
-  if(isCompaction(body)){k++;return {content:SUMMARY_HEADINGS.map(h=>h==='Chapter digest'?`## ${h}\nStretch ${k}: read part ${k} of big.txt.`:`## ${h}\n- noted ${k}`).join('\n')};}
+  if(isHandoff(body)){k++;if(k===2)second=text(last(body,'user'));return {content:SUMMARY_HEADINGS.map(h=>`## ${h}\n- noted ${k}`).join('\n')};}
   n++;
   if(n<45)return {content:`Step ${n}: see https://example.com/doc/${n} ${lorem(120)}`,calls:[{name:'read',args:{path:'big.txt',offset:1+(n%30)*3,limit:40}}]};
   return {content:'Finished.'};
@@ -157,10 +170,67 @@ test('repeated compaction keeps each stretch as a chapter written once, and resc
  const s=await f.rt.spawn(null,{task:'Read big.txt in parts.'});await bigFile(s.cwd);
  await until(()=>f.rt.sessions.get(s.id).status==='done',60000);
  const cps=f.rt.sessions.entries(s.id,{types:['checkpoint']});
- assert.ok(cps.length>=2,`${cps.length} checkpoints`);
+ assert.ok(cps.length>=2,`${cps.length} handoffs`);
  const lastCp=cps.at(-1);
- for(let i=1;i<=cps.length;i++)assert.match(lastCp.text,new RegExp(`Stretch ${i}: read part ${i} of big\\.txt\\.`),`chapter ${i} survives`);
- assert.doesNotMatch(lastCp.summary,/Chapter digest/);
- assert.match(lastCp.text,/Links and paths seen in this stretch but not in the summary[\s\S]*https:\/\/example\.com\/doc\/\d+/);
+ assert.match(second,/An earlier <handoff> is part of the conversation above/);
+ assert.equal(lastCp.chapters,undefined);assert.doesNotMatch(lastCp.text,/Chapters|Recent conversation/);
+ assert.match(lastCp.text,new RegExp(`noted ${cps.length}`));assert.doesNotMatch(lastCp.text,/noted 1\n/);
+ assert.match(lastCp.text,/## Original task \(verbatim, #1\)\nRead big\.txt in parts\./);
+ assert.match(lastCp.text,/Links and paths seen in this stretch but not in the brief[\s\S]*https:\/\/example\.com\/doc\/\d+/);
  assert.match(lastCp.text,/### Files read\n- big\.txt/);
+});
+
+test('a work agent hands off to a fresh conversation after each finished checklist step, never after the last one',async t=>{
+ let n=-1;const handoffs=[];
+ const items=done=>['survey','draft','verify'].map((x,i)=>({text:x,status:i<done?'done':i===done?'in_progress':'pending'}));
+ const f=await agentFixture(t,body=>{
+  if(isHandoff(body)){handoffs.push(text(last(body,'user')));return {content:SUMMARY_HEADINGS.map(h=>`## ${h}\n- ${h==='Next move'?'start '+['','draft','verify'][handoffs.length]:'noted'}`).join('\n')};}
+  n++;
+  if(n===0)return {calls:[{name:'todo',args:{items:items(0)}}]};
+  if(n<4)return {content:`Survey ${n}: ${lorem(1500)}`,calls:[{name:'read',args:{path:'big.txt',offset:1+n*10,limit:30}}]};
+  if(n===4)return {calls:[{name:'todo',args:{items:items(1)}}]};
+  if(n<8)return {content:`Draft ${n}: ${lorem(1500)}`,calls:[{name:'read',args:{path:'big.txt',offset:1+n*10,limit:30}}]};
+  if(n===8)return {calls:[{name:'todo',args:{items:items(2)}}]};
+  if(n===9)return {content:`Verify: ${lorem(300)}`,calls:[{name:'todo',args:{items:items(3)}}]};
+  return {content:'All three steps are done.'};
+ },{context:64000});
+ const s=await f.rt.spawn(null,{task:'Survey, draft and verify big.txt.'});await bigFile(s.cwd);
+ await until(()=>f.rt.sessions.get(s.id).status==='done',30000,()=>progress(f,s.id));
+ const cps=f.rt.sessions.entries(s.id,{types:['checkpoint']});
+ assert.deepEqual(cps.map(c=>[c.reason,c.stepsDone]),[['step',1],['step',2]],'one handoff per finished step, none after the last');
+ assert.equal(handoffs.length,2);
+ // Each fresh conversation starts from the handoff alone: none of the previous step's turns are in view.
+ const reqs=f.model.requests.filter(b=>!isHandoff(b));
+ const firstAfter=reqs.find(b=>text(b.messages[1]).startsWith('<handoff')&&/stepsDone|reason="step"/.test(text(b.messages[1])));
+ assert.ok(firstAfter);assert.ok(firstAfter.messages.every(m=>!/^Survey \d+:/.test(text(m))),'the survey turns left view');
+ assert.match(text(firstAfter.messages[1]),/## Original task \(verbatim, #1\)\nSurvey, draft and verify big\.txt\./);
+ assert.match(text(firstAfter.messages[1]),/\[x\] 1\. survey\n\[>\] 2\. draft/);
+ assert.match(text(firstAfter.messages[1]),/## Next move\n- start draft/);
+ // A small step is not worth a brief: the guard keeps the trigger off when little would be dropped.
+ const c=new Compactor({}),view={checkpoint:null},session={kind:'worker',todo:items(1)};
+ assert.equal(c.plan({tokens:100,view,rendered:[{tokens:100,entry:{seq:1,type:'tool'},message:{role:'tool',content:'x'}}]},10000,1,{session}).action,'none');
+ assert.equal(c.plan({tokens:2000,view,rendered:[{tokens:2000,entry:{seq:1,type:'tool'},message:{role:'tool',content:'x'}}]},10000,1,{session}).reason,'step');
+ assert.equal(c.plan({tokens:2000,view,rendered:[{tokens:2000,entry:{seq:1,type:'tool'},message:{role:'tool',content:'x'}}]},10000,1,{session:{...session,kind:'main'}}).action,'none');
+ assert.equal(c.plan({tokens:2000,view:{checkpoint:{stepsDone:1}},rendered:[{tokens:2000,entry:{seq:1,type:'tool'},message:{role:'tool',content:'x'}}]},10000,1,{session}).action,'none');
+});
+
+test('the handoff threshold and the brief cap follow the model window',()=>{
+ // B is derived from the window; the brief is 6% of B within 400–4000 tokens and stays under the main summary's share.
+ assert.equal(briefBudget(5000),400);assert.equal(briefBudget(20000),1200);assert.equal(briefBudget(1e6),4000);
+ for(const B of [5000,20000,200000])assert.ok(briefBudget(B)<=new Compactor({}).summaryBudget(B));
+ const c=new Compactor({}),view={checkpoint:null},rendered=[];
+ for(const B of [9000,90000]){assert.equal(c.plan({tokens:0.79*B,view,rendered},B,1).action,'none');assert.equal(c.plan({tokens:0.81*B,view,rendered},B,1).action,'compact');}
+});
+
+test('fork hands a new agent its requester\'s ledger and brief in the handoff shape',async t=>{
+ const ledgerEntries=[{seq:1,type:'input',kind:'task',text:'Plan the trip.'},{seq:2,type:'input',kind:'message',from:'user',text:'Budget is 80000 yen.'},{seq:3,type:'tool',name:'write',data:{path:'/w/plan.md',op:'write',bytes:5,sha:'x'},stub:'write'}];
+ const ctx=forkContext({parentId:'p1',kind:'worker',checkpoint:{seq:9,upTo:3,summary:'## Objective\n- trip plan',ledger:foldLedger(null,ledgerEntries,{kind:'worker'})},entries:[{seq:10,type:'input',from:'user',text:'Prefer trains.'},{seq:11,type:'assistant',content:'Noted.'}],todo:[{text:'book',status:'pending'}]});
+ assert.match(ctx,/^--- Context from your requester \(quoted, for reference; #n refers to its log: recall\("p1#n"\)\) ---\n## Requester's ledger\n/);
+ for(const s of ['Plan the trip.','Budget is 80000 yen.','Prefer trains.','/w/plan.md (write','[ ] 1. book',"## Requester's brief (#9)\n## Objective\n- trip plan",'## Since the brief\n'])assert.ok(ctx.includes(s),s);
+ let first=null;
+ const f=await agentFixture(t,body=>{if(!first&&text(body.messages[1]).includes('Sub task'))first=text(body.messages[1]);return {content:'ok'};},{context:64000});
+ const main=f.rt.main();f.rt.sessions.append(main.id,'input',{kind:'message',from:'user',text:'メインの指示: 日本語で'});
+ await f.rt.spawn(f.rt.sessions.get(main.id),{task:'Sub task',context:'fork'});
+ await until(()=>first);
+ assert.match(first,new RegExp(`recall\\("${main.id}#n"\\)`));assert.match(first,/## Requester's ledger[\s\S]*メインの指示: 日本語で[\s\S]*## Requester's brief\n\(none yet\)/);
 });

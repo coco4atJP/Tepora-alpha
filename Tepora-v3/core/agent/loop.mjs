@@ -120,7 +120,7 @@ export class AgentLoop{
     const session=c.overflow?rt.sessions.get(id):c.session,toolDefs=c.toolDefs||rt.tools.definitions(session.tools),budget=await this.budget(session,toolDefs,signal);
     return {...budget,toolDefs,toolsTokens:toolsTokens(toolDefs),vision:budget.profile?rt.registry.visionAllowed(budget.profile):false};
    }
-   case 'context':{const built=rt.assembler.build(id,{system:c.session.system,vision:c.vision});return {built,...(c.plan?{plan:rt.compactor.plan(built,c.budget.B,c.budget.ratio,{force:c.force})}:{})};}
+   case 'context':{const built=rt.assembler.build(id,{system:c.session.system,vision:c.vision});return {built,...(c.plan?{plan:rt.compactor.plan(built,c.budget.B,c.budget.ratio,{force:c.force,session:c.session})}:{})};}
    case 'clear':rt.compactor.clear(c.session,c.upTo);return null;
    case 'compact':{
     const session=c.overflow?rt.sessions.get(id):c.session;
