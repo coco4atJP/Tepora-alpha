@@ -1389,7 +1389,9 @@ impl AgentHost for NativeAgentHost {
             {
                 return Ok(task);
             }
-            if c["kind"] == "idleCompact" {
+            // The idle lease's work, while the user is quiet: the main session's handoff. It is preempted as soon
+            // as input arrives. Further idle work (e.g. memory consolidation) belongs here, after the handoff.
+            if c["kind"] == "idle" {
                 let session = self.prompt(self.session(&ctx.scope.session_id)?, false)?;
                 let snapshot = self.budget_snapshot(session.clone(), self.definitions(&session))?;
                 let entries = self.entries(&ctx.scope.session_id)?;
@@ -1543,7 +1545,7 @@ impl AgentHost for NativeAgentHost {
                         .insert(Self::approval_key(ctx, &c["prepared"]), encoded);
                 }
             }
-            "compact" | "idleCompact" => {
+            "compact" | "idle" => {
                 if ctx.cancellation.is_cancelled() {
                     return Err(EffectError::cancelled(false));
                 }
@@ -1560,7 +1562,7 @@ impl AgentHost for NativeAgentHost {
                         .or_insert_with(initial_memory)["selfCheckContext"] = json!(false);
                 }
                 let session = self.session(id)?;
-                result.value = if c["kind"] == "idleCompact" {
+                result.value = if c["kind"] == "idle" {
                     Value::Null
                 } else {
                     json!({"session":session,"toolDefs":if c["overflow"]==true{c["budget"]["toolDefs"].clone()}else{json!(self.definitions(&session))}})

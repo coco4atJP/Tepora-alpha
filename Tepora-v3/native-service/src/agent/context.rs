@@ -849,6 +849,65 @@ mod tests {
         assert!(lock(&state.events).iter().all(|(e, _)| e != "compaction"));
         assert!(result.checkpoint.get("seq").is_none());
     }
+    #[tokio::test]
+    async fn the_main_session_hands_off_with_its_brief_and_keeps_its_last_three_exchanges_verbatim() {
+        let brief = [
+            "About the user",
+            "Commitments and pending items",
+            "Open topics",
+            "Delegated work",
+            "Tone and relationship",
+            "Verified facts",
+            "Unverified guesses",
+            "Re-fetch pointers",
+        ]
+        .iter()
+        .map(|h| format!("## {h}\n- prefers trains #1"))
+        .collect::<Vec<_>>()
+        .join("\n");
+        let (provider, _state, transport, chain) = setup(vec![response(&brief, "stop")]);
+        let mut snapshot = compaction_snapshot(chain);
+        snapshot.session = json!({"id":"s","kind":"main","system":"system","role":"chat","stats":{"steps":6}});
+        snapshot.entries = (1..=6)
+            .flat_map(|n| {
+                [
+                    json!({"seq":n*2-1,"type":"input","kind":"message","from":"user","text":format!("question {n}")}),
+                    json!({"seq":n*2,"type":"assistant","content":format!("answer {n}")}),
+                ]
+            })
+            .collect();
+        snapshot.built = context(&ContextSnapshot {
+            session: snapshot.session.clone(),
+            entries: snapshot.entries.clone(),
+            budget: snapshot.budget.clone(),
+            vision: false,
+            plan: false,
+            force: false,
+            idle: true,
+            unicode_version: 16,
+        })
+        .unwrap()["built"]
+            .clone();
+        snapshot.todo = Value::Null;
+        snapshot.reason = "idle".into();
+        let result = compact(&provider, &snapshot, &RequestCancellation::new(), clock())
+            .await
+            .unwrap()
+            .unwrap();
+        // Exchanges 4–6 (#7–#12) stay verbatim after the handoff; #1–#6 leave view but stay stored.
+        assert_eq!(result.checkpoint["upTo"], 6);
+        let text = s(&result.checkpoint, "text");
+        assert!(text.starts_with("<handoff covers=\"#1–#6\" made=\"2026-10-07T10:30:00.000Z\" method=\"in-context\" reason=\"idle\">\nThis is a fresh conversation continuing your conversation with the user"));
+        assert!(!text.contains("## Original task"));
+        assert!(text.contains("## Brief (written at the handoff)\n## About the user\n- prefers trains #1"));
+        assert!(result.notice["text"].as_str().unwrap().starts_with("[harness] Fresh conversation. Turns up to #6 are stored but out of view"));
+        let instruction = request_body(&transport, 0)["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(instruction.starts_with("[harness] Handoff. Do not call tools and do not answer the user."));
+        assert!(instruction.contains("## Commitments and pending items\n"));
+    }
     #[test]
     fn a_finished_checklist_step_plans_a_step_handoff_for_work_agents_only() {
         let snapshot = compaction_snapshot(vec![]);

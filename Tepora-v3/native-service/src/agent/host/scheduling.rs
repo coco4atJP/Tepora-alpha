@@ -82,6 +82,16 @@ impl NativeAgentHost {
                     ),
                 ])?;
             }
+            // The same tick offers the main session its idle work (the handoff while the user is quiet). The
+            // runtime core admits it only when the session is idle and has been quiet for idleCompactSeconds.
+            let main = self
+                .runtime
+                .lock()
+                .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
+                .main(self)?;
+            if let Some(id) = main["id"].as_str() {
+                events.push(json!({"type":"auxiliary","sessionId":id}));
+            }
             return Ok(RequestPlan::Ready(Admission {
                 value: Value::Null,
                 events,

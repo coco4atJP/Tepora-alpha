@@ -6,7 +6,7 @@ import {agentFixture} from './helpers/agent-fixture.mjs';
 import {last,toolResults} from './helpers/scripted-model.mjs';
 import {foldLedger,renderLedger,validSummary,briefBudget,forkContext,COMPACTION,Compactor} from '../core/agent/compaction.mjs';
 import {TokenCalibration,rawTokens} from '../core/agent/tokens.mjs';
-import {SUMMARY_HEADINGS,MAIN_SUMMARY_HEADINGS,headingsFor} from '../core/agent/prompts.mjs';
+import {SUMMARY_HEADINGS,MAIN_BRIEF_HEADINGS,headingsFor} from '../core/agent/prompts.mjs';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,timeout=15000,diagnose=()=>null){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out: '+JSON.stringify(diagnose()));await wait(15);}}
@@ -112,18 +112,37 @@ test('recall returns the exact text of an entry that was compacted away',async t
  assert.match(recalled,/SECRET-VALUE-4711/);
 });
 
-test('the resident main session compacts while idle so the next spoken reply is fast',async t=>{
+test('while the user is quiet the main session hands off to a fresh conversation and keeps its last three exchanges verbatim',async t=>{
+ let size=0;
  const f=await agentFixture(t,body=>{
-  if(isHandoff(body))throw new Error('the main session never hands off');
-  if(isCompaction(body))return {content:summary('idle','main')};
-  return {content:`返事です。${lorem(400)}`};
+  if(isHandoff(body))return {content:summary('idle','main')};
+  return {content:size?`返事です。${lorem(size)}`:'短い返事'};
  },{context:12000,settings:{idleCompactSeconds:0}});
  const main=f.rt.main();
- for(let i=0;i<4;i++){f.rt.send(main.id,{text:`質問 ${i}: ${lorem(80)}`,from:'user'});await until(()=>f.rt.sessions.get(main.id).status==='idle'&&!f.rt.runs.has(main.id)&&f.rt.sessions.entries(main.id,{types:['assistant']}).length===i+1);}
+ // One long exchange takes the conversation past the idle threshold (55% of B); the short ones after it stay below 90%.
+ for(let i=0;i<5;i++){size=i===0?1200:0;f.rt.send(main.id,{text:`質問 ${i}`,from:'user'});await until(()=>f.rt.sessions.get(main.id).status==='idle'&&!f.rt.runs.has(main.id)&&f.rt.sessions.entries(main.id,{types:['assistant']}).length===i+1);}
+ assert.equal(f.rt.sessions.entries(main.id,{types:['checkpoint']}).length,0,'no handoff during the turns');
  const before=f.model.requests.length;
- await f.rt.idleCompact(main.id);
- assert.equal(f.rt.sessions.entries(main.id,{types:['checkpoint']}).at(-1)?.reason,'idle');
+ await f.rt.idle(main.id);
  assert.equal(f.model.requests.length,before+1);
+ const cp=f.rt.sessions.entries(main.id,{types:['checkpoint']}).at(-1);
+ assert.equal(cp.reason,'idle');assert.equal(cp.method,'in-context');
+ assert.match(cp.text,/^<handoff covers="#1–#\d+"[^>]*>\nThis is a fresh conversation continuing your conversation with the user/);
+ assert.doesNotMatch(cp.text,/## Original task|Chapters|Recent conversation/);
+ assert.match(cp.text,/## Ledger \(exact, kept by the harness\)\n[\s\S]*## Brief \(written at the handoff\)\n## About the user\n/);
+ const instruction=text(last(f.model.requests[before],'user'));
+ for(const h of MAIN_BRIEF_HEADINGS)assert.ok(instruction.includes('## '+h+'\n'),h);
+ // The next turn starts from the handoff, then exactly the last three exchanges, then the new message.
+ size=0;f.rt.send(main.id,{text:'次の質問',from:'user'});
+ await until(()=>f.rt.sessions.entries(main.id,{types:['assistant']}).length===6);
+ assert.equal(f.rt.sessions.entries(main.id).at(-1).type,'assistant','the handoff notice is not answered on its own; the next input is');
+ const next=f.model.requests.at(-1).messages;
+ assert.match(text(next[1]),/^<handoff/);
+ const view=next.slice(2).map(text).join('\n');
+
+ for(const q of ['質問 2','質問 3','質問 4','次の質問'])assert.ok(view.includes(q),q);
+ for(const q of ['質問 0','質問 1'])assert.ok(!view.includes(q),q+' left view');assert.ok(!view.includes('返事です。'),'the long reply left view');
+ assert.match(view,/Fresh conversation\. Turns up to #\d+ are stored but out of view/);
 });
 
 test('the ledger is exact: task, verbatim instructions, files, artifacts, sessions and errors',()=>{
@@ -149,7 +168,9 @@ test('the ledger is exact: task, verbatim instructions, files, artifacts, sessio
 test('summary validation and token calibration',()=>{
  assert.equal(validSummary('short',1000),false);
  assert.equal(validSummary(SUMMARY_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000),true);
- assert.equal(validSummary(MAIN_SUMMARY_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000,'main'),true);
+ assert.equal(validSummary(MAIN_BRIEF_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000,'main'),true);
+ // The main brief is about the user and the relationship, not a story of what was said.
+ assert.deepEqual(MAIN_BRIEF_HEADINGS,['About the user','Commitments and pending items','Open topics','Delegated work','Tone and relationship','Verified facts','Unverified guesses','Re-fetch pointers']);
  // The brief is forward-looking (App. G): what is left, how to tell it is done, and where things are; no narrative.
  for(const h of ['Current work','Remaining plan','Completion criteria','Artifact locations','Verified facts','Unverified assumptions','Dead ends','Re-fetch commands'])assert.ok(SUMMARY_HEADINGS.includes(h),h);
  assert.ok(!SUMMARY_HEADINGS.includes('Chapter digest')&&!SUMMARY_HEADINGS.includes('Progress'));
@@ -215,11 +236,15 @@ test('a work agent hands off to a fresh conversation after each finished checkli
 });
 
 test('the handoff threshold and the brief cap follow the model window',()=>{
- // B is derived from the window; the brief is 6% of B within 400–4000 tokens and stays under the main summary's share.
+ // B is derived from the window; the brief is 6% of B within 400–4000 tokens, for workers and the main session alike.
  assert.equal(briefBudget(5000),400);assert.equal(briefBudget(20000),1200);assert.equal(briefBudget(1e6),4000);
- for(const B of [5000,20000,200000])assert.ok(briefBudget(B)<=new Compactor({}).summaryBudget(B));
- const c=new Compactor({}),view={checkpoint:null},rendered=[];
- for(const B of [9000,90000]){assert.equal(c.plan({tokens:0.79*B,view,rendered},B,1).action,'none');assert.equal(c.plan({tokens:0.81*B,view,rendered},B,1).action,'compact');}
+ const c=new Compactor({}),view={checkpoint:null},rendered=[],main={kind:'main'};
+ for(const B of [9000,90000]){
+  assert.equal(c.plan({tokens:0.79*B,view,rendered},B,1).action,'none');assert.equal(c.plan({tokens:0.81*B,view,rendered},B,1).action,'compact');
+  // The main session hands off between turns; inside a turn only an imminent overflow (90%) forces it.
+  assert.equal(c.plan({tokens:0.85*B,view,rendered},B,1,{session:main}).action,'none');assert.equal(c.plan({tokens:0.91*B,view,rendered},B,1,{session:main}).action,'compact');
+  assert.equal(c.plan({tokens:0.6*B,view,rendered},B,1,{session:main,idle:true}).action,'compact');
+ }
 });
 
 test('fork hands a new agent its requester\'s ledger and brief in the handoff shape',async t=>{

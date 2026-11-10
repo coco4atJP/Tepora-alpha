@@ -2,7 +2,7 @@ use super::*;
 use super::{
     format::fit,
     metacog::render_reflection,
-    prompts::{MAIN_SUMMARY_HEADINGS, SUMMARY_HEADINGS},
+    prompts::{MAIN_BRIEF_HEADINGS, SUMMARY_HEADINGS},
 };
 fn empty() -> Value {
     json!({"task":null,"instructions":[],"omittedInstructions":0,"files":{},"reads":{},"sources":{},"searches":[],"artifacts":{},"sessions":{},"processes":{},"errors":[],"evidence":[]})
@@ -10,10 +10,7 @@ fn empty() -> Value {
 fn limits(b: f64) -> Value {
     json!({"instructionTokens":round((b*0.06).max(600.).min(6000.)),"evidence":round((b*0.03/30.).max(8.).min(40.)),"maxTokens":round((b*0.1).max(500.).min(8000.))})
 }
-fn summary_budget(b: f64) -> f64 {
-    round((b * 0.08).max(600.).min(8000.))
-}
-/// A work agent's handoff brief: 0.06B, 400–4000 tokens (COMPACTION.brief*).
+/// The handoff brief: 0.06B, 400–4000 tokens (COMPACTION.brief*).
 fn brief_budget(b: f64) -> f64 {
     round((b * 0.06).max(400.).min(4000.))
 }
@@ -321,7 +318,7 @@ fn ledger_sections(l: &Value, p: &Value, evidence: usize, file_count: usize) -> 
             "### Instructions received (verbatim, oldest first{})\n{}",
             if truth(l, "omittedInstructions") {
                 format!(
-                    "; {} older ones only in the summary and recall",
+                    "; {} older ones only in the brief and recall",
                     text(l, "omittedInstructions")
                 )
             } else {
@@ -534,15 +531,17 @@ fn render_ledger(p: &Value) -> String {
         }
     }
 }
-fn checkpoint(p: &Value) -> String {
-    format!("<checkpoint covers=\"#1–#{}\" made=\"{}\" method=\"{}\">\nEarlier turns were compacted into this checkpoint. The full transcript is still stored: recall(\"#n\") reads any entry exactly and history_search finds older details.\n\n## Exact ledger (kept by the harness)\n{}\n{}\n## Summary\n{}\n</checkpoint>",text(p,"upTo"),text(p,"at"),text(p,"method"),text(p,"ledger"),if truth(p,"chapters"){format!("\n## Chapters (one paragraph per earlier stretch, each written once and never rewritten)\n{}\n",text(p,"chapters"))}else{String::new()},text(p,"summary"))
-}
+/// A fresh conversation: the exact ledger and the brief, with a work agent's original task verbatim. The
+/// character has no task; its latest exchanges follow the handoff verbatim instead.
 fn handoff(p: &Value) -> String {
     let task = &p["task"];
-    format!("<handoff covers=\"#1–#{}\" made=\"{}\" method=\"{}\" reason=\"{}\">\nThis is a fresh conversation continuing the task below. Earlier conversations are stored in full: recall(\"#n\") reads any entry exactly and history_search finds older details.\n\n## Original task (verbatim{})\n{}\n\n## Ledger (exact, kept by the harness)\n{}\n\n## Brief (written at the handoff)\n{}\n</handoff>",
+    let main = p["kind"] == "main";
+    format!("<handoff covers=\"#1–#{}\" made=\"{}\" method=\"{}\" reason=\"{}\">\n{}: recall(\"#n\") reads any entry exactly and history_search finds older details.\n{}\n## Ledger (exact, kept by the harness)\n{}\n\n## Brief (written at the handoff)\n{}\n</handoff>",
         text(p, "upTo"), text(p, "at"), text(p, "method"), text(p, "reason"),
-        if truthy(task) { format!(", #{}", text(task, "seq")) } else { String::new() },
-        if truthy(task) { text(task, "text") } else { "(not recorded)".into() },
+        if main { "This is a fresh conversation continuing your conversation with the user; the latest exchanges follow this message verbatim. Earlier turns are stored in full" } else { "This is a fresh conversation continuing the task below. Earlier conversations are stored in full" },
+        if main { String::new() } else { format!("\n## Original task (verbatim{})\n{}\n",
+            if truthy(task) { format!(", #{}", text(task, "seq")) } else { String::new() },
+            if truthy(task) { text(task, "text") } else { "(not recorded)".into() }) },
         text(p, "ledger"), text(p, "brief"))
 }
 /// `fork`: the requester's ledger and latest brief in the handoff shape, plus its turns since that brief.
@@ -593,42 +592,6 @@ fn fork_context(p: &Value) -> String {
         since
     )
 }
-fn chapters(p: &Value) -> String {
-    let mut shown = Vec::new();
-    let mut size = 0.;
-    let cs = arr(p, "chapters");
-    for c in cs.iter().rev() {
-        let line = format!(
-            "- #{}–#{} ({}): {}",
-            text(c, "from"),
-            text(c, "upTo"),
-            slice(&text(c, "at"), 0, 16).replacen('T', " ", 1),
-            text(c, "digest")
-        );
-        size += tokens(p).raw_text_tokens(&line) as f64;
-        if size > num(p, "maxTokens", f64::NAN) && !shown.is_empty() {
-            break;
-        }
-        shown.push(line)
-    }
-    shown.reverse();
-    let hidden = cs.len() - shown.len();
-    format!(
-        "{}{}",
-        if hidden > 0 {
-            format!(
-                "- #{}–#{}: {} older chapter{}, kept in the transcript (history_search, recall)\n",
-                text(&cs[0], "from"),
-                text(&cs[hidden - 1], "upTo"),
-                hidden,
-                if hidden > 1 { "s" } else { "" }
-            )
-        } else {
-            String::new()
-        },
-        shown.join("\n")
-    )
-}
 fn line_starts(s: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(
@@ -637,24 +600,6 @@ fn line_starts(s: &str) -> Vec<usize> {
                 .map(|(i, c)| i + c.len_utf8()),
         )
         .collect()
-}
-fn digest(s: &str) -> Value {
-    let re = regex::Regex::new(r"(?i)^#{1,3} *Chapter digest[\x09-\x0d \u{00a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}]*\n").unwrap();
-    let heading = regex::Regex::new(r"^#{1,3} ").unwrap();
-    let starts = line_starts(s);
-    for &start in &starts {
-        if let Some(m) = re.find(&s[start..]) {
-            let body_start = start + m.end();
-            let end = starts
-                .iter()
-                .copied()
-                .find(|&i| i >= body_start && heading.is_match(&s[i..]))
-                .unwrap_or(s.len());
-            let summary = format!("{}{}", &s[..start], &s[end..]);
-            return json!({"summary":trim(&summary),"digest":one_line(Some(&json!(&s[body_start..end])),900)});
-        }
-    }
-    json!({"summary":s,"digest":""})
 }
 fn fixed_one(v: f64) -> String {
     if v.abs() >= 1e21 || !v.is_finite() {
@@ -770,7 +715,7 @@ fn valid(p: &Value) -> bool {
         .count();
     let lower = t.to_lowercase();
     let list: &[&str] = if p["kind"] == "main" {
-        &MAIN_SUMMARY_HEADINGS
+        &MAIN_BRIEF_HEADINGS
     } else {
         &SUMMARY_HEADINGS
     };
@@ -954,14 +899,21 @@ fn boundary(p: &Value) -> Value {
     if r.len() < 2 {
         return Value::Null;
     }
+    // The character's last three exchanges (an exchange starts at an input after anything else), within the tail share.
+    let starts = |i: usize| r[i]["entry"]["type"] == "input" && (i == 0 || r[i - 1]["entry"]["type"] != "input");
     let mut size = 0.;
     let mut i = r.len();
+    let mut turns = 0;
     while i > 0
+        && turns < 3
         && size + num(&r[i - 1], "tokens", 0.) * num(p, "ratio", 1.)
             <= num(p, "tailShare", 0.15) * num(p, "B", f64::NAN)
     {
         i -= 1;
         size += num(&r[i], "tokens", 0.) * num(p, "ratio", 1.);
+        if starts(i) {
+            turns += 1;
+        }
     }
     let last = r
         .iter()
@@ -1000,8 +952,9 @@ fn plan(p: &Value) -> CoreResult<Value> {
         return Ok(json!({"action":if used>0.55*b{"compact"}else{"none"},"used":used}));
     }
     let session = &p["session"];
+    let main = session["kind"] == "main";
     if truthy(session)
-        && session["kind"] != "main"
+        && !main
         && step_finished(&session["todo"], &p["built"]["view"]["checkpoint"])
         && arr(&p["built"], "rendered")
             .iter()
@@ -1029,14 +982,16 @@ fn plan(p: &Value) -> CoreResult<Value> {
     }
     let clear = clear_candidate(p)?;
     let sufficient = !clear.is_null() && num(&clear, "savings", 0.) >= (0.15 * b).max(500.);
-    if sufficient && used - num(&clear, "savings", 0.) <= 0.8 * b {
+    // The character hands off between turns (idle); inside a turn only when it is about to overflow.
+    let hard = if main { 0.9 } else { 0.8 } * b;
+    if sufficient && used - num(&clear, "savings", 0.) <= hard {
         let mut out = json!({"action":"clear","used":used});
         for (k, v) in entries(&clear) {
             out[k] = v;
         }
         return Ok(out);
     }
-    if used > 0.8 * b {
+    if used > hard {
         return Ok(json!({"action":"compact","used":used,"clear":clear}));
     }
     if sufficient {
@@ -1055,18 +1010,14 @@ pub(super) fn call(op: &str, p: &Value) -> CoreResult<Value> {
         "emptyLedger" => empty(),
         "foldLedger" => fold(p),
         "renderLedger" => json!(render_ledger(p)),
-        "checkpointText" => json!(checkpoint(p)),
         "handoffText" => json!(handoff(p)),
         "forkContext" => json!(fork_context(p)),
         "briefBudget" => json!(brief_budget(num(p, "B", f64::NAN))),
         "handoffBoundary" => handoff_boundary(p),
-        "renderChapters" => json!(chapters(p)),
-        "takeDigest" => digest(&text(p, "summary")),
         "missingIdentifiers" => identifiers(p),
         "validSummary" => json!(valid(p)),
         "transcriptText" => json!(transcript(p)),
         "chunks" => chunks(p),
-        "summaryBudget" => json!(summary_budget(num(p, "B", f64::NAN))),
         "clearCandidate" => clear_candidate(p)?,
         "boundary" => boundary(p),
         "plan" => plan(p)?,
@@ -1080,11 +1031,11 @@ pub(super) fn call(op: &str, p: &Value) -> CoreResult<Value> {
 /// provider calls, checks cancellation, then invokes finalize before persisting.
 fn prepare(p: &Value) -> CoreResult<Value> {
     let kind = &p["session"]["kind"];
-    let handoff = kind != "main";
-    let bound = if handoff {
-        handoff_boundary(p)
-    } else {
+    let main = kind == "main";
+    let bound = if main {
         boundary(p)
+    } else {
+        handoff_boundary(p)
     };
     if bound.is_null() {
         return Ok(Value::Null);
@@ -1113,13 +1064,9 @@ fn prepare(p: &Value) -> CoreResult<Value> {
     f["kind"] = p["session"]["kind"].clone();
     f["unicodeVersion"] = p.get("unicodeVersion").cloned().unwrap_or(json!(16));
     let ledger = fold(&f);
-    let mut render = json!({"ledger":ledger,"maxTokens":f["maxTokens"],"todo":p["todo"],"reflection":p["reflection"],"live":p["live"],"task":!handoff,"unicodeVersion":f["unicodeVersion"]});
+    let mut render = json!({"ledger":ledger,"maxTokens":f["maxTokens"],"todo":p["todo"],"reflection":p["reflection"],"live":p["live"],"task":main,"unicodeVersion":f["unicodeVersion"]});
     let ledger_text = render_ledger(&render);
-    let max = if handoff {
-        brief_budget(b)
-    } else {
-        summary_budget(b)
-    };
+    let max = brief_budget(b);
     let transcript = transcript(
         &json!({"entries":folded,"clearUpTo":built["view"]["clearUpTo"],"unicodeVersion":f["unicodeVersion"]}),
     );
@@ -1140,7 +1087,6 @@ fn finalize(p: &Value) -> CoreResult<Value> {
     let built = &p["built"];
     let prev = &built["view"]["checkpoint"];
     let folded = arr(prepared, "folded");
-    let b = num(p, "B", f64::NAN);
     let max = num(prepared, "maxTokens", 600.);
     let reference = format!("#{}", text(&prepared["bound"], "upTo"));
     let mut method = p.get("method").map(js).unwrap_or("in-context".into());
@@ -1178,107 +1124,31 @@ fn finalize(p: &Value) -> CoreResult<Value> {
         .filter(|v| truthy(v))
         .cloned()
         .unwrap_or(Value::Null);
-    if prepared["kind"] != "main" {
-        summary = fit(&summary, max * 2., &reference, tokens(p))["text"]
-            .as_str()
-            .unwrap()
-            .into();
-        let extra = identifiers(
-            &json!({"entries":folded,"known":format!("{}\n{}",text(prepared,"ledgerText"),summary)}),
-        );
-        let lines = extra.as_array().unwrap();
-        let full_ledger = format!(
-            "{}{}",
-            text(prepared, "ledgerText"),
-            if lines.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    "\n\n### Links and paths seen in this stretch but not in the brief\n{}",
-                    lines.iter().map(js).collect::<Vec<_>>().join("\n")
-                )
-            }
-        );
-        let text = handoff(
-            &json!({"upTo":prepared["bound"]["upTo"],"at":at_ref,"method":method,"reason":reason,"task":prepared["ledger"]["task"],"ledger":full_ledger,"brief":summary}),
-        );
-        return Ok(
-            json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before,"stepsDone":prepared["stepsDone"]},"notice":prompts::notice("handedOff",&[prepared["bound"]["upTo"].clone()])?}),
-        );
-    }
-    let split = digest(&summary);
-    summary = fit(
-        split["summary"].as_str().unwrap(),
-        max * 2.,
-        &reference,
-        tokens(p),
-    )["text"]
+    summary = fit(&summary, max * 2., &reference, tokens(p))["text"]
         .as_str()
         .unwrap()
         .into();
-    let digest = if truth(&split, "digest") {
-        text(&split, "digest")
-    } else {
-        let a = folded
-            .iter()
-            .find(|e| e["type"] == "input")
-            .and_then(|e| e.get("text"));
-        let z = folded
-            .iter()
-            .rev()
-            .find(|e| e["type"] == "assistant" && truth(e, "content"))
-            .and_then(|e| e.get("content"));
-        let t = [a, z]
-            .into_iter()
-            .flatten()
-            .filter(|v| truthy(v))
-            .map(js)
-            .collect::<Vec<_>>()
-            .join(" … ");
-        let t = one_line(Some(&json!(t)), 400);
-        if t.is_empty() {
-            "(no conversation in this stretch)".into()
-        } else {
-            t
-        }
-    };
-    let mut cs = arr(prev, "chapters").to_vec();
-    cs.push(json!({"from":prepared["from"],"upTo":prepared["bound"]["upTo"],"at":p["at"],"digest":digest}));
-    let known = format!(
-        "{}\n{}\n{}",
-        text(prepared, "ledgerText"),
-        summary,
-        cs.iter()
-            .map(|c| text(c, "digest"))
-            .collect::<Vec<_>>()
-            .join("\n")
+    let extra = identifiers(
+        &json!({"entries":folded,"known":format!("{}\n{}",text(prepared,"ledgerText"),summary)}),
     );
-    let extra = identifiers(&json!({"entries":folded,"known":known}));
+    let lines = extra.as_array().unwrap();
     let full_ledger = format!(
         "{}{}",
         text(prepared, "ledgerText"),
-        if !extra.as_array().unwrap().is_empty() {
-            format!(
-                "\n\n### Links and paths seen in this stretch but not in the summary\n{}",
-                extra
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(js)
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )
-        } else {
+        if lines.is_empty() {
             String::new()
+        } else {
+            format!(
+                "\n\n### Links and paths seen in this stretch but not in the brief\n{}",
+                lines.iter().map(js).collect::<Vec<_>>().join("\n")
+            )
         }
     );
-    let rendered = chapters(
-        &json!({"chapters":cs,"maxTokens":round((b*0.04).max(300.).min(4000.)),"unicodeVersion":p.get("unicodeVersion").cloned().unwrap_or(json!(16))}),
-    );
-    let text = checkpoint(
-        &json!({"upTo":prepared["bound"]["upTo"],"at":p["at"],"ledger":full_ledger,"summary":summary,"method":method,"chapters":rendered}),
+    let main = prepared["kind"] == "main";
+    let text = handoff(
+        &json!({"kind":prepared["kind"],"upTo":prepared["bound"]["upTo"],"at":at_ref,"method":method,"reason":reason,"task":prepared["ledger"]["task"],"ledger":full_ledger,"brief":summary}),
     );
     Ok(
-        json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"chapters":cs,"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before},"notice":prompts::notice("compacted",&[prepared["bound"]["upTo"].clone()])?}),
+        json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before,"stepsDone":prepared["stepsDone"]},"notice":prompts::notice(if main {"conversationHandedOff"} else {"handedOff"},&[prepared["bound"]["upTo"].clone()])?}),
     )
 }

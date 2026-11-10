@@ -47,7 +47,7 @@ test('Rust harness prompts, all notices, personas and silent streaming detection
   for(const previous of [false,true]){const p={ledger:'ledger\nexact',previous,maxTokens:1200,kind};equal(native('prompts.compactionInstruction',p),prompts.compactionInstruction(p),'instruction '+kind);}
   for(const previous of ['', 'old summary']){const p={previous,ledger:'ledger',transcript:'transcript',maxTokens:900,kind};equal(native('prompts.summarizerRequest',p),prompts.summarizerRequest(p),'summarizer '+kind);}
  }
- equal(native('prompts.summarizerSystem'),prompts.SUMMARIZER_SYSTEM);equal(native('prompts.summaryHeadings'),prompts.SUMMARY_HEADINGS);equal(native('prompts.mainSummaryHeadings'),prompts.MAIN_SUMMARY_HEADINGS);
+ equal(native('prompts.summarizerSystem'),prompts.SUMMARIZER_SYSTEM);equal(native('prompts.summaryHeadings'),prompts.SUMMARY_HEADINGS);equal(native('prompts.mainBriefHeadings'),prompts.MAIN_BRIEF_HEADINGS);
 });
 
 const log=()=>[
@@ -75,19 +75,17 @@ test('Rust harness ledger folding/rendering and permanent chapter provenance mat
   const entries=log();const p={kind,instructionTokens,evidence};const expected=compact.foldLedger(null,entries,p);const actual=native('compaction.foldLedger',{previous:null,entries,...p});equal(actual,wire(expected));
   for(const maxTokens of [10,500,1000,10000]){const opts={todo:[{text:'pending',status:'pending'},{text:'ongoing',status:'in_progress'}],reflection:{understanding:'exact',verified:['done'],assumptions:['open'],confidence:.5},live:{sessions:{child:'running'},processes:{process:'done'}},maxTokens};equal(native('compaction.renderLedger',{ledger:actual,...opts}),compact.renderLedger(expected,opts));}
  }
- const chapters=Array.from({length:12},(_,i)=>({from:i*10+1,upTo:i*10+10,at:'2026-01-02T03:04:05Z',digest:'chapter '+i+' 日本語'.repeat(10)}));for(const maxTokens of [0,100,400,10000])equal(native('compaction.renderChapters',{chapters,maxTokens}),compact.renderChapters(chapters,maxTokens));
- for(const B of [100,1000,7500,100000]){equal(native('compaction.ledgerLimits',{B}),compact.ledgerLimits(B));equal(native('compaction.summaryBudget',{B}),new compact.Compactor({}).summaryBudget(B));}
+ for(const B of [100,1000,7500,100000]){equal(native('compaction.ledgerLimits',{B}),compact.ledgerLimits(B));}
  equal(native('compaction.emptyLedger'),compact.emptyLedger());
 });
 
-test('Rust harness summary validation, digest extraction, exact identifiers, chunking and fallback transcript',()=>{
+test('Rust harness summary validation, exact identifiers, chunking and fallback transcript',()=>{
  const summaries=['short',prompts.SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' content').join('\n'),'intro\n# CHAPTER DIGEST\n  exact\n  text\n## Next\nbody','# Chapter digest\nall digest','## Goal\n'+ 'x'.repeat(4000)];
- summaries.push(prompts.MAIN_SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' content').join('\n'));
- for(const summary of summaries){equal(native('compaction.takeDigest',{summary}),compact.takeDigest(summary));for(const maxTokens of [20,600,8000])for(const kind of [undefined,'main','worker'])equal(native('compaction.validSummary',{text:summary,maxTokens,kind}),compact.validSummary(summary,maxTokens,kind));}
+ summaries.push(prompts.MAIN_BRIEF_HEADINGS.map(h=>'## '+h+'\n- '+h+' content').join('\n'));
+ for(const summary of summaries){for(const maxTokens of [20,600,8000])for(const kind of [undefined,'main','worker'])equal(native('compaction.validSummary',{text:summary,maxTokens,kind}),compact.validSummary(summary,maxTokens,kind));}
  const entries=log();for(const clearUpTo of [0,20,100])equal(native('compaction.transcriptText',{entries,clearUpTo}),compact.transcriptText(entries,clearUpTo));
  for(const known of ['','https://example.org/a /tmp/first.txt'])for(const limit of [0,2,25])equal(native('compaction.missingIdentifiers',{entries,known,limit}),compact.missingIdentifiers(entries,known,limit));
  for(const maxTokens of [0,10,100,500]){const text='日本語\n'+ 'a'.repeat(200)+'\n\n'+ 'x\ny\nz\n'.repeat(30);equal(native('compaction.chunks',{text,maxTokens}),compact.chunks(text,maxTokens));}
- const cp={upTo:32,at:'2026-01-01',ledger:'ledger',summary:'summary',method:'rolling',chapters:'chapters'};equal(native('compaction.checkpointText',cp),compact.checkpointText(cp));equal(native('compaction.checkpointText',{...cp,chapters:''}),compact.checkpointText({...cp,chapters:''}));
 });
 
 test('Rust harness compaction hot window, .72/.8/.55 thresholds and tail turn boundaries match real assembler',()=>{
@@ -96,14 +94,17 @@ test('Rust harness compaction hot window, .72/.8/.55 thresholds and tail turn bo
  for(const B of [100,600,1000,10000,50000])for(const ratio of [.5,1,1.3]){
   const p={built:b,B,ratio};equal(native('compaction.clearCandidate',p),oracle.clearCandidate(b,ratio));
   for(const tailShare of [0,.15,.5,1])equal(native('compaction.boundary',{...p,tailShare}),oracle.boundary(b,B,ratio,tailShare));
-  for(const idle of [false,true])for(const force of [false,true])equal(native('compaction.plan',{...p,idle,force}),oracle.plan(b,B,ratio,{idle,force}));
+  for(const idle of [false,true])for(const force of [false,true])for(const session of [undefined,{id:'m',kind:'main'}])equal(native('compaction.plan',{...p,idle,force,session}),oracle.plan(b,B,ratio,{idle,force,session}));
  }
+ // The main session keeps at most COMPACTION.tailTurns exchanges verbatim, however much room the tail share leaves.
+ const talk=Array.from({length:8},(_,i)=>[{seq:i*2+1,type:'input',kind:'message',from:'user',text:'question '+i},{seq:i*2+2,type:'assistant',content:'answer '+i}]).flat(),tb=built(talk);
+ assert.deepEqual(oracle.boundary(tb,100000,1),{upTo:10,tailFrom:11});for(const B of [200,2000,100000])equal(native('compaction.boundary',{built:tb,B,ratio:1}),oracle.boundary(tb,B,1));
  for(const entries of [[],[{seq:1,type:'input',text:'one'}],[{seq:1,type:'assistant',content:'a'},{seq:2,type:'tool',callId:'x',content:'b'}]]){const b=built(entries);equal(native('compaction.boundary',{built:b,B:500,ratio:1}),oracle.boundary(b,500,1));}
 });
 
 test('Rust harness handoff text, fork context, brief budget, handoff boundary and step plan match oracle',()=>{
  for(const B of [100,1000,7500,100000,1e7])equal(native('compaction.briefBudget',{B}),compact.briefBudget(B));
- for(const task of [null,{seq:1,text:'Task 日本語 🦊'}]){const p={upTo:32,at:'2026-01-01',method:'in-context',reason:'step',task,ledger:'ledger',brief:'## Objective\n- x'};equal(native('compaction.handoffText',p),compact.handoffText(p));}
+ for(const task of [null,{seq:1,text:'Task 日本語 🦊'}])for(const kind of [undefined,'worker','main']){const p={kind,upTo:32,at:'2026-01-01',method:'in-context',reason:'step',task,ledger:'ledger',brief:'## Objective\n- x'};equal(native('compaction.handoffText',p),compact.handoffText(p));}
  const entries=log(),todo=[{text:'a',status:'done'},{text:'b',status:'pending'}],reflection={understanding:'u',verified:['v'],assumptions:['a'],confidence:.4};
  for(const checkpoint of [null,{seq:40,upTo:10,summary:'## Objective\n- brief 日本語',ledger:compact.foldLedger(null,entries.slice(0,10),{kind:'main'})},{seq:41,upTo:33,ledger:compact.emptyLedger()}])for(const kind of ['main','worker'])for(const list of [entries,[]]){
   const p={parentId:'parent-1',kind,checkpoint,entries:list,todo,reflection};equal(native('compaction.forkContext',p),compact.forkContext(p),'forkContext '+kind);
@@ -126,17 +127,17 @@ test('Rust harness compaction prepare/finalize drives genuine deterministic chec
  try{const cp=await compactor.compact(session,{built:b,B,ratio,reason:'overflow'});const {seq:ignored,type,...body}=cp;equal(finished.checkpoint,body);assert.equal(finished.notice,appended[1].text);}finally{globalThis.Date=RealDate;}
 });
 
-test('Rust harness prepare/finalize match the oracle for a main checkpoint and an in-context worker step handoff',async()=>{
+test('Rust harness prepare/finalize match the oracle for main handoffs and an in-context worker step handoff',async()=>{
  const entries=log();const b=built(entries);const B=4000,ratio=1,at='2026-01-02T03:04:05.000Z',todo=[{text:'a',status:'done'},{text:'b',status:'pending'}];
  const RealDate=Date;globalThis.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[at]));}static now(){return RealDate.parse(at)}};
- try{for(const [kind,reason,summary] of [['main','overflow',''],['worker','step',prompts.SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' noted, see https://example.org/a').join('\n')]]){
+ try{for(const [kind,reason,summary] of [['main','overflow',''],['main','idle',prompts.MAIN_BRIEF_HEADINGS.map(h=>'## '+h+'\n- '+h+' noted 日本語').join('\n')],['worker','step',prompts.SUMMARY_HEADINGS.map(h=>'## '+h+'\n- '+h+' noted, see https://example.org/a').join('\n')]]){
   const session={id:'s',kind,stats:{},todo};
   const prepared=native('compaction.prepare',{session,built:b,B,ratio,entries,todo,reason});assert(prepared);
   const finished=native('compaction.finalize',{prepared,built:b,B,ratio,reason,at,summary,method:summary?'in-context':undefined});
   const appended=[];let seq=100;const compactor=new compact.Compactor({assembler:new ContextAssembler({}),sessions:{entries:(_,{from,to})=>entries.filter(e=>e.seq>=from&&e.seq<=to),append:(_,type,body)=>{const e={...body,seq:++seq,type};appended.push(e);return e;},get:()=>session,update:()=>{}},registry:{invoke:async()=>{if(!summary)throw new Error('fixture provider failure');return {content:summary,finish:'stop'};}},emit:()=>{}});
   const cp=await compactor.compact(session,{built:b,B,ratio,reason,todo});const {seq:ignored,type,...body}=cp;equal(finished.checkpoint,body,kind);assert.equal(finished.notice,appended[1].text);
   if(kind==='worker'){assert.match(body.text,/^<handoff covers="#1–#33"[^>]*reason="step">/);assert.equal(body.stepsDone,1);assert.equal(body.chapters,undefined);assert.match(finished.notice,/Fresh conversation/);}
-  else{assert.match(body.text,/^<checkpoint/);assert.equal(body.stepsDone,undefined);}
+  else{assert.match(body.text,new RegExp(`^<handoff covers="#1–#\\d+"[^>]*reason="${reason}">\\nThis is a fresh conversation continuing your conversation with the user`));assert.doesNotMatch(body.text,/## Original task/);assert.equal(body.chapters,undefined);assert.match(finished.notice,/^\[harness\] Fresh conversation\./);}
  }}finally{globalThis.Date=RealDate;}
 });
 
@@ -145,7 +146,6 @@ test('Rust harness JS diagnostics, half ties and Unicode line/case edge regressi
  let seed=17;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)|0;return(seed>>>0)/2**32;};const alphabet=['{','}','[',']','"',':',',','1','t','r','u','e','n','a','l',' ','\\','\n','\ud800','🦊'];
  for(let i=0;i<1000;i++){const raw=Array.from({length:1+Math.floor(rand()*45)},()=>alphabet[Math.floor(rand()*alphabet.length)]).join('');equal(native('format.parseArgs',{raw}),fmt.parseArgs(raw),'malformed seeded case '+i);}
  for(const separator of ['\n','\r','\r\n','\u2028','\u2029']){
-  const summary='prefix'+separator+'## Chapter digest\nwords'+separator+'## Later\nlater';equal(native('compaction.takeDigest',{summary}),compact.takeDigest(summary));
   const text=['A','B','C','D','E'].map(h=>'## '+h+'\n- enough meaningful body text to summarize').join(separator);equal(native('compaction.validSummary',{text,maxTokens:600}),compact.validSummary(text,600));
  }
  for(const bytes of [1280,2304,1310720,2359296]){const ledger={...compact.emptyLedger(),files:{a:{op:'write',bytes,sha:'x',seq:1}}};equal(native('compaction.renderLedger',{ledger}),compact.renderLedger(ledger));}
