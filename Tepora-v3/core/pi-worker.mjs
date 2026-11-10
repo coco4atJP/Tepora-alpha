@@ -83,7 +83,7 @@ try{
   const stream=models.streamSimple(model,toPiContext(data.messages,data.options.tools||[],model,data.profile.identity),{
    ...data.options,signal:controller.signal,fetch:checkedFetch,transport:'sse',maxRetries:0,timeoutMs:data.profile.firstByteTimeoutMs,
    onProviderStreamEvent:e=>observePiUsage(e,seen),
-   transformHeaders:headers=>({...headers,'User-Agent':'Tepora/3.0 pi-ai/1.5.1',...(data.sessionHeader||{})})
+   transformHeaders:headers=>({...headers,'User-Agent':'Tepora/3.0 pi-ai/1.5.2',...(data.sessionHeader||{})})
   });
   for await(const event of stream){
    if(event.type==='text_delta'||event.type==='thinking_delta')send({type:'delta',kind:event.type,text:event.delta});
