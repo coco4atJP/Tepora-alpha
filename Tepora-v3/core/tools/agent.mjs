@@ -4,6 +4,8 @@ import {oneLine} from './format.mjs';
 import {readSharedSkill} from '../shared-assets.mjs';
 
 const STATUS=['pending','in_progress','done','blocked'];
+/** The most entries one recall range reads. */
+const RANGE=400;
 const mark={pending:'[ ]',in_progress:'[>]',done:'[x]',blocked:'[!]'};
 export const renderTodo=items=>items.length?items.map((t,i)=>`${mark[t.status]||'[ ]'} ${i+1}. ${t.text}`).join('\n'):'(empty)';
 function entryText(e){
@@ -24,7 +26,7 @@ export function agentTools(runtime){
  const {sessions,store}=runtime;
  return [{
   name:'skill',group:'core',readOnly:true,
-  description:'Load the full instructions of a skill listed in your system prompt (by name). Follow them for the task at hand. A skill folder may hold scripts and references; its path is given.',
+  description:'Load the full instructions of a skill listed in your instructions or memory (by name). Follow them for the task at hand. A skill folder may hold scripts and references; its path is given.',
   parameters:{type:'object',additionalProperties:false,required:['name'],properties:{name:{type:'string'}}},
   summarize:a=>`skill ${a.name}`,
   async run(a){
@@ -47,15 +49,22 @@ export function agentTools(runtime){
   }
  },{
   name:'recall',group:'core',readOnly:true,
-  description:'Read an earlier transcript entry exactly, by its reference: "#123" (this session) or "<session id>#123". Use it for details that were shortened or compacted away. offset/limit page through long entries.',
+  description:'Read earlier transcript entries exactly, by reference: "#123" or a range "#120-#135" (this session), or "<session id>#123". Use it for details that were shortened or compacted away, and for the range an episode card shows. offset/limit page through long text.',
   parameters:{type:'object',additionalProperties:false,required:['ref'],properties:{ref:{type:'string'},offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:100,maximum:60000}}},
   summarize:a=>`recall ${a.ref}`,
   async run(a,ctx){
-   const m=/^(?:([\w-]+))?#(\d+)$/.exec(String(a.ref).trim());invariant(m,'ref must look like "#123" or "<session id>#123"');
+   const m=/^(?:([\w-]+))?#(\d+)(?:\s*[-–]\s*#?(\d+))?$/.exec(String(a.ref).trim());invariant(m,'ref must look like "#123", "#120-#135" or "<session id>#123"');
    const sid=m[1]||ctx.session.id;invariant(runtime.visible(ctx.session,sid),'That session is not visible from here.',403);
+   const from=a.offset||0,size=a.limit||20000;
+   if(m[3]){
+    const lo=Math.min(Number(m[2]),Number(m[3])),hi=Math.max(Number(m[2]),Number(m[3]));invariant(hi-lo<RANGE,`A range covers at most ${RANGE} entries`);
+    const list=sessions.entries(sid,{from:lo,to:hi,types:['input','assistant','tool','notice']});invariant(list.length,`No entries in ${a.ref}`,404);
+    const full=list.map(e=>`#${e.seq} ${e.type}${e.name?' '+e.name:''} (${e.at}): ${entryText(e)}`).join('\n\n'),part=full.slice(from,from+size);
+    return {text:`${a.ref} (${list.length} entries) characters ${from}–${from+part.length} of ${full.length}\n${part}${from+part.length<full.length?`\n[continues: recall("${a.ref}", offset=${from+part.length})]`:''}`};
+   }
    const e=sessions.entry(sid,Number(m[2]));invariant(e,`No entry ${a.ref}`,404);
    const full=e.type==='tool'&&e.evidenceId?sessions.evidence(e.evidenceId)?.content??e.content:entryText(e);
-   const from=a.offset||0,size=a.limit||20000,part=full.slice(from,from+size);
+   const part=full.slice(from,from+size);
    return {text:`${a.ref} (${e.type}${e.name?' '+e.name:''}, ${e.at}) characters ${from}–${from+part.length} of ${full.length}\n${part}${from+part.length<full.length?`\n[continues: recall("${a.ref}", offset=${from+part.length})]`:''}`};
   }
  },{
@@ -67,6 +76,17 @@ export function agentTools(runtime){
    const ids=a.scope==='tree'?runtime.tree(ctx.session.id):[ctx.session.id];
    const hits=sessions.search(a.query,{sessionIds:ids,limit:a.limit||10});
    return {text:hits.length?hits.map(h=>`${h.sessionId===ctx.session.id?'':h.sessionId}#${h.seq} ${h.type}${h.name?' '+h.name:''} (${h.at.slice(0,16)}): ${oneLine(h.stub||entryText(h),200)}`).join('\n'):'No matches.'};
+  }
+ },{
+  name:'episode_search',group:'core',readOnly:true,
+  description:'Find earlier episodes (topics) of your conversation with the user, including closed ones: by words or meaning (query), or everything of one day (date, YYYY-MM-DD). Each card shows its period, summary and the entry ranges; read the exact words with recall("#a-#b").',
+  parameters:{type:'object',additionalProperties:false,properties:{query:{type:'string'},date:{type:'string'},limit:{type:'integer',minimum:1,maximum:10}}},
+  summarize:a=>`episode_search ${a.date||''}${a.query?JSON.stringify(a.query):''}`.trim(),
+  async run(a,ctx){
+   invariant(!a.date||/^\d{4}-\d{2}-\d{2}$/.test(a.date),'date must look like 2026-11-11');
+   const main=ctx.session.kind==='main'?ctx.session.id:runtime.main().id;
+   const cards=await runtime.episodes.search(main,{query:a.query||'',date:a.date||'',limit:a.limit||5,signal:ctx?.signal});
+   return {text:cards.length?cards.map(c=>runtime.episodes.card(c)).join('\n\n'):'No episodes found.'};
   }
  },{
   name:'memory_search',group:'core',readOnly:true,

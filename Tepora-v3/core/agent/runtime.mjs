@@ -20,6 +20,7 @@ import {Scheduler,scheduleTool} from './schedule.mjs';
 import {Decisions} from './decisions.mjs';
 import {reflectTool} from './metacog.mjs';
 import {Dreamer} from './dream.mjs';
+import {Episodes} from './episodes.mjs';
 import {computerTool} from '../computer/index.mjs';
 import {canvasTool} from '../canvas-board.mjs';
 import {mediaTool} from '../tools/media.mjs';
@@ -89,10 +90,10 @@ export class AgentRuntime{
   this.loop=new AgentLoop(this);this.processes=new ProcessManager();this.policy=new Policy(this);
   this.workRoot=workRoot||this.settings().workRoot||path.join(os.homedir(),'Tepora');
   this.tools=new ToolRegistry({pluginDir,mcp:toolHub});this.mcp=new McpPool({store,toolHub,network});
-  this.decisions=new Decisions(capabilities);this.dreamer=new Dreamer(this);
-  // Work run in order on the idle lease while the user is quiet; input preempts it. The handoff comes first;
-  // later idle work (memory consolidation, skill retention) appends here.
-  this.idleTasks=[(id,signal)=>this.idleHandoff(id,signal)];
+  this.decisions=new Decisions(capabilities);this.dreamer=new Dreamer(this);this.episodes=new Episodes(this);
+  // Work on the idle lease while the user is quiet; input preempts it. One job per lease, in this order: the first
+  // task that did something ends the lease (labeling + handoff, else Dreaming), so input never waits on a queue.
+  this.idleTasks=[(id,signal)=>this.idleHandoff(id,signal),(id,signal)=>this.dreamer.idle(id,signal)];
   // Pages built by JavaScript are rendered in the computer-use browser when one is available.
   this.web=new WebTools({network,settings:()=>this.settings(),keys:name=>this.store.value('search-keys')?.[name]||'',decisions:this.decisions,browser:computer?{render:(url,o)=>computer.render(url,o)}:null});
   this.scheduler=new Scheduler(this);
@@ -349,9 +350,11 @@ export class AgentRuntime{
   const key=String(ref||'').trim();
   if(key==='parent'){invariant(from.parentId,'This session has no requester.',404);return this.sessions.get(from.parentId);}
   if(key==='main'){const m=this.main();invariant(this.visible(from,m.id)||from.kind!=='main','',403);return m;}
-  const all=this.visibleSessions(from),hit=all.find(s=>s.id===key||s.id.startsWith(key)&&key.length>=6)||all.find(s=>s.label===key)||all.find(s=>s.title===key);
+  const all=this.visibleSessions(from),hit=all.find(s=>s.id===key||s.id.startsWith(key)&&key.length>=6)||all.find(s=>s.label===key)||all.find(s=>s.title===key)||this.archived(from,key);
   invariant(hit,`No visible session "${key}". Use sessions_list.`,404);return hit;
  }
+ /** A finished work agent archived under its episode, by the exact id its card lists. */
+ archived(from,id){const s=this.sessions.get(id);return s?.archivedIn&&(from.kind==='main'||s.parentId===from.id)?s:null;}
  /** Waits for a message from `fromId` to arrive in `toId`'s inbox (an answer sent with sessions_send, or the
   * final report of a child). The answer is taken out of the inbox, so it is not delivered a second time. */
  waitForMessage(fromId,toId,ms,signal){
@@ -398,7 +401,6 @@ export class AgentRuntime{
   this.nativeRuntime.dispatch({type:'initialize'});
   this.scheduleHeartbeat();this.scheduler.start();
   this.idleTimer=setInterval(()=>this.idle(main.id).catch(()=>{}),15000);this.idleTimer.unref?.();
-  this.dreamTimer=setInterval(()=>this.dreamer.maybe().catch(e=>this.store.emit('agent.event',{type:'dream-failed',message:String(e?.message||e).slice(0,200)})),3600000);this.dreamTimer.unref?.();
  }
  /** What a check-in should look at. `key` covers only what changes meaningfully (who is working, waiting,
   * finished, or asking), not step counters, so an unchanged state never wakes the model. */
@@ -439,9 +441,25 @@ export class AgentRuntime{
  async idleHandoff(id,signal){
   const session=this.loop.prompt(this.sessions.get(id)),toolDefs=this.tools.definitions(session.tools),b=await this.loop.budget(session,toolDefs,signal);
   signal.throwIfAborted();if(!b.chain.length||b.B<1200)return;
-  const built=this.assembler.build(id,{system:session.system});
-  if(this.compactor.plan(built,b.B,b.ratio,{idle:true,session}).action!=='compact')return;
-  await this.loop.compact(session,{built,B:b.B,ratio:b.ratio,toolDefs,chain:b.chain,signal,reason:'idle'});
+  const built=this.assembler.build(id,{system:session.system,layers:session.layers});
+  if(this.compactor.plan(built,b.B,b.ratio,{idle:true,session}).action!=='compact')return false;
+  // Label the stretch into episodes first, in the same cached context, so the handoff lists the open ones.
+  await this.episodes.label(session,{built,chain:b.chain,toolDefs,signal});
+  const cp=await this.loop.compact(session,{built,B:b.B,ratio:b.ratio,toolDefs,chain:b.chain,signal,reason:'idle'});
+  if(cp)await this.warm(id,b,signal);
+  return true;
+ }
+ /** Every upper layer was just rewritten at once: process the new prefix now, while the user is still away, so the
+  * next reply reads it from the prompt cache. Only for a model on this computer or the LAN (a llama.cpp slot); a
+  * cloud API would bill a cache write for a prefix the user may never reuse within its retention. */
+ async warm(id,b,signal){
+  const p=b.chain[0];if(!p||p.domain==='cloud')return;
+  const session=this.sessions.get(id),toolDefs=this.tools.definitions(session.tools),built=this.assembler.build(id,{system:session.system,layers:session.layers});
+  // The prompt is what matters: stop at the first generated token (the server keeps the processed prefix).
+  const stop=new AbortController(),abort=()=>stop.abort(signal.reason);signal.addEventListener('abort',abort,{once:true});
+  try{await this.registry.invoke([p],built.messages,{accountingSessionId:id,accountingPurpose:'summary',tools:toolDefs,toolChoice:'none',maxTokens:1,signal:stop.signal,onDelta:()=>stop.abort(),onReasoning:()=>stop.abort(),cacheKey:id,slotKey:id,cacheRetention:this.cacheRetention(session),priority:5});}
+  catch(e){if(e.kind==='accounting'||signal.aborted)throw e;}
+  finally{signal.removeEventListener('abort',abort);}
  }
  async close(){
   this.canvas?.close();this.nativeRuntime.dispatch({type:'close'});

@@ -1,6 +1,14 @@
 import {oneLine} from '../tools/format.mjs';
 
-/** Learning the harness's own judgement policies from its history, after Dream-RSI (arXiv 2609.14858): past runs
+/** Dreaming: what the character does while the user is away, on the main session's idle lease (input preempts it),
+ * one job per lease after the idle handoff:
+ *  1. Memory consolidation (core/agent/episodes.mjs): facts from the episodes labeled since the last dream are added
+ *     to, merged into or corrected in the saved memories, and core memory (facts about the user, how to engage) is
+ *     rewritten within its caps. The new <memory> block takes effect at the next handoff, together with the rest of
+ *     the upper context, so the cached prefix breaks once.
+ *  2. Policy tuning (below), when enough new outcomes came in.
+ *
+ * Policy tuning learns the harness's own judgement policies from its history, after Dream-RSI (arXiv 2609.14858): past runs
  * form a replay simulator over situations that really occurred, so candidate policies can be evaluated offline,
  * cheaply and without risk, and only a policy that does better is deployed for the next runs. Run → record →
  * dream → redeploy, again and again.
@@ -164,7 +172,18 @@ export class Dreamer{
   const policy={...prev,revision:(cur.revision||0)+1,revertedAt:new Date().toISOString(),because:'reverted',history};
   this.store.value('agent-policy',policy);this.store.emit('agent.policy',policy);return policy;
  }
- /** Dreams by itself when the agents are idle, enough new outcomes came in, and the last dream is old enough. */
+ /** One Dreaming job on the idle lease: consolidate memory when episodes changed, else tune policies when due.
+  * Returns whether it did work (which ends the lease). */
+ async idle(id,signal){
+  const rt=this.rt;if(rt.settings().dream===false)return false;
+  if(rt.episodes.dreamDue()){
+   const session=rt.sessions.get(id),b=await rt.loop.budget(session,rt.tools.definitions(session.tools||[]),signal);
+   signal?.throwIfAborted();if(!b.chain.length||!(b.B>0))return false;
+   await rt.episodes.dream({B:b.B,signal});return true;
+  }
+  return !!await this.maybe({signal});
+ }
+ /** Tunes policies when the agents are idle, enough new outcomes came in, and the last tuning is old enough. */
  async maybe({signal}={}){
   if(this.rt.settings().dream===false||this.running)return null;
   if(this.rt.sessions.list().some(s=>s.status==='running'))return null;
