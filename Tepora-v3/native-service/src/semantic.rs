@@ -145,6 +145,14 @@ impl SemanticMemory {
             .get()
             .is_ok_and(|r| truthy(&r["routes"]["embedding"]))
     }
+    /// The pinned embedding profile when it runs on this computer: conversation
+    /// text (episode cards) is embedded only there.
+    pub fn local_profile(&self) -> Option<Value> {
+        if !self.configured() {
+            return None;
+        }
+        self.inner.capabilities.pin("embedding").ok().filter(|p| p["domain"] == "device")
+    }
     fn operation(&self, ids: Vec<String>) -> Result<Operation, CapabilityError> {
         let mut lifecycle = self
             .inner

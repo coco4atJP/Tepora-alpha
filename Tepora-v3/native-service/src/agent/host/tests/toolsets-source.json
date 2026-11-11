@@ -1,6 +1,6 @@
 {
   "source": "core/tools/registry.mjs",
-  "sha256": "a79bb222621c9f2b10a7042411c0569c289fcaf4e77915c9fa019eb732166ade",
+  "sha256": "95af03639eab7245ff1e29ff7e2cf9f9c6b5fc37de055237a5db1c67e2b7dffc",
   "toolsets": {
     "main": [
       "sessions_spawn",
@@ -11,6 +11,7 @@
       "schedule",
       "memory_search",
       "memory_write",
+      "episode_search",
       "web_search",
       "web_fetch",
       "recall",

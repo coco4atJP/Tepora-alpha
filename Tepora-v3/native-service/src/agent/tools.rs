@@ -1,6 +1,6 @@
 //! Native built-in catalog and actor-scoped state tools.
 //! Catalog metadata is a frozen build-time extraction; no JavaScript runs here.
-// core/tools/agent.mjs SHA-256 3a6740d68610f563b114e03eaf2a49669422f49e6ebed2a70e5ba7da4018dbcd
+// core/tools/agent.mjs SHA-256 405d91c13e420813f67a4b92b6938d1201407367653a8fcdc00ce1cd89e31fae
 // core/tools/fs.mjs SHA-256 8b505f0444e48583950d3201234ce9ed67339f47fdaae4b3838cd39d7e6227b3
 // core/agent/metacog.mjs SHA-256 0b847013cee7817d09f6135404d7f458a23ea30c0eb2d67f19b88410cf2be704
 const CATALOG_JSON: &str = r###"[
@@ -142,7 +142,7 @@ const CATALOG_JSON: &str = r###"[
     "readOnly": true,
     "ephemeral": false,
     "name": "recall",
-    "description": "Read an earlier transcript entry exactly, by its reference: \"#123\" (this session) or \"<session id>#123\". Use it for details that were shortened or compacted away. offset/limit page through long entries.",
+    "description": "Read earlier transcript entries exactly, by reference: \"#123\" or a range \"#120-#135\" (this session), or \"<session id>#123\". Use it for details that were shortened or compacted away, and for the range an episode card shows. offset/limit page through long text.",
     "parameters": {
       "type": "object",
       "additionalProperties": false,
@@ -192,6 +192,30 @@ const CATALOG_JSON: &str = r###"[
             "session",
             "tree"
           ]
+        }
+      }
+    }
+  },
+  {
+    "group": "core",
+    "readOnly": true,
+    "ephemeral": false,
+    "name": "episode_search",
+    "description": "Find earlier episodes (topics) of your conversation with the user, including closed ones: by words or meaning (query), or everything of one day (date, YYYY-MM-DD). Each card shows its period, summary and the entry ranges; read the exact words with recall(\"#a-#b\").",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       }
     }
@@ -582,6 +606,10 @@ pub trait ToolsState {
     fn list_docs(&mut self, collection: &str) -> Result<Vec<Value>, ApiError>;
     fn get_doc(&mut self, collection: &str, id: &str) -> Result<Option<Value>, ApiError>;
     fn search_memory(&mut self, query: &str, limit: usize) -> Result<Vec<Value>, ApiError>;
+    /// Full-text search over a searchable document collection (memory, job, episode).
+    fn search_docs(&mut self, kind: &str, query: &str, limit: usize) -> Result<Vec<Value>, ApiError>;
+    /// Entries `from..=to` of a session log, in order.
+    fn entries(&mut self, id: &str, from: u64, to: u64) -> Result<Vec<Value>, ApiError>;
     fn write_memory(&mut self, content: &str, title: &str, source: &str)
         -> Result<Value, ApiError>;
     fn publish_artifact(
@@ -602,6 +630,7 @@ pub const IMPLEMENTED: &[&str] = &[
     "todo",
     "recall",
     "history_search",
+    "episode_search",
     "memory_search",
     "memory_write",
     "artifact",
@@ -622,6 +651,7 @@ const MAIN: &[&str] = &[
     "sessions_stop",
     "memory_search",
     "memory_write",
+    "episode_search",
     "recall",
     "history_search",
     "reflect",
@@ -739,6 +769,13 @@ pub fn summarize(name: &str, args: &Value) -> Result<String, ApiError> {
         ),
         "edit" => format!("edit {}", field(args, "path")),
         "recall" => format!("recall {}", field(args, "ref")),
+        "episode_search" => format!(
+            "episode_search {}{}",
+            s(args, "date"),
+            if truth(&args["query"]) { stringify(&args["query"])? } else { String::new() }
+        )
+        .trim_end()
+        .to_owned(),
         "history_search" | "memory_search" | "tools_search" => {
             format!("{name} {}", stringify(&args["query"])?)
         }
@@ -916,8 +953,7 @@ pub fn scoped(
     require(!session.is_null(), 404, "Session not found")?;
     match s(request, "op") {
         "nativeTools.resolve" => {
-            let target =
-                resolve_session(&session, &field(request, "reference"), &state.sessions()?)?;
+            let target = resolve_live_or_archived(state, &session, &field(request, "reference"))?;
             if request["forStop"] == true {
                 require(
                     s(&target, "kind") != "main",
@@ -993,11 +1029,11 @@ pub fn execute_state(
         "recall" => {
             let reference = field(args, "ref");
             let trimmed = trim(&reference);
-            let matched = regex::Regex::new(r"^(?:([a-zA-Z0-9_-]+))?#([0-9]+)$")
+            let matched = regex::Regex::new(r"^(?:([a-zA-Z0-9_-]+))?#([0-9]+)(?:\s*[-–]\s*#?([0-9]+))?$")
                 .unwrap()
                 .captures(trimmed)
                 .ok_or_else(|| {
-                    ApiError::bad_request("ref must look like \"#123\" or \"<session id>#123\"")
+                    ApiError::bad_request("ref must look like \"#123\", \"#120-#135\" or \"<session id>#123\"")
                 })?;
             let target = matched.get(1).map(|m| m.as_str()).unwrap_or(sid);
             let seq = matched[2]
@@ -1008,6 +1044,35 @@ pub fn execute_state(
                 403,
                 "That session is not visible from here.",
             )?;
+            let from = num(args, "offset", 0) as usize;
+            let size = positive(args, "limit", 20000);
+            if let Some(end) = matched.get(3).and_then(|m| m.as_str().parse::<u64>().ok()) {
+                let (lo, hi) = (seq.min(end), seq.max(end));
+                require(hi - lo < RECALL_RANGE, 400, &format!("A range covers at most {RECALL_RANGE} entries"))?;
+                let list: Vec<Value> = state
+                    .entries(target, lo, hi)?
+                    .into_iter()
+                    .filter(|e| matches!(s(e, "type"), "input" | "assistant" | "tool" | "notice"))
+                    .collect();
+                require(!list.is_empty(), 404, &format!("No entries in {reference}"))?;
+                let full = list
+                    .iter()
+                    .map(|e| {
+                        Ok(format!(
+                            "#{} {}{} ({}): {}",
+                            field(e, "seq"),
+                            s(e, "type"),
+                            if truth(&e["name"]) { format!(" {}", field(e, "name")) } else { String::new() },
+                            s(e, "at"),
+                            entry_text(e)?
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, ApiError>>()?
+                    .join("\n\n");
+                let part = slice(&full, from, from.saturating_add(size));
+                let stop = from.saturating_add(length(&part));
+                return Ok(json!({"text":format!("{} ({} entries) characters {}–{} of {}\n{}{}",reference,list.len(),from,stop,length(&full),part,if stop<length(&full){format!("\n[continues: recall(\"{reference}\", offset={stop})]")}else{String::new()})}));
+            }
             let entry = state
                 .entry(target, seq)?
                 .ok_or_else(|| ApiError::new(404, format!("No entry {reference}")))?;
@@ -1023,8 +1088,6 @@ pub fn execute_state(
             } else {
                 entry_text(&entry)?
             };
-            let from = num(args, "offset", 0) as usize;
-            let size = positive(args, "limit", 20000);
             let part = slice(&full, from, from.saturating_add(size));
             let end = from.saturating_add(length(&part));
             let name = if truth(&entry["name"]) {
@@ -1071,6 +1134,29 @@ pub fn execute_state(
                 })
                 .collect::<Result<Vec<_>, ApiError>>()?;
             Ok(json!({"text":if lines.is_empty(){"No matches.".into()}else{lines.join("\n")}}))
+        }
+        "episode_search" => {
+            let date = trim(s(args, "date"));
+            require(
+                date.is_empty() || regex::Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap().is_match(date),
+                400,
+                "date must look like 2026-11-11",
+            )?;
+            let main = if s(session, "kind") == "main" {
+                sid.to_owned()
+            } else {
+                state.sessions()?.iter().find(|x| s(x, "kind") == "main").map(|x| s(x, "id").to_owned()).unwrap_or_default()
+            };
+            let pool = episode_pool(state.list_docs("episode")?, &main, date);
+            let query = trim(s(args, "query")).to_owned();
+            let limit = positive(args, "limit", 5).min(10);
+            let cards = if query.is_empty() {
+                episode_browse(&pool, !date.is_empty(), limit)
+            } else {
+                let lexical = state.search_docs("episode", &query, 24)?;
+                episode_fuse(&pool, &[episode_ids(&lexical, &pool)], limit)
+            };
+            Ok(json!({"text":episode_text(&cards)?}))
         }
         "memory_search" => {
             let hits = state.search_memory(s(args, "query"), positive(args, "limit", 8))?;
@@ -1124,7 +1210,7 @@ pub fn execute_state(
             )
         }
         "sessions_history" => {
-            let target = resolve_session(session, s(args, "session"), &state.sessions()?)?;
+            let target = resolve_live_or_archived(state, session, s(args, "session"))?;
             let limit = positive(args, "limit", 20);
             let mut entries = state
                 .tail(s(&target, "id"), limit * 3)?
@@ -1337,6 +1423,18 @@ pub fn visible(from: &Value, id: &str, sessions: &[Value]) -> bool {
         || s(from, "parentId") == id
         || tree(s(from, "id"), sessions).iter().any(|v| v == id)
 }
+/// A live session by id, label or title; or, by exact id, a finished work
+/// agent archived under its episode (the episode card lists its id).
+fn resolve_live_or_archived(state: &mut dyn ToolsState, from: &Value, reference: &str) -> Result<Value, ApiError> {
+    let sessions = state.sessions()?;
+    resolve_session(from, reference, &sessions).or_else(|error| {
+        let key = trim(reference);
+        let doc = state.session(key)?;
+        let reachable = truth(&doc["archivedIn"])
+            && (s(from, "kind") == "main" || s(&doc, "parentId") == s(from, "id"));
+        if reachable { Ok(doc) } else { Err(error) }
+    })
+}
 pub fn resolve_session(
     from: &Value,
     reference: &str,
@@ -1404,6 +1502,100 @@ pub fn render_todo(items: &[Value]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+/// The most entries one recall range reads.
+const RECALL_RANGE: u64 = 400;
+fn last_at(c: &Value) -> &str {
+    c["last"].as_str().unwrap_or("")
+}
+/// The main session's episode cards, oldest activity first; with a date, only
+/// those whose period covers it.
+/// The user's calendar day of a stored (UTC) time: a date search means the day as the user lived it.
+fn local_day(at: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(at)
+        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
+        .unwrap_or_default()
+}
+pub fn episode_pool(cards: Vec<Value>, main: &str, date: &str) -> Vec<Value> {
+    let mut pool: Vec<Value> = cards
+        .into_iter()
+        .filter(|c| main.is_empty() || s(c, "sessionId") == main)
+        .filter(|c| {
+            date.is_empty() || {
+                let first = local_day(s(c, "first"));
+                let last = local_day(if s(c, "last").is_empty() { s(c, "first") } else { s(c, "last") });
+                !first.is_empty() && first.as_str() <= date && date <= last.as_str()
+            }
+        })
+        .collect();
+    let number = |c: &Value| s(c, "id").strip_prefix('E').and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
+    pool.sort_by(|a, b| last_at(a).cmp(last_at(b)).then(number(a).cmp(&number(b))));
+    pool
+}
+/// Without a query: one day's episodes (up to 30, in order), or the latest few.
+pub fn episode_browse(pool: &[Value], day: bool, limit: usize) -> Vec<Value> {
+    if day {
+        pool.iter().take(30).cloned().collect()
+    } else {
+        pool.iter().rev().take(limit).cloned().collect()
+    }
+}
+/// Ids of `hits` that are in the pool, in rank order.
+pub fn episode_ids(hits: &[Value], pool: &[Value]) -> Vec<String> {
+    hits.iter()
+        .map(|h| s(h, "id").to_owned())
+        .filter(|id| pool.iter().any(|c| s(c, "id") == id))
+        .collect()
+}
+/// Reciprocal-rank fusion of rankings (full text, meaning) over the pool.
+pub fn episode_fuse(pool: &[Value], rankings: &[Vec<String>], limit: usize) -> Vec<Value> {
+    let mut scores: Vec<(String, f64)> = Vec::new();
+    for ranking in rankings {
+        for (i, id) in ranking.iter().enumerate() {
+            let add = 1. / (60. + i as f64);
+            match scores.iter_mut().find(|(x, _)| x == id) {
+                Some(entry) => entry.1 += add,
+                None => scores.push((id.clone(), add)),
+            }
+        }
+    }
+    scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scores
+        .into_iter()
+        .take(limit)
+        .filter_map(|(id, _)| pool.iter().find(|c| s(c, "id") == id).cloned())
+        .collect()
+}
+/// Candidates for semantic ranking: full-text hits first, then the latest cards, at most 24.
+pub fn episode_candidates(pool: &[Value], lexical: &[String]) -> Vec<Value> {
+    let mut out: Vec<Value> = lexical.iter().filter_map(|id| pool.iter().find(|c| s(c, "id") == id).cloned()).collect();
+    for c in pool.iter().rev() {
+        if out.len() >= 24 {
+            break;
+        }
+        if !out.iter().any(|x| x["id"] == c["id"]) {
+            out.push(c.clone());
+        }
+    }
+    out.truncate(24);
+    out
+}
+pub fn episode_card(card: &Value) -> Result<String, ApiError> {
+    // The period is shown in the user's calendar days, the ones a date search takes.
+    let mut card = card.clone();
+    for key in ["first", "last"] {
+        let day = local_day(s(&card, key));
+        if !day.is_empty() {
+            card[key] = json!(day);
+        }
+    }
+    Ok(pure("memory.card", json!({"card":card}))?.as_str().unwrap_or("").to_owned())
+}
+pub fn episode_text(cards: &[Value]) -> Result<String, ApiError> {
+    if cards.is_empty() {
+        return Ok("No episodes found.".into());
+    }
+    Ok(cards.iter().map(episode_card).collect::<Result<Vec<_>, _>>()?.join("\n\n"))
 }
 pub fn entry_text(entry: &Value) -> Result<String, ApiError> {
     if entry.is_null() {
@@ -1598,6 +1790,12 @@ mod tests {
         fn search_memory(&mut self, _: &str, _: usize) -> Result<Vec<Value>, ApiError> {
             Ok(self.docs.get("memory").cloned().unwrap_or_default())
         }
+        fn search_docs(&mut self, kind: &str, query: &str, _: usize) -> Result<Vec<Value>, ApiError> {
+            Ok(self.docs.get(kind).cloned().unwrap_or_default().into_iter().filter(|d| d.to_string().contains(query)).collect())
+        }
+        fn entries(&mut self, id: &str, from: u64, to: u64) -> Result<Vec<Value>, ApiError> {
+            Ok(self.entries.get(id).cloned().unwrap_or_default().into_iter().filter(|e| e["seq"].as_u64().is_some_and(|q| q >= from && q <= to)).collect())
+        }
         fn write_memory(
             &mut self,
             content: &str,
@@ -1647,7 +1845,7 @@ mod tests {
             catalog().iter().map(|d| s(d, "name")).collect::<Vec<_>>(),
             IMPLEMENTED
         );
-        assert_eq!(catalog().len(), 17);
+        assert_eq!(catalog().len(), 18);
         assert_eq!(toolset("main"), MAIN);
         assert_eq!(toolset("worker"), WORKER);
         assert_eq!(toolset("lean"), LEAN);
@@ -1786,6 +1984,37 @@ mod tests {
         assert_eq!(reflection["assumptions"], json!(["maybe"]));
         assert_eq!(reflection["step"], 7);
         assert_eq!(reflection["at"], "2026-10-07T00:00:00.000Z");
+    }
+    #[test]
+    fn episode_search_and_range_recall_reach_closed_episodes_and_their_exact_words() {
+        let mut state = MemoryState {
+            sessions: sessions(),
+            ..Default::default()
+        };
+        let main = state.sessions[0].clone();
+        let at = "2026-11-10T03:00:00.000Z";
+        state.docs.insert("episode".into(), vec![
+            json!({"id":"E1","sessionId":"main-000000","title":"猫の名前","state":"done","summary":"タマに決めた","entities":["猫"],"ranges":[[1,2]],"first":at,"last":at,"children":[]}),
+            json!({"id":"E2","sessionId":"main-000000","title":"確定申告","state":"open","summary":"書類の準備","entities":["税金"],"ranges":[[3,3]],"first":at,"last":at,"children":[]}),
+        ]);
+        state.entries.insert("main-000000".into(), vec![
+            json!({"seq":1,"type":"input","at":at,"text":"猫の名前を考えて"}),
+            json!({"seq":2,"type":"assistant","at":at,"content":"タマはどう？"}),
+            json!({"seq":3,"type":"input","at":at,"text":"税金の書類"}),
+        ]);
+        let hit = execute_state(&mut state, &main, "episode_search", &json!({"query":"猫"})).unwrap();
+        assert!(s(&hit, "text").starts_with("E1 · 猫の名前 [done]"), "{}", s(&hit, "text"));
+        assert!(!s(&hit, "text").contains("確定申告"));
+        let day = local_day(at);
+        let daily = execute_state(&mut state, &main, "episode_search", &json!({"date":day})).unwrap();
+        assert!(s(&daily, "text").contains("猫の名前") && s(&daily, "text").contains("確定申告"));
+        assert_eq!(s(&execute_state(&mut state, &main, "episode_search", &json!({"date":"2001-01-01"})).unwrap(), "text"), "No episodes found.");
+        assert!(execute_state(&mut state, &main, "episode_search", &json!({"date":"yesterday"})).is_err());
+        let range = execute_state(&mut state, &main, "recall", &json!({"ref":"#1-#2"})).unwrap();
+        assert!(s(&range, "text").contains("(2 entries)"));
+        assert!(s(&range, "text").contains("猫の名前を考えて") && s(&range, "text").contains("タマはどう？"));
+        assert!(!s(&range, "text").contains("税金"));
+        assert!(toolset("main").iter().any(|n| n == "episode_search"));
     }
     #[test]
     fn recall_reads_evidence_with_exact_utf16_pagination_and_visibility() {

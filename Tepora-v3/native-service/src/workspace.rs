@@ -565,7 +565,7 @@ impl State {
     }
     fn put(&mut self, kind: &str, doc: Value) -> Result<Value, ApiError> {
         let mut args = json!({"kind":kind,"doc":doc});
-        if matches!(kind, "memory" | "job") {
+        if matches!(kind, "memory" | "job" | "episode") {
             args["terms"] = json!(store_domain::indexed_text(&args["doc"], 17));
         }
         self.call("document.put", args)?;

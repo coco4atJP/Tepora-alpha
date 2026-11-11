@@ -22,6 +22,9 @@ pub struct PromptSnapshot {
     pub environment: Value,
     pub computer: Value,
     pub skills: Vec<Value>,
+    /// The main session's <memory> block (skill index, core memory) as of this
+    /// refresh; empty for work agents. Snapshotted with the system prompt.
+    pub layers: String,
     pub project_instructions: String,
     /// A truthful, host-owned instruction for the selected native capabilities.
     /// Include its heading (e.g. "# Native availability") when supplied.
@@ -76,6 +79,8 @@ pub struct CompactionSnapshot {
     pub cache_retention: String,
     pub reason: String,
     pub tail_share: Option<f64>,
+    /// The main session's open episodes for the handoff (harness.memory.topics).
+    pub topics: String,
     pub unicode_version: u32,
 }
 #[derive(Clone, Debug)]
@@ -90,24 +95,24 @@ pub struct CompactionProposal {
 }
 pub type CompletionClock = Arc<dyn Fn() -> String + Send + Sync>;
 
-fn compute(op: &str, payload: Value) -> Result<Value, EffectError> {
+pub(super) fn compute(op: &str, payload: Value) -> Result<Value, EffectError> {
     let raw = json_codec::stringify(&payload).map_err(core_error)?;
     let out = tepora_core::compute_json(op, &raw).map_err(core_error)?;
     json_codec::parse(&out).map_err(core_error)
 }
-fn harness(op: &str, payload: Value) -> Result<Value, EffectError> {
+pub(super) fn harness(op: &str, payload: Value) -> Result<Value, EffectError> {
     compute(&format!("harness.{op}"), payload)
 }
 fn core_error(error: tepora_core::CoreError) -> EffectError {
     EffectError::new(error.to_string())
 }
-fn provider_error(error: ProviderFailure, cancel: &RequestCancellation) -> EffectError {
+pub(super) fn provider_error(error: ProviderFailure, cancel: &RequestCancellation) -> EffectError {
     EffectError {
         aborted: cancel.is_cancelled() || error.cancelled,
         error: error.value(),
     }
 }
-fn check(cancel: &RequestCancellation) -> Result<(), EffectError> {
+pub(super) fn check(cancel: &RequestCancellation) -> Result<(), EffectError> {
     if cancel.is_cancelled() {
         Err(EffectError::cancelled(false))
     } else {
@@ -198,7 +203,7 @@ pub fn prompt(snapshot: &PromptSnapshot, refresh: bool) -> Result<PromptProposal
     } else {
         snapshot.available_tools.iter().map(|s| json!(s)).collect()
     };
-    let patch = json!({"system":render(snapshot,&tools)?,"projectInstructions":snapshot.project_instructions,"tools":tools,"promptAt":snapshot.at,"promptStale":false,"announced":null});
+    let patch = json!({"system":render(snapshot,&tools)?,"layers":snapshot.layers,"projectInstructions":snapshot.project_instructions,"tools":tools,"promptAt":snapshot.at,"promptStale":false,"announced":null});
     let mut session = snapshot.session.clone();
     let object = session
         .as_object_mut()
@@ -333,7 +338,7 @@ pub fn context(snapshot: &ContextSnapshot) -> Result<Value, EffectError> {
     )?;
     let built = compute(
         "context.build",
-        json!({"view":view,"system":snapshot.session["system"],"vision":snapshot.vision,"unicodeVersion":snapshot.unicode_version}),
+        json!({"view":view,"system":snapshot.session["system"],"layers":snapshot.session["layers"],"vision":snapshot.vision,"unicodeVersion":snapshot.unicode_version}),
     )?;
     let mut out = json!({"built":built});
     if snapshot.plan {
@@ -344,7 +349,7 @@ pub fn context(snapshot: &ContextSnapshot) -> Result<Value, EffectError> {
     }
     Ok(out)
 }
-fn silent_sink() -> EventSink {
+pub(super) fn silent_sink() -> EventSink {
     // Compaction has no visible stream or session route callback in the source.
     // Provider-global health/cache events still go through ProviderState.
     Arc::new(|_| {})
@@ -460,7 +465,7 @@ pub async fn compact(
     let completed_at = clock();
     let finished = harness(
         "compaction.finalize",
-        json!({"prepared":prepared,"built":snapshot.built,"B":snapshot.budget["B"],"ratio":snapshot.budget["ratio"],"summary":summary,"method":method,"reason":snapshot.reason,"at":completed_at,"unicodeVersion":snapshot.unicode_version}),
+        json!({"prepared":prepared,"built":snapshot.built,"B":snapshot.budget["B"],"ratio":snapshot.budget["ratio"],"summary":summary,"method":method,"reason":snapshot.reason,"topics":snapshot.topics,"unicodeVersion":snapshot.unicode_version}),
     )?;
     check(cancel)?;
     Ok(Some(CompactionProposal {
@@ -606,6 +611,7 @@ mod tests {
             environment: json!({"platform":"linux","arch":"x64","username":"fixture","home":"/tmp","shell":"bash"}),
             computer: Value::Null,
             skills: vec![],
+            layers: String::new(),
             project_instructions: String::new(),
             availability_instruction:
                 "# Native availability\nThe schedule tool is unavailable in this native mode."
@@ -664,6 +670,7 @@ mod tests {
             cache_retention: "long".into(),
             reason: "budget".into(),
             tail_share: None,
+            topics: String::new(),
             unicode_version: 16,
         }
     }
@@ -825,7 +832,7 @@ mod tests {
         // A work agent hands off: the whole conversation leaves view and no chapters are written.
         assert_eq!(result.notice["text"],"[harness] Fresh conversation. Your earlier conversation (up to #4) is stored but out of view; the <handoff> above holds the task, the ledger and your brief. Continue from its Next move, and use recall(\"#n\") or history_search for exact details.");
         let text = s(&result.checkpoint, "text");
-        assert!(text.starts_with("<handoff covers=\"#1–#4\" made=\"2026-10-07T10:30:00.000Z\" method=\"in-context\" reason=\"budget\">"));
+        assert!(text.starts_with("<handoff covers=\"#1–#4\" method=\"in-context\" reason=\"budget\">"));
         assert!(text.contains("## Original task (verbatim, #1)\nWrite /tmp/result.txt and verify it.\n"));
         assert!(text.contains("## Brief (written at the handoff)\n## Objective"));
         assert!(result.checkpoint.get("chapters").is_none());
@@ -897,7 +904,7 @@ mod tests {
         // Exchanges 4–6 (#7–#12) stay verbatim after the handoff; #1–#6 leave view but stay stored.
         assert_eq!(result.checkpoint["upTo"], 6);
         let text = s(&result.checkpoint, "text");
-        assert!(text.starts_with("<handoff covers=\"#1–#6\" made=\"2026-10-07T10:30:00.000Z\" method=\"in-context\" reason=\"idle\">\nThis is a fresh conversation continuing your conversation with the user"));
+        assert!(text.starts_with("<handoff covers=\"#1–#6\" method=\"in-context\" reason=\"idle\">\nThis is a fresh conversation continuing your conversation with the user"));
         assert!(!text.contains("## Original task"));
         assert!(text.contains("## Brief (written at the handoff)\n## About the user\n- prefers trains #1"));
         assert!(result.notice["text"].as_str().unwrap().starts_with("[harness] Fresh conversation. Turns up to #6 are stored but out of view"));

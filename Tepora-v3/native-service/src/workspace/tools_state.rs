@@ -119,6 +119,16 @@ impl ToolsState for Adapter<'_> {
             json!({"expression":expression,"cloud":false,"share":false,"limit":limit}),
         )
     }
+    fn search_docs(&mut self, kind: &str, query: &str, limit: usize) -> Result<Vec<Value>, ApiError> {
+        let expression = match_expression(query);
+        if expression.is_empty() {
+            return Ok(vec![]);
+        }
+        self.rows("document.search", json!({"kind":kind,"expression":expression,"limit":limit}))
+    }
+    fn entries(&mut self, id: &str, from: u64, to: u64) -> Result<Vec<Value>, ApiError> {
+        self.rows("session.entries", json!({"id":id,"from":from,"to":to}))
+    }
     fn write_memory(
         &mut self,
         content: &str,
