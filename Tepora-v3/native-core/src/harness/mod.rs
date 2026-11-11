@@ -10,6 +10,7 @@ use crate::{
 use serde_json::{json, Map, Value};
 mod compaction;
 mod format;
+mod memory;
 mod metacog;
 mod prompts;
 
@@ -23,6 +24,7 @@ pub(crate) fn call(op: &str, p: &Value) -> CoreResult<Value> {
         Some(("prompts", op)) => prompts::call(op, p),
         Some(("compaction", op)) => compaction::call(op, p),
         Some(("metacog", op)) => metacog::call(op, p),
+        Some(("memory", op)) => memory::call(op, p),
         _ => Err(invalid(format!("Unknown harness operation: {op}"))),
     }
 }
