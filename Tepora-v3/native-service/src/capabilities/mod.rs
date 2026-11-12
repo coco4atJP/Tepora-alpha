@@ -3,7 +3,7 @@
 //! owns every destination.
 use crate::{
     agent::decisions::{
-        decision_payload, validate_answers, DecisionBackend, DecisionError, DecisionFuture,
+        decision_answers, decision_request, DecisionBackend, DecisionError, DecisionFuture,
     },
     network::{
         normal_url, Domain, EgressGuard, NativeNetwork, NetworkError, NetworkProfile,
@@ -29,6 +29,8 @@ use tepora_core::{
 
 pub const PROTOCOL_ROLES: &[(&str, &str)] = &[
     ("system-one", "decision"),
+    ("openai-decisions", "decision"),
+    ("gemini-decisions", "decision"),
     ("openai-embeddings", "embedding"),
     ("ollama-embed", "embedding"),
     ("openai-speech", "tts"),
@@ -138,6 +140,8 @@ pub struct CapabilityError {
     /// Trusted lifecycle invalidation, distinct from caller cancellation and
     /// provider failure. Decision circuit health must ignore these outcomes.
     pub invalidated: bool,
+    /// The decision provider declined this input (refusal, safety filter).
+    pub refused: bool,
     pub message: String,
 }
 impl CapabilityError {
@@ -149,6 +153,7 @@ impl CapabilityError {
             blocked: false,
             cancelled: false,
             invalidated: false,
+            refused: false,
             message: message.into(),
         }
     }
@@ -246,6 +251,7 @@ impl From<DecisionError> for CapabilityError {
         let mut x = Self::new(e.status, e.message);
         x.cancelled = e.cancelled;
         x.invalidated = e.invalidated;
+        x.refused = e.refused;
         x.upstream_status = e.upstream_status;
         x
     }
@@ -836,14 +842,16 @@ impl Capabilities {
         }
         // ECMAScript /i keeps this range ASCII-only. Without multiline, $
         // requires the actual end of input, including for line terminators.
+        // An empty route sends to baseUrl itself (a full decision endpoint URL).
         require(
-            route.starts_with('/')
-                && route.len() > 1
-                && route
-                    .bytes()
-                    .skip(1)
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'/' | b'-'))
-                && !route.contains(".."),
+            route.is_empty() && p["role"] == "decision"
+                || route.starts_with('/')
+                    && route.len() > 1
+                    && route
+                        .bytes()
+                        .skip(1)
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'/' | b'-'))
+                    && !route.contains(".."),
             400,
             "Invalid modality route",
         )?;
@@ -892,7 +900,12 @@ impl Capabilities {
         };
         let mut headers = HeaderMap::new();
         if !key.is_empty() {
-            let value = format!("Bearer {}", json_codec::sql_text(&key));
+            let gemini = p["protocol"] == "gemini-decisions";
+            let value = if gemini {
+                json_codec::sql_text(&key)
+            } else {
+                format!("Bearer {}", json_codec::sql_text(&key))
+            };
             let value = value.trim_matches([' ', '\t']);
             // Fetch Headers uses ByteString rather than UTF-8 for header values.
             let units: Vec<u16> = value.encode_utf16().collect();
@@ -903,7 +916,11 @@ impl Capabilities {
             )?;
             let bytes: Vec<u8> = units.into_iter().map(|u| u as u8).collect();
             headers.insert(
-                header::AUTHORIZATION,
+                if gemini {
+                    header::HeaderName::from_static("x-goog-api-key")
+                } else {
+                    header::AUTHORIZATION
+                },
                 header::HeaderValue::from_bytes(&bytes)
                     .map_err(|_| CapabilityError::new(400, "Invalid authorization header"))?,
             );
@@ -957,7 +974,7 @@ impl Capabilities {
         operation.check()?;
         // A decision's typed transport has no token-price contract. Record
         // missing usage/cost explicitly and never infer it from question text.
-        let mut receipt = if p["role"] == "decision" && route == "/systemone" {
+        let mut receipt = if p["role"] == "decision" {
             let state = self.inner.state.clone();
             Some(crate::model_usage::Dispatch::new(p, &Value::Null, "decision", 1, None, Arc::new(move |receipt| state.record_model_call(receipt))))
         } else { None };
@@ -981,8 +998,21 @@ impl Capabilities {
         operation.check()?;
         let status = response.status;
         if !(200..300).contains(&status) {
-            drop(response);
-            return Err(CapabilityError::upstream(status));
+            // Gemini blocks a filtered input with HTTP 400 and a string
+            // error.code (safety, blocklist…); ordinary Google errors carry a
+            // numeric code. A refusal is the provider's judgement, not a
+            // service failure.
+            let refused = p["protocol"] == "gemini-decisions"
+                && status == 400
+                && response
+                    .bytes()
+                    .await
+                    .ok()
+                    .and_then(|b| json_codec::parse(&String::from_utf8_lossy(&b)).ok())
+                    .is_some_and(|v| v["error"]["code"].is_string());
+            let mut error = CapabilityError::upstream(status);
+            error.refused = refused;
+            return Err(error);
         }
         let headers = response.headers.clone();
         let bytes = response.bytes().await.map_err(|e| operation.error(e))?;
@@ -1021,8 +1051,13 @@ impl Capabilities {
             &owned
         };
         require(p["role"] == "decision", 400, "Not a decision endpoint")?;
-        let payload = decision_payload(s(p, "model"), state, questions)?;
-        let body = json_codec::parse(&payload)?;
+        let (route, body) = decision_request(
+            s(p, "protocol"),
+            s(p, "baseUrl"),
+            s(p, "model"),
+            state,
+            questions,
+        )?;
         let timeout_ms = p["timeoutMs"].as_u64().filter(|n| *n > 0).ok_or_else(|| {
             CapabilityError::new(
                 409,
@@ -1033,7 +1068,7 @@ impl Capabilities {
             let response = self
                 .request(
                     p,
-                    "/systemone",
+                    &route,
                     CapabilityRequest {
                         json: Some(body),
                         ..Default::default()
@@ -1041,7 +1076,12 @@ impl Capabilities {
                     cancel,
                 )
                 .await?;
-            let result = validate_answers(s(p, "model"), questions, &response.json()?)?;
+            let result = decision_answers(
+                s(p, "protocol"),
+                s(p, "model"),
+                questions,
+                &response.json()?,
+            )?;
             if let Some(error) = cancel.error() {
                 return Err(error.into());
             }
@@ -1053,7 +1093,7 @@ impl Capabilities {
             }
             Ok(result)
         };
-        // DecisionClient's deadline includes its complete fetch, including
+        // A decision's deadline includes its complete fetch, including
         // capability resource admission. Ordinary modality request() correctly
         // starts its own network timeout only after that admission.
         tokio::select! {
@@ -1267,6 +1307,7 @@ impl DecisionBackend for CapabilityDecisionBackend {
                     upstream_status: e.upstream_status,
                     cancelled: e.cancelled,
                     invalidated: e.invalidated,
+                    refused: e.refused,
                     message: e.message,
                 })
         })

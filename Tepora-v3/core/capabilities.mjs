@@ -2,13 +2,13 @@ import {createHash} from 'node:crypto';
 import {validateProfile,ResourceGate} from './provider-registry.mjs';
 import {invariant,text} from './policy.mjs';
 import {normalURL,NetworkBlocked} from './network-policy.mjs';
-import {DecisionClient} from './decision.mjs';
+import {decisionRequest,decisionAnswers} from './decision.mjs';
 import {embeddingInputs} from './embedding-space.mjs';
 import {ModelDispatch} from './model-usage.mjs';
 
 /** Modality endpoints are NOT chat models. No dependency on Vercel or a hosted gateway. */
 export const CAPABILITY_PROTOCOLS={
- 'system-one':'decision','openai-embeddings':'embedding','ollama-embed':'embedding',
+ 'system-one':'decision','openai-decisions':'decision','gemini-decisions':'decision','openai-embeddings':'embedding','ollama-embed':'embedding',
  'openai-transcriptions':'stt','openai-transcribe':'stt',
  'openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'
 };
@@ -61,16 +61,21 @@ export class Capabilities{
  setKey(id,key,identity){const p=this.get().profiles.find(p=>p.id===id);invariant(p?.identity===identity,'Capability changed',409);invariant(typeof key==='string'&&key.length<=4000,'Invalid key');if(key)this.keys.set(id,key);else this.keys.delete(id);return {id,keyPresent:!!this.keyFor(p)};}
  async request(p,route,{method='POST',json,body,signal,maxBytes=8_000_000}={}){
   invariant(this.current(p),'The capability endpoint changed or was disabled',409);
-  invariant(typeof route==='string'&&/^\/[a-z0-9_/-]+$/i.test(route)&&!route.includes('..'),'Invalid modality route');
+  invariant(typeof route==='string'&&(route===''&&p.role==='decision'||/^\/[a-z0-9_/-]+$/i.test(route))&&!route.includes('..'),'Invalid modality route');
   const release=await this.gate.acquire('cap:'+p.resource,p.maxParallel,{signal,priority:p.role==='tts'?10:0});
   // Typed decisions expose no token/rate contract; match native transport receipts.
-  const receipt=p.role==='decision'&&route==='/systemone'?new ModelDispatch(this.store,p,{purpose:'decision'}):null;
+  const receipt=p.role==='decision'?new ModelDispatch(this.store,p,{purpose:'decision'}):null;
   try{
    invariant(this.current(p),'Capability changed while queued',409);
-   const key=this.keyFor(p),headers={...(key?{Authorization:`Bearer ${key}`}:{})};if(json!==undefined)headers['Content-Type']='application/json';
+   const key=this.keyFor(p),headers=key?p.protocol==='gemini-decisions'?{'x-goog-api-key':key}:{Authorization:`Bearer ${key}`}:{};if(json!==undefined)headers['Content-Type']='application/json';
    const response=await this.network.request(p.baseUrl.replace(/\/$/,'')+route,{method,headers,signal,body:json!==undefined?JSON.stringify(json):body},
     {profile:{...p,id:'cap:'+p.id},purpose:'model',timeoutMs:p.timeoutMs,maxBytes,onDispatch:()=>receipt?.start()});
-   if(!response.ok){await response.body?.cancel();throw Object.assign(new Error(`能力接続 HTTP ${response.status}`),{status:502,upstreamStatus:response.status,knownRejected:response.status<500});}
+   if(!response.ok){
+    // Gemini blocks a filtered input with HTTP 400 and a string error.code (safety, blocklist…); ordinary
+    // Google errors carry a numeric code. A refusal is the provider's judgement, not a service failure.
+    const detail=p.protocol==='gemini-decisions'&&response.status===400?await response.json().catch(()=>null):await response.body?.cancel();
+    const refused=typeof detail?.error?.code==='string';
+    throw Object.assign(new Error(`能力接続 HTTP ${response.status}`),{status:502,upstreamStatus:response.status,knownRejected:response.status<500,...(refused?{refused}:{})});}
    // Consume under the resource lease, not only until headers arrive.
    const bytes=Buffer.from(await response.arrayBuffer());invariant(this.current(p),'Capability changed during response',409);
    receipt?.finish(null,'completed');
@@ -79,11 +84,11 @@ export class Capabilities{
  }
  async decide(state,questions,signal,p=this.pin('decision')){
   invariant(p.role==='decision','Not a decision endpoint');
-  // DecisionClient validates exact typed outputs; this adapter supplies the transport/auth policy.
-  const client=new DecisionClient({url:'http://127.0.0.1/v1/systemone',model:p.model,timeoutMs:p.timeoutMs},async(_url,init)=>{
-   return this.request(p,'/systemone',{json:JSON.parse(init.body),signal:init.signal});
-  });
-  return client.decide(state,questions,signal);
+  const {route,body}=decisionRequest(p.protocol,p.baseUrl,p.model,state,questions);
+  signal?.throwIfAborted();
+  // The deadline covers resource admission as well as the request itself.
+  const response=await this.request(p,route,{json:body,signal:AbortSignal.any([signal||new AbortController().signal,AbortSignal.timeout(p.timeoutMs)])});
+  return decisionAnswers(p.protocol,p.model,questions,await response.json());
  }
  async transcribe(audio,{signal,profileIdentity,consent=false,profile=this.pin('stt')}={}){
   const p=profile;invariant(p.role==='stt','Not a transcription endpoint');

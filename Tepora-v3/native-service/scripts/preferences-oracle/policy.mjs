@@ -45,7 +45,7 @@ export function safeError(error) {
 export function validateSettings(input, previous) {
   invariant(input && typeof input === 'object' && !Array.isArray(input), 'Settings must be an object');
   const s = structuredClone(previous);
-  for (const key of ['codexBinary','codexModel','companion', 'model', 'provider', 'baseUrl', 'asrUrl', 'asrStreamUrl', 'asrModel', 'decisionUrl', 'decisionModel', 'apiKeyEnv', 'weatherCity', 'newsUrl', 'runtimeBinary', 'modelPath', 'bravePath']) {
+  for (const key of ['codexBinary','codexModel','companion', 'model', 'provider', 'baseUrl', 'asrUrl', 'asrStreamUrl', 'asrModel', 'apiKeyEnv', 'weatherCity', 'newsUrl', 'runtimeBinary', 'modelPath', 'bravePath']) {
     if (key in input) { invariant(typeof input[key] === 'string' && input[key].length < 2000, `Invalid ${key}`); s[key] = input[key].trim(); }
   }
   for (const key of ['dictationEditing','codexEnabled','codexNetwork','allowCloud', 'allowNetwork', 'shareMemory', 'voiceEnabled', 'autoAmbient']) if (key in input) { invariant(typeof input[key] === 'boolean', `Invalid ${key}`); s[key] = input[key]; }
@@ -54,10 +54,9 @@ export function validateSettings(input, previous) {
   if (s.baseUrl) endpoint(s.baseUrl, s.allowCloud || s.baseUrl === previous.baseUrl);
   if (s.asrUrl) endpoint(s.asrUrl, false);
    if (s.asrStreamUrl) endpoint(s.asrStreamUrl, false);
-  if (s.decisionUrl) endpoint(s.decisionUrl, false);
   if (s.newsUrl) endpoint(s.newsUrl, s.allowNetwork || s.newsUrl === previous.newsUrl);
   invariant(!s.apiKeyEnv || /^[A-Z_][A-Z0-9_]{0,100}$/.test(s.apiKeyEnv), 'Invalid environment variable name');
   invariant(['llama.cpp','vllm','ollama','lmstudio','compatible'].includes(s.provider), 'Unknown provider');
   return s;
 }
-export const DEFAULT_SETTINGS = Object.freeze({dictationEditing:false,codexEnabled:false,codexNetwork:false,codexBinary:'',codexModel:'',companion:'Tepora', provider:'llama.cpp', baseUrl:'http://127.0.0.1:8080/v1', model:'', apiKeyEnv:'', allowCloud:false, allowNetwork:false, shareMemory:false, maxSteps:64, maxTokens:2048, concurrency:2, asrUrl:'', asrStreamUrl:'', asrModel:'Qwen/Qwen3-ASR-1.7B', decisionUrl:'', decisionModel:'multilingual', voiceEnabled:true, autoAmbient:false, weatherCity:'', newsUrl:'', runtimeBinary:'', modelPath:'', bravePath:''});
+export const DEFAULT_SETTINGS = Object.freeze({dictationEditing:false,codexEnabled:false,codexNetwork:false,codexBinary:'',codexModel:'',companion:'Tepora', provider:'llama.cpp', baseUrl:'http://127.0.0.1:8080/v1', model:'', apiKeyEnv:'', allowCloud:false, allowNetwork:false, shareMemory:false, maxSteps:64, maxTokens:2048, concurrency:2, asrUrl:'', asrStreamUrl:'', asrModel:'Qwen/Qwen3-ASR-1.7B', voiceEnabled:true, autoAmbient:false, weatherCity:'', newsUrl:'', runtimeBinary:'', modelPath:'', bravePath:''});

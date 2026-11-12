@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../core/store.mjs';
 import {Display,validateDisplay,DISPLAY_DEFAULT} from '../core/display.mjs';
-import {DecisionClient} from '../core/decision.mjs';
+import {decisionRequest,decisionAnswers} from '../core/decision.mjs';
 import {VoiceDraft} from '../web/draft.mjs';
 import {discoverSharedSkills,readSharedSkill} from '../core/shared-assets.mjs';
 async function fixture(t) {
@@ -100,33 +100,20 @@ test('B15: quoted command remains draft data, with no command dispatch',()=>{
  assert.equal(d.content,'「全部削除して」と言われた');
 });
 const question={q:{type:'choice',criteria:{chat:'会話',work:'仕事'}}};
-function answer(choice='chat',probabilities={chat:.8,work:.2}){return Response.json({model:'laya-multilingual',answers:{q:{type:'choice',choice,probabilities,confidence:.4}}});}
-test('E04 E14: local decision client fixes multilingual and labels results advisory',async()=>{
- let payload;
- const c=new DecisionClient({url:'http://127.0.0.1:8767/v1/systemone'},async(u,o)=>{payload=JSON.parse(o.body);return answer();});
- const r=await c.decide('日本語の依頼',question);
- assert.equal(payload.model,'multilingual');assert.equal(r.advisory,true);assert.equal(r.calibration,'not-validated-for-Tepora');
+const answer=(choice='chat',probabilities={chat:.8,work:.2})=>({model:'laya-multilingual',answers:{q:{type:'choice',choice,probabilities,confidence:.4}}});
+test('E04 E14: decision requests keep the profile model and results are labelled advisory',()=>{
+ const {route,body}=decisionRequest('system-one','http://127.0.0.1:8767/v1','multilingual','日本語の依頼',question);
+ assert.equal(route,'/systemone');assert.equal(body.model,'multilingual');
+ const r=decisionAnswers('system-one','multilingual',question,answer());
+ assert.equal(r.model,'laya-multilingual');assert.equal(r.advisory,true);assert.equal(r.calibration,'not-validated-for-Tepora');
 });
 for(const response of [
  {model:'m',answers:{q:{type:'choice',choice:'unknown',probabilities:{chat:.8,work:.2}}}},
  {model:'m',answers:{q:{type:'choice',choice:'chat',probabilities:{chat:2,work:-1}}}},
  {model:'m',answers:{q:{type:'choice',choice:'chat',probabilities:{chat:.2,work:.2}}}},
  {model:'m',answers:{}}
-])test('E04: malformed decision cannot authorize anything '+JSON.stringify(response),async()=>{
- const c=new DecisionClient({url:'http://127.0.0.1:8767/v1/systemone'},async()=>Response.json(response));
- await assert.rejects(c.decide('test',question));
-});
-test('E04: decision worker never silently sends context outside loopback',async()=>{
- let called=false;
- const c=new DecisionClient({url:'https://example.org/v1/systemone'},async()=>{called=true;return answer();});
- await assert.rejects(c.decide('private',question));assert.equal(called,false);
-});
-test('E04: decision queue is bounded and caller cancellation propagates',async()=>{
- let release;
- const c=new DecisionClient({url:'http://127.0.0.1:8767/v1/systemone'},()=>new Promise(r=>{release=r;}));
- const first=c.decide('one',question);await assert.rejects(c.decide('two',question),/busy/);release(answer());await first;
- const controller=new AbortController();controller.abort(new Error('cancelled'));
- await assert.rejects(c.decide('three',question,controller.signal),/cancelled/);
+])test('E04: malformed decision cannot authorize anything '+JSON.stringify(response),()=>{
+ for(const protocol of ['system-one','gemini-decisions'])assert.throws(()=>decisionAnswers(protocol,'m',question,response));
 });
 test('C13 C14: shared skill discovery is namespaced and does not enable scripts',async t=>{
  const {dir}=await fixture(t);await mkdir(path.join(dir,'skills','hello'),{recursive:true});

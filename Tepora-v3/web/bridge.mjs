@@ -7,7 +7,7 @@ export const previewMode=location.protocol==='file:' || window.__TEPORA_PREVIEW_
 let csrfToken='', stream=null;
 const listeners=new Set();
 const dispatch=e=>{for(const fn of listeners)fn(e);};
-const previewDefaults={companion:'Tepora',provider:'llama.cpp',baseUrl:'http://127.0.0.1:8080/v1',model:'',asrUrl:'',asrStreamUrl:'',asrModel:'Qwen/Qwen3-ASR-0.6B',decisionUrl:'',decisionModel:'multilingual',allowCloud:false,allowNetwork:false,shareMemory:false,voiceEnabled:true,autoAmbient:false,concurrency:2,maxSteps:64,maxTokens:2048,weatherCity:'',newsUrl:'',apiKeyEnv:'',runtimeBinary:'',modelPath:'',bravePath:''};
+const previewDefaults={companion:'Tepora',provider:'llama.cpp',baseUrl:'http://127.0.0.1:8080/v1',model:'',asrUrl:'',asrStreamUrl:'',asrModel:'Qwen/Qwen3-ASR-0.6B',allowCloud:false,allowNetwork:false,shareMemory:false,voiceEnabled:true,autoAmbient:false,concurrency:2,maxSteps:64,maxTokens:2048,weatherCity:'',newsUrl:'',apiKeyEnv:'',runtimeBinary:'',modelPath:'',bravePath:''};
 let saved;try{saved=JSON.parse(localStorage.getItem('tepora-preview-v3')||'null');}catch{}
 let previewState={seq:0,jobs:[],artifacts:[],memories:[],messages:[],skills:[],mcp:[],settings:previewDefaults,...saved,preview:true,platform:'preview',workspace:'プレビュー内のみ'};
 previewState.display=previewState.display||structuredClone(DISPLAY_DEFAULT);
@@ -119,7 +119,7 @@ async function previewRequest(p,method,b){
  if(p==='/api/capabilities'){
   if(method==='GET')return structuredClone(previewState.capabilities);
   if(b.expectedRevision!==previewState.capabilities.revision)throw Error('接続設定が更新されています。');
-  const protocols={'openai-transcribe':'stt','openai-transcriptions':'stt','system-one':'decision','openai-embeddings':'embedding','ollama-embed':'embedding','openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'};
+  const protocols={'openai-transcribe':'stt','openai-transcriptions':'stt','system-one':'decision','openai-decisions':'decision','gemini-decisions':'decision','openai-embeddings':'embedding','ollama-embed':'embedding','openai-speech':'tts','openai-images':'image','openai-image-edit':'image_edit','xai-video':'video'};
   const profiles=b.config.profiles.map(p=>{if(!protocols[p.protocol]||!p.id||!p.name||!p.model)throw Error('接続ID・名前・モデルを入力してください。');new URL(p.baseUrl);return {...p,role:protocols[p.protocol],identity:uid(),enabled:p.enabled!==false,keyPresent:false};});
   for(const [role,id]of Object.entries(b.config.routes)){if(!profiles.some(p=>p.id===id&&p.role===role&&p.enabled))throw Error('役割に対応した接続を選んでください。');}
   previewState.capabilities={schema:1,revision:b.expectedRevision+1,profiles,routes:b.config.routes};emitPreview('capabilities.updated',previewState.capabilities);return structuredClone(previewState.capabilities);

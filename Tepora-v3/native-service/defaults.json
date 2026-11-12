@@ -19,8 +19,6 @@
     "asrUrl": "",
     "asrStreamUrl": "",
     "asrModel": "Qwen/Qwen3-ASR-1.7B",
-    "decisionUrl": "",
-    "decisionModel": "multilingual",
     "voiceEnabled": true,
     "autoAmbient": false,
     "weatherCity": "",

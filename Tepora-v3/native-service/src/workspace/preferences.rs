@@ -265,8 +265,6 @@ fn validate_settings(input: &Value, previous: &Value) -> Result<Value, ApiError>
         "asrUrl",
         "asrStreamUrl",
         "asrModel",
-        "decisionUrl",
-        "decisionModel",
         "apiKeyEnv",
         "weatherCity",
         "newsUrl",
@@ -318,7 +316,7 @@ fn validate_settings(input: &Value, previous: &Value) -> Result<Value, ApiError>
                 || strict_equal(next.get("baseUrl"), previous.get("baseUrl")),
         )?;
     }
-    for key in ["asrUrl", "asrStreamUrl", "decisionUrl"] {
+    for key in ["asrUrl", "asrStreamUrl"] {
         if truth(&next[key]) {
             endpoint(&next[key], false)?;
         }
