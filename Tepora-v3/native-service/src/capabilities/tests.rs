@@ -2273,6 +2273,11 @@ async fn decision_wire_fixtures_match_node_for_every_protocol() {
                 "{name}"
             );
             assert_eq!(error.refused, expected["refused"] == true, "{name}");
+            assert_eq!(
+                error.known_rejected.map_or(Value::Null, Value::Bool),
+                expected["knownRejected"],
+                "{name}"
+            );
             if let Some(message) = expected["message"].as_str() {
                 assert_eq!(error.message, message, "{name}");
             }

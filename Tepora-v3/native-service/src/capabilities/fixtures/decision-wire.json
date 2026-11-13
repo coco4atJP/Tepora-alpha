@@ -649,7 +649,74 @@
    },
    "expectError": {
     "status": 502,
-    "refused": true
+    "refused": true,
+    "knownRejected": true
+   }
+  },
+  {
+   "name": "openai-decisions refusal of one question refuses the whole decision",
+   "protocol": "openai-decisions",
+   "basePath": "/v1",
+   "model": "gpt-6-luna",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "r": {
+     "type": "noul",
+     "instructions": "Is the form valid?",
+     "criteria": {
+      "true": "All fields pass",
+      "false": "A field fails"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "gpt-6-luna",
+     "input": "Goal: send the form",
+     "questions": [
+      {
+       "type": "predicate",
+       "name": "q",
+       "instructions": "Is the task finished?\nYes means: Everything asked is done\nNo means: Something is missing"
+      },
+      {
+       "type": "predicate",
+       "name": "r",
+       "instructions": "Is the form valid?\nYes means: All fields pass\nNo means: A field fails"
+      }
+     ]
+    }
+   },
+   "response": {
+    "answers": [
+     {
+      "type": "predicate",
+      "name": "q",
+      "probability": 0.9
+     },
+     {
+      "type": "refusal",
+      "name": "r"
+     }
+    ]
+   },
+   "expectError": {
+    "status": 502,
+    "refused": true,
+    "message": "Decision refused: r",
+    "knownRejected": true
    }
   },
   {
@@ -697,7 +764,8 @@
    "expectError": {
     "status": 502,
     "refused": false,
-    "message": "Invalid decision answer names"
+    "message": "Invalid decision answer names",
+    "knownRejected": null
    }
   },
   {
@@ -903,7 +971,8 @@
    "expectError": {
     "status": 502,
     "upstreamStatus": 400,
-    "refused": true
+    "refused": true,
+    "knownRejected": true
    }
   },
   {
@@ -956,7 +1025,8 @@
    "expectError": {
     "status": 502,
     "upstreamStatus": 400,
-    "refused": false
+    "refused": false,
+    "knownRejected": true
    }
   },
   {
@@ -978,7 +1048,8 @@
    "expectError": {
     "status": 400,
     "refused": false,
-    "message": "Decision context is empty"
+    "message": "Decision context is empty",
+    "knownRejected": null
    }
   },
   {
@@ -996,7 +1067,8 @@
    "expectError": {
     "status": 400,
     "refused": false,
-    "message": "Invalid decision question key"
+    "message": "Invalid decision question key",
+    "knownRejected": null
    }
   }
  ]
