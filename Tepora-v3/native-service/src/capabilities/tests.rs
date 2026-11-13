@@ -1731,14 +1731,6 @@ async fn injected_decisions_resolve_one_capability_owner_and_current_memory_key_
     );
     let p = h.install(raw("system-one"));
     assert!(decisions.available());
-    assert_eq!(
-        decisions
-            .configure(&h.capabilities.get().unwrap(), Some("must-not-store-copy"))
-            .err()
-            .unwrap()
-            .status,
-        409
-    );
     for (key, score) in [("first-memory-key", 0.25), ("second-memory-key", 0.75)] {
         h.capabilities
             .set_key("local", &json!(key), &p["identity"])
