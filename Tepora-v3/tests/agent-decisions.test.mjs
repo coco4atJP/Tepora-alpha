@@ -141,7 +141,7 @@ for(const c of WIRE.cases)test('decision wire: '+c.name,async t=>{
  const caps=await decisionCapability(t,c.protocol,`http://127.0.0.1:${server.address().port}${c.basePath}`,c.model);
  const run=caps.decide(c.state,c.questions);
  if(c.expectError){
-  await assert.rejects(run,e=>e.status===c.expectError.status&&!!e.refused===c.expectError.refused&&(!c.expectError.message||e.message===c.expectError.message)&&(!c.expectError.upstreamStatus||e.upstreamStatus===c.expectError.upstreamStatus));
+  await assert.rejects(run,e=>e.status===c.expectError.status&&!!e.refused===c.expectError.refused&&(e.knownRejected??null)===c.expectError.knownRejected&&(!c.expectError.message||e.message===c.expectError.message)&&(!c.expectError.upstreamStatus||e.upstreamStatus===c.expectError.upstreamStatus));
  } else {
   const r=await run;assert.equal(r.model,c.expectModel);assert.equal(JSON.stringify(r.answers),JSON.stringify(c.expectAnswers));assert.equal(r.advisory,true);
  }

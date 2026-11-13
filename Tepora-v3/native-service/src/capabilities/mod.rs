@@ -252,6 +252,10 @@ impl From<DecisionError> for CapabilityError {
         x.cancelled = e.cancelled;
         x.invalidated = e.invalidated;
         x.refused = e.refused;
+        // Matches core/decision.mjs: a refusal is a known rejection of this input.
+        if e.refused {
+            x.known_rejected = Some(true);
+        }
         x.upstream_status = e.upstream_status;
         x
     }
