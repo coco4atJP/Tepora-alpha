@@ -1449,7 +1449,7 @@ async fn system_one_adapter_uses_native_route_and_genuine_typed_answer_validatio
     assert_eq!(record.request.method, Method::POST);
     assert_eq!(
         record.request.body.as_ref(),
-        decision_payload("model", &state, &questions)
+        crate::agent::decisions::system_one_payload("model", &state, &questions)
             .unwrap()
             .as_bytes()
     );
@@ -1476,7 +1476,7 @@ async fn system_one_adapter_uses_native_route_and_genuine_typed_answer_validatio
     v["answers"]["safe"]["confidence"] = json!(1.1);
     invalids.push(v);
     for body in invalids {
-        let expected = validate_answers("model", &questions, &body).err().unwrap();
+        let expected = crate::agent::decisions::validate_answers("model", &questions, &body).err().unwrap();
         h.transport.push(json_response(&body));
         let error = h
             .capabilities
@@ -2129,7 +2129,7 @@ async fn injected_decision_total_deadline_includes_shared_resource_queue() {
     let waiting = spawn_yes(&decisions, &RequestCancellation::new());
     eventually(|| is_resource(&h.capabilities, 1, 1)).await;
     // A different modality holds the shared resource under its own longer
-    // network timeout. DecisionClient's shorter deadline includes queue time.
+    // network timeout. A decision's shorter deadline includes queue time.
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(3), waiting)
             .await
@@ -2240,4 +2240,121 @@ fn reviewed_modality_presets_match_node_normalization_and_identity() {
     assert_ne!(embedding_identity(&p),p["identity"]);
     assert_eq!(embedding_identity(&json!({"identity":"legacy"})),json!("legacy"));
     assert_eq!(embedding_inputs(&p,&json!(["質問","原文"]),"ranking"),json!(["Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: 質問","原文"]));
+}
+
+/// The same wire cases as tests/agent-decisions.test.mjs: path, auth header,
+/// translated body and the normalized System One answers for every protocol.
+#[tokio::test]
+async fn decision_wire_fixtures_match_node_for_every_protocol() {
+    let fixture = json_codec::parse(include_str!("fixtures/decision-wire.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let h = Harness::new();
+        let p = h.install(json!({"id":"local","protocol":case["protocol"],
+            "baseUrl":format!("http://127.0.0.1:8123{}", s(case, "basePath")),
+            "model":case["model"],"domain":"device","resource":"shared"}));
+        h.capabilities
+            .set_key("local", &json!("fixture-key"), &p["identity"])
+            .unwrap();
+        let p = h.capabilities.pin("decision").unwrap();
+        if case.get("expectRequest").is_some() {
+            let body = json_codec::stringify_js(&case["response"]).unwrap();
+            let status = case["status"].as_u64().unwrap_or(200) as u16;
+            h.transport.push(bytes_response(status, body));
+        }
+        let result = h
+            .capabilities
+            .decide(
+                &case["state"],
+                &case["questions"],
+                Some(&p),
+                &RequestCancellation::new(),
+            )
+            .await;
+        if let Some(expected) = case.get("expectError") {
+            let error = result
+                .err()
+                .unwrap_or_else(|| panic!("{name}: expected an error"));
+            assert_eq!(
+                error.status as u64,
+                expected["status"].as_u64().unwrap(),
+                "{name}"
+            );
+            assert_eq!(error.refused, expected["refused"] == true, "{name}");
+            if let Some(message) = expected["message"].as_str() {
+                assert_eq!(error.message, message, "{name}");
+            }
+            if let Some(status) = expected["upstreamStatus"].as_u64() {
+                assert_eq!(error.upstream_status, Some(status as u16), "{name}");
+            }
+        } else {
+            let result = result.unwrap_or_else(|e| panic!("{name}: {e:?}"));
+            assert_eq!(result["model"], case["expectModel"], "{name}");
+            assert_eq!(
+                json_codec::stringify_js(&result["answers"]).unwrap(),
+                json_codec::stringify_js(&case["expectAnswers"]).unwrap(),
+                "{name}"
+            );
+        }
+        let records = h.transport.records();
+        let Some(expected) = case.get("expectRequest") else {
+            assert!(records.is_empty(), "{name}: rejected before sending");
+            continue;
+        };
+        assert_eq!(records.len(), 1, "{name}");
+        let request = &records[0].request;
+        assert_eq!(
+            records[0].admitted.url.path(),
+            s(expected, "path"),
+            "{name}"
+        );
+        for (key, value) in expected["headers"].as_object().unwrap() {
+            assert_eq!(
+                request
+                    .headers
+                    .get(key.as_str())
+                    .and_then(|v| v.to_str().ok()),
+                value.as_str(),
+                "{name}: {key}"
+            );
+        }
+        for key in expected["absentHeaders"].as_array().into_iter().flatten() {
+            assert!(
+                request.headers.get(key.as_str().unwrap()).is_none(),
+                "{name}: {key}"
+            );
+        }
+        let sent = json_codec::parse(&String::from_utf8_lossy(&request.body)).unwrap();
+        assert_eq!(
+            json_codec::stringify_js(&sent).unwrap(),
+            json_codec::stringify_js(&expected["body"]).unwrap(),
+            "{name}: body"
+        );
+    }
+}
+
+#[tokio::test]
+async fn refused_decisions_fall_back_without_opening_the_circuit() {
+    let h = Harness::new();
+    let p = h.install(json!({"id":"local","protocol":"gemini-decisions","baseUrl":"http://127.0.0.1:8123/v1beta","model":"gemini-decision-1","domain":"device","resource":"shared"}));
+    h.capabilities
+        .set_key("local", &json!("fixture-key"), &p["identity"])
+        .unwrap();
+    let decisions = injected_decisions(&h);
+    for _ in 0..4 {
+        h.transport.push(bytes_response(
+            400,
+            r#"{"error":{"code":"safety","message":"blocked"}}"#,
+        ));
+        assert_eq!(
+            decisions
+                .yes(&json!("state"), "Is it done?", &RequestCancellation::new())
+                .await
+                .unwrap(),
+            None
+        );
+    }
+    assert_eq!(h.transport.count(), 4, "refusals are not retried");
+    assert_eq!(decisions.health()["failures"], 0);
+    assert!(decisions.available());
 }

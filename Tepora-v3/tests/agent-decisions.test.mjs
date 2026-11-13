@@ -38,7 +38,7 @@ test('web_fetch with a question returns only the sections the decision model pic
  assert.match(r.text,/question-focused: 1 of \d+ sections, chosen by the decision model/);
  assert.match(r.text,/標準モデルは税込29,800円、上位モデルは39,800円です。/);assert.doesNotMatch(r.text,/フィルターは半年ごと/);
  assert.match(r.text,/Other sections: .*保証/);assert.ok(d.requests.length>=1);
- assert.ok(d.requests[0].state.startsWith('Question: この製品の価格はいくら？'));
+ assert.ok(d.requests[0].body.state.startsWith('Question: この製品の価格はいくら？'));
 });
 
 test('without a decision model the same question falls back to keyword matching',async t=>{
@@ -71,7 +71,7 @@ test('completion check: the decision model sends an incomplete report back to wo
  const receipts=await assertSteps(f,s);
  const notices=f.rt.sessions.entries(s.id,{types:['notice']}).filter(n=>/check the result against the task/.test(n.text));
  assert.equal(notices.length,1);assert.match(notices[0].text,/三つの手順を実行して確認する/);
- const asked=d.requests.find(r=>/every part of the task/.test(r.questions.q.instructions));
+ const asked=d.requests.find(r=>/every part of the task/.test(r.body.questions.q.instructions))?.body;
  assert.ok(asked);const state=JSON.parse(asked.state);
  assert.match(state.actions,/^(ok|FAILED): /m,'the tool results go with the report, so a claim is judged against evidence');
  assert.deepEqual(state.actions.split('\n'),receipts.map(e=>`ok: ${e.stub}`),'all three completed steps reach the decision model');
@@ -113,4 +113,80 @@ test('check-ins: the decision model filters changes nobody needs to hear about',
  assert.equal(await f.rt.heartbeat(),false,'plain progress: no model call');
  need=0.9;f.rt.sessions.update(w.id,{status:'done',result:'ok'});
  assert.equal(await f.rt.heartbeat(),true);
+});
+
+// Decision providers: one internal shape (System One), three wire formats, the same cases as the Rust service.
+import {mkdtemp,rm} from 'node:fs/promises';
+import {Store} from '../core/store.mjs';
+import {NetworkPolicy} from '../core/network-policy.mjs';
+import {Capabilities} from '../core/capabilities.mjs';
+import {Decisions} from '../core/agent/decisions.mjs';
+import {ComputerUse} from '../core/computer/index.mjs';
+import {INSTRUCTIONS} from '../core/computer/decide.mjs';
+import {DEFAULT_SETTINGS,validateSettings} from '../core/policy.mjs';
+import {decisionProtocol} from '../web/capability-ui.mjs';
+const WIRE=JSON.parse(await readFile(new URL('../native-service/src/capabilities/fixtures/decision-wire.json',import.meta.url),'utf8'));
+async function decisionCapability(t,protocol,baseUrl,model='fixture-model'){
+ const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-decision-'));const store=new Store(dir),caps=new Capabilities(store,new NetworkPolicy(store));
+ t.after(async()=>{caps.close();store.close();await rm(dir,{recursive:true,force:true});});
+ caps.save({profiles:[{id:'d',name:'decision',protocol,baseUrl,model,domain:'device'}],routes:{decision:'d'}},0);
+ caps.setKey('d','fixture-key',caps.get().profiles[0].identity);
+ return caps;
+}
+for(const c of WIRE.cases)test('decision wire: '+c.name,async t=>{
+ const seen=[];
+ const server=http.createServer(async(req,res)=>{let raw='';for await(const b of req)raw+=b;seen.push({path:req.url,headers:req.headers,body:JSON.parse(raw)});
+  res.writeHead(c.status||200,{'Content-Type':'application/json'});res.end(JSON.stringify(c.response));});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
+ const caps=await decisionCapability(t,c.protocol,`http://127.0.0.1:${server.address().port}${c.basePath}`,c.model);
+ const run=caps.decide(c.state,c.questions);
+ if(c.expectError){
+  await assert.rejects(run,e=>e.status===c.expectError.status&&!!e.refused===c.expectError.refused&&(!c.expectError.message||e.message===c.expectError.message)&&(!c.expectError.upstreamStatus||e.upstreamStatus===c.expectError.upstreamStatus));
+ } else {
+  const r=await run;assert.equal(r.model,c.expectModel);assert.equal(JSON.stringify(r.answers),JSON.stringify(c.expectAnswers));assert.equal(r.advisory,true);
+ }
+ if(!c.expectRequest){assert.equal(seen.length,0,'rejected before sending');return;}
+ assert.equal(seen.length,1);assert.equal(seen[0].path,c.expectRequest.path);
+ for(const [k,v] of Object.entries(c.expectRequest.headers))assert.equal(seen[0].headers[k],v);
+ for(const k of c.expectRequest.absentHeaders||[])assert.equal(seen[0].headers[k],undefined);
+ assert.equal(JSON.stringify(seen[0].body),JSON.stringify(c.expectRequest.body));
+});
+for(const protocol of ['system-one','openai-decisions','gemini-decisions'])test(`decisions through ${protocol}: yes, relevance and a computer choice agree`,async t=>{
+ const d=await decisionModel((q,state,name)=>q.type==='choice'?'click_e2':name==='q'?0.8:/税込/.test(state.split(/\[Section \d+\]\n/)[Number(name.slice(1))]||'')?0.95:0.05,{protocol});t.after(d.close);
+ const decisions=new Decisions(await decisionCapability(t,protocol,protocol==='gemini-decisions'?d.url+'beta':d.url));
+ assert.equal(await decisions.yes('state','Is it done?'),0.8);
+ const rel=await decisions.relevance('価格は？',['重量4.2kg','標準モデルは税込29,800円','保証は2年']);
+ assert.equal(rel.method,'decision');assert.deepEqual(rel.scores,[0.05,0.95,0.05]);
+ const choose=ComputerUse.prototype.chooser.call({decisions,registry:null},{kind:'worker'});
+ const pick=await choose({goal:'send'},{click_e1:'click link "Help"',click_e2:'click button "Send"',done:'done'});
+ assert.equal(pick.choice,'click_e2');assert.equal(pick.method,'decision model');assert.equal(pick.probabilities.click_e2,0.9);
+ const sent=d.requests.at(-1);
+ assert.equal(sent.path,protocol==='system-one'?'/v1/systemone':protocol==='gemini-decisions'?'/v1beta/decisions':'/v1/decisions');
+ if(protocol==='gemini-decisions'){assert.equal(sent.headers['x-goog-api-key'],'fixture-key');assert.equal(sent.headers.authorization,undefined);}
+ else assert.equal(sent.headers.authorization,'Bearer fixture-key');
+ if(protocol==='openai-decisions')assert.equal(sent.body.questions[0].instructions,INSTRUCTIONS);
+ assert.equal(decisions.failures,0);
+});
+for(const protocol of ['openai-decisions','gemini-decisions'])test(`a ${protocol} refusal falls back and is not counted as a failure`,async t=>{
+ const d=await decisionModel(()=>0.9,{protocol,refuse:true});t.after(d.close);
+ const decisions=new Decisions(await decisionCapability(t,protocol,protocol==='gemini-decisions'?d.url+'beta':d.url));
+ for(let i=0;i<4;i++)assert.equal(await decisions.yes('state','Is it done?'),null);
+ assert.equal(d.requests.length,4,'refusals are not retried');assert.equal(decisions.failures,0);assert.ok(decisions.available());
+});
+test('a busy decision service (429, TypeSafe 529) is asked again',async t=>{
+ const statuses=[429,529];let calls=0;
+ const server=http.createServer(async(req,res)=>{for await(const _ of req);calls++;const status=statuses.shift();res.writeHead(status||200,{'Content-Type':'application/json'});
+  res.end(JSON.stringify(status?{error:'busy'}:{answers:{q:{type:'noul',noul:0.7}}}));});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
+ const decisions=new Decisions(await decisionCapability(t,'system-one',`http://127.0.0.1:${server.address().port}/v1`));
+ assert.equal(await decisions.yes('state','Is it done?'),0.7);assert.equal(calls,3);assert.equal(decisions.failures,0);
+});
+test('the decision format follows the endpoint host; the old decisionUrl setting is gone',()=>{
+ assert.equal(decisionProtocol('https://generativelanguage.googleapis.com/v1beta'),'gemini-decisions');
+ assert.equal(decisionProtocol('https://api.openai.com/v1'),'openai-decisions');
+ assert.equal(decisionProtocol('https://ai-gateway.vercel.sh/v1'),'openai-decisions');
+ for(const url of ['https://api.typesafe.ai/v1','https://api.liquid.ai/decisions/v1','https://api.perplexity.ai/v1/decisions','http://127.0.0.1:8767/v1','not a url'])assert.equal(decisionProtocol(url),'system-one');
+ for(const key of ['decisionUrl','decisionModel'])assert.equal(key in DEFAULT_SETTINGS,false);
+ const saved=validateSettings({decisionUrl:'http://127.0.0.1:8767/v1/systemone',decisionModel:'multilingual'},DEFAULT_SETTINGS);
+ assert.equal('decisionUrl' in saved,false);assert.equal('decisionModel' in saved,false);
 });

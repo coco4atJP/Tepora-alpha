@@ -10,6 +10,10 @@ Tepora applies a narrow, dated [OpenCode Go metadata supplement](../core/pi-cata
 
 The nine OAuth implementations are **OpenAI (ChatGPT), OpenAI Codex (legacy), Anthropic, GitHub Copilot, OpenRouter, Kimi Coding, Meta, Radius and xAI**. OpenRouter's OAuth mints an API key and is not a free subscription allowance. The SDK at this version has no built-in Gemini CLI/Antigravity OAuth, so no such support is advertised. Protocol support and account/provider terms are separate: use only accounts and third-party integrations permitted by their service, organization and plan. Tepora does not confer permission or guarantee free usage.
 
+## Decision models stay outside pi-ai
+
+pi-ai also has classifier models (`models.classify()` over TypeSafe System One, Cloudflare and OpenAI Decisions), but Tepora's decision role does not use it: the SDK has no Gemini Decisions adapter, its answer types drop the score distribution/legend and the yes/no confidence that dreaming and computer use read, its `state` must be an object, and the Rust service cannot call it. Until the SDK's decision router covers these, Tepora keeps a thin adapter (`core/decision.mjs`, Rust `agent/decisions.rs`) for `system-one`, `openai-decisions` and `gemini-decisions`, and pi-ai stays on its latest release for chat.
+
 ## Source launch and UI
 
 Use Node **22.19.0 or newer** (CI uses 22.22.0), Rust stable and the normal platform build tools:

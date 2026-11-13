@@ -1,6 +1,7 @@
 import {searchTokens} from '../search.mjs';
 
-/** The decision model: a System One endpoint (Liquid d1 in the cloud, or the local Laya worker) that answers
+/** The decision model: a decision endpoint (System One — Jev, Liquid d1, Perplexity, Strands, the local Laya worker,
+ * OpenRouter, LiteLLM — or OpenAI and Gemini Decisions, translated by core/decision.mjs) that answers
  * yes/no, choice and score questions with probabilities and generates no text. It is fast and cheap, so the
  * harness uses it for light judgements a chat model would be slow or costly for:
  *  - which sections of a long page answer a question (extractive, so nothing is paraphrased or invented),
@@ -15,12 +16,13 @@ export class Decisions{
  async ask(state,questions,signal){
   if(!this.available())return null;
   const body=typeof state==='string'?state:JSON.stringify(state);
-  // A free tier (d1:free) answers 429 when busy: wait briefly and ask again; that is not a failure of the service.
+  // A busy service answers 429 (TypeSafe also 529): wait briefly and ask again; that is not a failure of the service.
   for(let attempt=0;;attempt++){
    try{const r=await this.capabilities.decide(body,questions,signal);this.failures=0;return r;}
    catch(e){
     if(signal?.aborted)throw e;
-    if(attempt<3&&(e.upstreamStatus===429||/HTTP 429/.test(e.message||''))){await new Promise(r=>setTimeout(r,1000*2**attempt));continue;}
+    if(attempt<3&&([429,529].includes(e.upstreamStatus)||/HTTP (429|529)/.test(e.message||''))){await new Promise(r=>setTimeout(r,1000*2**attempt));continue;}
+    if(e.refused)return null; // the provider declined this input (refusal, safety filter); the service is fine
     this.failures++;if(this.failures>=3)this.pausedUntil=Date.now()+Math.min(600000,30000*2**(this.failures-3));return null;
    }
   }

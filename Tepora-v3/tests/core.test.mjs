@@ -42,10 +42,6 @@ test('truncated or disconnected model output is not silently called complete',as
  const rt=new Runtime({...DEFAULT_SETTINGS,model:'test'},'',async()=>streamResponse(packet({content:'partial'})));await assert.rejects(rt.chat([]),/before the model completed/);
  const limited=new Runtime({...DEFAULT_SETTINGS,model:'test'},'',async()=>streamResponse(packet({content:'partial'},'length')+'data: [DONE]\n\n'));await assert.rejects(limited.chat([]),/truncated/);
 });
-test('Jev-like adapter sends actual System One question criteria and treats it as advisory',async()=>{
- let sent;const rt=new Runtime({...DEFAULT_SETTINGS,decisionUrl:'http://127.0.0.1:8011/v1/systemone'},'',async(u,o)=>{sent=JSON.parse(o.body);return Response.json({answers:{intent:{type:'choice',choice:'artifact',confidence:.7,probabilities:{conversation:.1,artifact:.7,computer:.1,research:.1}}}});});
- const decision=await rt.decide('Create a document');assert.equal(decision.choice,'artifact');assert.equal(sent.questions.intent.type,'choice');assert.ok(sent.questions.intent.criteria.computer);assert.match(sent.questions.intent.instructions,/NOT a security authorization/);
-});
 test('running process can be cancelled without waiting for natural exit',async()=>{
  const c=new AbortController();const task=runProcess(process.execPath,['-e','setTimeout(()=>{},30000)'],{cwd:os.tmpdir(),signal:c.signal});setTimeout(()=>c.abort(new Error('test stop')),80);await assert.rejects(task,/test stop/);
 });

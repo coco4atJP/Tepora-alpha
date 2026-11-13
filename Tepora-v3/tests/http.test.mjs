@@ -52,9 +52,9 @@ test('an artifact edit is compare-and-swap, and pinned render URLs return the ac
  assert.match(await(await app.request('/render/versioned?v=2')).text(),/human change/);
  assert.equal((await app.request('/render/versioned?v=999')).status,404);
 });
-test('voice and Laya endpoints cannot become remote through the general cloud toggle',async t=>{
+test('voice endpoints cannot become remote through the general cloud toggle',async t=>{
  const app=await service(t);
- for(const field of ['asrUrl','asrStreamUrl','decisionUrl'])
+ for(const field of ['asrUrl','asrStreamUrl'])
   assert.equal((await app.request('/api/settings','PATCH',{allowCloud:true,[field]:'https://example.org/worker'})).status,403);
 });
 test('shared skill discovery requires a distinct explicit action',async t=>{
