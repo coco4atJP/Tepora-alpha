@@ -3,16 +3,7 @@
 //! Mirrors agent/decisions.mjs + decision.mjs through the trusted capability
 //! route. Scores are advisory, never security grants. This module owns no DB.
 //! The actor supplies saved capability snapshots and owns route epochs/events.
-use crate::{
-    network::{
-        NativeNetwork, NetworkError, NetworkProfile, NetworkRequest, NetworkScope, Purpose,
-        RequestCancellation,
-    },
-    provider::{validate_profile, ProviderFailure, ResourceGate},
-    ApiError,
-};
-use bytes::Bytes;
-use hyper::{header, HeaderMap, Method};
+use crate::{network::RequestCancellation, ApiError};
 use serde_json::{json, Map, Value};
 use std::{
     collections::{HashMap, HashSet},
@@ -41,9 +32,6 @@ impl DecisionClock for SystemDecisionClock {
         Box::pin(tokio::time::sleep(duration))
     }
 }
-/// Injection point for a future shared admission owner. The source capability
-/// gate uses `cap:{resource}`, separately from chat's unprefixed resource key.
-pub type ResourceKey = Arc<dyn Fn(&str) -> String + Send + Sync>;
 #[derive(Clone, Debug)]
 pub struct DecisionError {
     pub status: u16,
@@ -80,12 +68,6 @@ impl DecisionError {
         error.invalidated = true;
         error
     }
-    fn upstream(status: u16) -> Self {
-        Self {
-            upstream_status: Some(status),
-            ..Self::new(502, format!("能力接続 HTTP {status}"))
-        }
-    }
 }
 impl fmt::Display for DecisionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -107,177 +89,7 @@ impl From<ApiError> for DecisionError {
         Self::new(e.status, e.message)
     }
 }
-impl From<NetworkError> for DecisionError {
-    fn from(e: NetworkError) -> Self {
-        Self {
-            cancelled: e.cancelled,
-            ..Self::new(e.status, e.message)
-        }
-    }
-}
-impl From<ProviderFailure> for DecisionError {
-    fn from(e: ProviderFailure) -> Self {
-        Self {
-            upstream_status: e.upstream_status,
-            cancelled: e.cancelled,
-            ..Self::new(e.status, e.message)
-        }
-    }
-}
 
-#[derive(Clone, PartialEq)]
-struct Endpoint {
-    profile: Value,
-    network: NetworkProfileView,
-    key: String,
-}
-#[derive(Clone, PartialEq)]
-struct NetworkProfileView {
-    id: String,
-    base_url: String,
-    domain: crate::network::Domain,
-    pinned_address: Option<String>,
-    allow_plain_http: bool,
-}
-impl NetworkProfileView {
-    fn profile(&self) -> NetworkProfile {
-        NetworkProfile {
-            id: format!("cap:{}", self.id),
-            base_url: self.base_url.clone(),
-            domain: self.domain,
-            enabled: true,
-            pinned_address: self.pinned_address.clone(),
-            allow_plain_http: self.allow_plain_http,
-        }
-    }
-}
-impl fmt::Debug for Endpoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DecisionEndpoint")
-            .field("id", &self.network.id)
-            .finish_non_exhaustive()
-    }
-}
-fn endpoint(registry: &Value, key: Option<&str>) -> Result<Option<Endpoint>, ApiError> {
-    if registry.is_null() {
-        return Ok(None);
-    }
-    let route = &registry["routes"]["decision"];
-    if !truthy(route) {
-        return Ok(None);
-    }
-    let id = route
-        .as_str()
-        .ok_or_else(|| ApiError::bad_request("Invalid decision route"))?;
-    let p = registry["profiles"]
-        .as_array()
-        .and_then(|ps| ps.iter().find(|p| p["id"] == id))
-        .filter(|p| p["enabled"] == true && p["role"] == "decision")
-        .ok_or_else(|| ApiError::new(409, "decision の接続先を選んでください。"))?;
-    // Reuse the exact profile URL/domain/pin/timeout/resource validators while
-    // keeping the capability identity rather than inventing a chat identity.
-    let mut raw = Map::new();
-    for field in [
-        "id",
-        "name",
-        "baseUrl",
-        "model",
-        "domain",
-        "pinnedAddress",
-        "allowPlainHttp",
-        "enabled",
-        "apiKeyEnv",
-        "timeoutMs",
-        "maxParallel",
-        "resource",
-    ] {
-        if let Some(v) = p.get(field) {
-            raw.insert(field.into(), v.clone());
-        }
-    }
-    raw.insert("protocol".into(), json!("chat-completions"));
-    let checked = validate_profile(&Value::Object(raw))?;
-    let identity = p["identity"]
-        .as_str()
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| ApiError::bad_request("Decision capability identity is required"))?;
-    let key = key.unwrap_or("");
-    if json_codec::utf16_units(key).len() > 4000 {
-        return Err(ApiError::bad_request("Invalid key"));
-    }
-    let mut normalized = p.clone();
-    for field in [
-        "id",
-        "name",
-        "baseUrl",
-        "model",
-        "domain",
-        "pinnedAddress",
-        "allowPlainHttp",
-        "enabled",
-        "apiKeyEnv",
-        "timeoutMs",
-        "maxParallel",
-        "resource",
-    ] {
-        if normalized.get(field).is_none() {
-            normalized[field] = checked[field].clone();
-        }
-    }
-    normalized["identity"] = json!(identity);
-    let network = NetworkProfile::from_value(&normalized).map_err(ApiError::from)?;
-    Ok(Some(Endpoint {
-        profile: normalized,
-        network: NetworkProfileView {
-            id: network.id,
-            base_url: network.base_url,
-            domain: network.domain,
-            pinned_address: network.pinned_address,
-            allow_plain_http: network.allow_plain_http,
-        },
-        key: key.to_owned(),
-    }))
-}
-#[derive(Default)]
-struct NetworkBackendState {
-    endpoint: Option<Endpoint>,
-    generation: u64,
-    next_id: u64,
-    active: HashMap<u64, RequestCancellation>,
-    closed: bool,
-}
-struct NetworkBackendInner {
-    network: NativeNetwork,
-    gate: ResourceGate,
-    resource_key: ResourceKey,
-    state: Mutex<NetworkBackendState>,
-}
-/// Standalone compatibility/test adapter. Production injects Capabilities via
-/// DecisionBackend and never constructs this second registry/key/gate owner.
-#[derive(Clone)]
-pub struct NetworkDecisionBackend {
-    inner: Arc<NetworkBackendInner>,
-}
-struct NetworkOperation {
-    inner: Weak<NetworkBackendInner>,
-    id: u64,
-    generation: u64,
-    endpoint: Endpoint,
-    cancel: RequestCancellation,
-}
-impl Drop for NetworkOperation {
-    fn drop(&mut self) {
-        self.cancel.cancel();
-        if let Some(inner) = self.inner.upgrade() {
-            inner
-                .state
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .active
-                .remove(&self.id);
-        }
-    }
-}
 fn check(cancel: &RequestCancellation) -> Result<(), DecisionError> {
     if cancel.is_cancelled() {
         Err(DecisionError::cancelled())
@@ -285,253 +97,6 @@ fn check(cancel: &RequestCancellation) -> Result<(), DecisionError> {
         Ok(())
     }
 }
-impl NetworkDecisionBackend {
-    pub fn with_options(
-        network: NativeNetwork,
-        gate: ResourceGate,
-        resource_key: ResourceKey,
-    ) -> Self {
-        Self {
-            inner: Arc::new(NetworkBackendInner {
-                network,
-                gate,
-                resource_key,
-                state: Mutex::new(NetworkBackendState::default()),
-            }),
-        }
-    }
-    fn generation(&self) -> u64 {
-        self.inner
-            .state
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .generation
-    }
-    pub fn configure(&self, registry: &Value, key: Option<&str>) -> Result<(), ApiError> {
-        let next = match endpoint(registry, key) {
-            Ok(endpoint) => endpoint,
-            Err(error) => {
-                // This method consumes an already-saved registry snapshot. If
-                // it becomes invalid, stale configuration must not retain an
-                // old endpoint/key permission after the owner reports failure.
-                let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-                state.generation = state.generation.wrapping_add(1);
-                for cancel in state.active.values() {
-                    cancel.cancel();
-                }
-                state.endpoint = None;
-                return Err(error);
-            }
-        };
-        let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-        if state.closed {
-            return Err(ApiError::unavailable("Decision service closed"));
-        }
-        if state.endpoint != next {
-            state.generation = state.generation.wrapping_add(1);
-            for cancel in state.active.values() {
-                cancel.cancel();
-            }
-        }
-        state.endpoint = next;
-        Ok(())
-    }
-    pub fn available(&self) -> bool {
-        let state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-        !state.closed && state.endpoint.is_some()
-    }
-    pub fn close(&self) {
-        let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-        state.closed = true;
-        state.generation = state.generation.wrapping_add(1);
-        for cancel in state.active.values() {
-            cancel.cancel();
-        }
-        state.endpoint = None;
-    }
-    fn operation(&self) -> Result<NetworkOperation, DecisionError> {
-        let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-        if state.closed {
-            return Err(DecisionError::invalidated("Decision service closed"));
-        }
-        let endpoint = state
-            .endpoint
-            .clone()
-            .ok_or_else(|| DecisionError::invalidated("decision の接続先を選んでください。"))?;
-        let id = state.next_id;
-        state.next_id = state.next_id.wrapping_add(1);
-        let generation = state.generation;
-        let cancel = RequestCancellation::new();
-        state.active.insert(id, cancel.clone());
-        Ok(NetworkOperation {
-            inner: Arc::downgrade(&self.inner),
-            id,
-            generation,
-            endpoint,
-            cancel,
-        })
-    }
-    fn current(&self, op: &NetworkOperation) -> Result<(), DecisionError> {
-        let state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-        if state.closed || state.generation != op.generation || op.cancel.is_cancelled() {
-            Err(DecisionError::changed())
-        } else {
-            Ok(())
-        }
-    }
-    pub async fn decide(
-        &self,
-        state: &Value,
-        questions: &Value,
-        cancel: &RequestCancellation,
-    ) -> Result<Value, DecisionError> {
-        check(cancel)?;
-        let op = self.operation()?;
-        self.once(&op, state, questions, cancel).await
-    }
-    async fn once(
-        &self,
-        op: &NetworkOperation,
-        state: &Value,
-        questions: &Value,
-        caller: &RequestCancellation,
-    ) -> Result<Value, DecisionError> {
-        check(caller)?;
-        self.current(op)?;
-        let model = op.endpoint.profile["model"]
-            .as_str()
-            .unwrap_or("multilingual");
-        let protocol = op.endpoint.profile["protocol"].as_str().unwrap_or("");
-        let (route, body) = decision_request(
-            protocol,
-            &op.endpoint.network.base_url,
-            model,
-            state,
-            questions,
-        )?;
-        let payload = json_codec::stringify_js(&body)
-            .map_err(|_| DecisionError::new(400, "Invalid decision JSON"))?;
-        let timeout = Duration::from_millis(
-            op.endpoint.profile["timeoutMs"]
-                .as_f64()
-                .unwrap_or(60_000.0) as u64,
-        );
-        let result = async {
-            let resource = op.endpoint.profile["resource"]
-                .as_str()
-                .unwrap_or(&op.endpoint.network.id);
-            let key = (self.inner.resource_key)(resource);
-            let _lease = self
-                .inner
-                .gate
-                .acquire(
-                    &key,
-                    op.endpoint.profile["maxParallel"].as_f64().unwrap_or(1.0) as usize,
-                    0.0,
-                    0,
-                    &op.cancel,
-                )
-                .await
-                .map_err(DecisionError::from)?;
-            self.current(op)?;
-            check(caller)?;
-            let api_key = if !op.endpoint.key.is_empty() {
-                json_codec::sql_text(&op.endpoint.key)
-            } else {
-                let name = op.endpoint.profile["apiKeyEnv"].as_str().unwrap_or("");
-                if name.is_empty() {
-                    String::new()
-                } else {
-                    std::env::var(name).unwrap_or_default()
-                }
-            };
-            let mut headers = HeaderMap::new();
-            headers.insert(
-                header::CONTENT_TYPE,
-                header::HeaderValue::from_static("application/json"),
-            );
-            if !api_key.is_empty() {
-                let (name, value) = if protocol == "gemini-decisions" {
-                    (header::HeaderName::from_static("x-goog-api-key"), api_key)
-                } else {
-                    (header::AUTHORIZATION, format!("Bearer {api_key}"))
-                };
-                headers.insert(
-                    name,
-                    value.parse().map_err(|_| {
-                        DecisionError::new(400, "Invalid decision authorization header")
-                    })?,
-                );
-            }
-            let url = format!(
-                "{}{route}",
-                op.endpoint
-                    .network
-                    .base_url
-                    .strip_suffix('/')
-                    .unwrap_or(&op.endpoint.network.base_url)
-            );
-            let response = self
-                .inner
-                .network
-                .request(
-                    &url,
-                    NetworkRequest {
-                        method: Method::POST,
-                        headers,
-                        body: Bytes::from(payload),
-                        cancellation: Some(op.cancel.clone()),
-                    },
-                    NetworkScope {
-                        profile: Some(op.endpoint.network.profile()),
-                        purpose: Purpose::Model,
-                        timeout,
-                        max_bytes: 8_000_000,
-                        max_request_bytes: Some(65_536),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .map_err(DecisionError::from)?;
-            if !(200..300).contains(&response.status) {
-                return Err(DecisionError::upstream(response.status));
-            }
-            // Response.json() uses forgiving UTF-8 decoding; escaped lone UTF-16
-            // units are nevertheless retained by the shared JSON codec.
-            let text = response.text().await.map_err(DecisionError::from)?;
-            self.current(op)?;
-            check(caller)?;
-            let body = json_codec::parse(&text)
-                .map_err(|_| DecisionError::new(502, "Invalid decision JSON"))?;
-            let validated = decision_answers(protocol, model, questions, &body)?;
-            self.current(op)?;
-            check(caller)?;
-            Ok(validated)
-        };
-        tokio::select! {biased;
-            _=caller.cancelled()=>Err(DecisionError::cancelled()),
-            _=op.cancel.cancelled()=>Err(DecisionError::changed()),
-            _=tokio::time::sleep(timeout)=>Err(DecisionError::new(504,"Decision request deadline exceeded")),
-            result=result=>result,
-        }
-    }
-}
-impl DecisionBackend for NetworkDecisionBackend {
-    fn available(&self) -> bool {
-        NetworkDecisionBackend::available(self)
-    }
-    fn decide<'a>(
-        &'a self,
-        state: &'a Value,
-        questions: &'a Value,
-        cancel: &'a RequestCancellation,
-    ) -> DecisionFuture<'a> {
-        Box::pin(NetworkDecisionBackend::decide(
-            self, state, questions, cancel,
-        ))
-    }
-}
-
 /// Only the injected owner may choose endpoints, read keys, acquire the modality
 /// resource lease, or invalidate an endpoint. The wrapper consumes typed answers.
 pub type DecisionFuture<'a> =
@@ -566,7 +131,6 @@ struct DecisionInner {
 #[derive(Clone)]
 pub struct Decisions {
     inner: Arc<DecisionInner>,
-    standalone: Option<NetworkDecisionBackend>,
 }
 struct DecisionOperation {
     inner: Weak<DecisionInner>,
@@ -601,51 +165,7 @@ impl Decisions {
                 clock,
                 state: Mutex::new(DecisionState::default()),
             }),
-            standalone: None,
         }
-    }
-    /// Standalone transport compatibility; production must use with_backend.
-    pub fn new(network: NativeNetwork) -> Self {
-        Self::with_options(
-            network,
-            ResourceGate::default(),
-            Arc::new(SystemDecisionClock),
-            Arc::new(|resource| format!("cap:{resource}")),
-        )
-    }
-    pub fn with_options(
-        network: NativeNetwork,
-        gate: ResourceGate,
-        clock: Arc<dyn DecisionClock>,
-        resource_key: ResourceKey,
-    ) -> Self {
-        let backend = NetworkDecisionBackend::with_options(network, gate, resource_key);
-        let mut decisions = Self::with_backend_and_clock(Arc::new(backend.clone()), clock);
-        decisions.standalone = Some(backend);
-        decisions
-    }
-    pub fn validate_configuration(registry: &Value, key: Option<&str>) -> Result<(), ApiError> {
-        endpoint(registry, key).map(|_| ())
-    }
-    /// Only the standalone adapter accepts configuration here. Injected owners
-    /// retain sole authority, including memory-only keys and persisted revisions.
-    pub fn configure(&self, registry: &Value, key: Option<&str>) -> Result<(), ApiError> {
-        let backend = self.standalone.as_ref().ok_or_else(|| {
-            ApiError::new(
-                409,
-                "Configure decision capabilities through their shared owner",
-            )
-        })?;
-        let before = backend.generation();
-        let result = backend.configure(registry, key);
-        if backend.generation() != before {
-            let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-            state.generation = state.generation.wrapping_add(1);
-            for cancel in state.active.values() {
-                cancel.cancel();
-            }
-        }
-        result
     }
     pub fn available(&self) -> bool {
         let ready = {
@@ -665,18 +185,13 @@ impl Decisions {
         let state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
         json!({"failures":state.failures,"pausedUntil":state.paused_until,"active":state.active.len(),"closed":state.closed})
     }
+    /// Closing this consumer never closes the shared capability owner.
     pub fn close(&self) {
-        {
-            let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
-            state.closed = true;
-            state.generation = state.generation.wrapping_add(1);
-            for cancel in state.active.values() {
-                cancel.cancel();
-            }
-        }
-        // Closing this consumer must not close the shared capability service.
-        if let Some(backend) = &self.standalone {
-            backend.close();
+        let mut state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.closed = true;
+        state.generation = state.generation.wrapping_add(1);
+        for cancel in state.active.values() {
+            cancel.cancel();
         }
     }
     fn operation(&self) -> Result<DecisionOperation, DecisionError> {
@@ -1421,9 +936,16 @@ pub fn route_verdict(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::{
-        Admitted, NetworkFuture, NetworkMode, NetworkPolicy, Resolver, Transport, TransportResponse,
+    use crate::{
+        capabilities::{Capabilities, CapabilityDecisionBackend, CapabilityState},
+        network::{
+            Admitted, NativeNetwork, NetworkFuture, NetworkMode, NetworkPolicy, NetworkRequest,
+            Resolver, Transport, TransportResponse,
+        },
+        provider::ResourceGate,
     };
+    use bytes::Bytes;
+    use hyper::{header, HeaderMap};
     use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
@@ -1484,16 +1006,55 @@ mod tests {
             Box::pin(std::future::ready(()))
         }
     }
-    fn profile(base: &str) -> Value {
-        json!({"id":"decision","name":"Decision fixture","baseUrl":base,"model":"d1:test","domain":"device","enabled":true,"pinnedAddress":null,"allowPlainHttp":false,"apiKeyEnv":"","timeoutMs":1000,"maxParallel":1,"resource":"fixture","protocol":"system-one","role":"decision","identity":"fixture-identity"})
+    /// The shared Capabilities owner is the only network-backed decision
+    /// backend. This in-memory state stands in for the Workspace KV seam.
+    #[derive(Default)]
+    struct SavedRegistry(Mutex<Option<Value>>);
+    impl CapabilityState for SavedRegistry {
+        fn value(&self, _: &str) -> Result<Option<Value>, ApiError> {
+            Ok(self.0.lock().unwrap().clone())
+        }
+        fn commit_registry(&self, _: u64, next: Value, _: Value) -> Result<(), ApiError> {
+            *self.0.lock().unwrap() = Some(next);
+            Ok(())
+        }
     }
-    fn registry(p: Value) -> Value {
-        json!({"schema":1,"revision":1,"profiles":[p],"routes":{"decision":"decision"}})
+    fn profile(base: &str) -> Value {
+        json!({"id":"decision","name":"Decision fixture","protocol":"system-one","baseUrl":base,"model":"d1:test","domain":"device","timeoutMs":1000,"maxParallel":1,"resource":"fixture"})
+    }
+    fn owner(network: NativeNetwork, gate: ResourceGate) -> Capabilities {
+        Capabilities::with_options(
+            Arc::new(SavedRegistry::default()),
+            network,
+            gate,
+            Arc::new(|_| None),
+        )
+    }
+    /// Saves one decision route (or none) through the owner, then sets its key.
+    fn save(capabilities: &Capabilities, profile: Option<Value>, key: Option<&str>) {
+        let revision = capabilities.get().unwrap()["revision"].as_u64().unwrap();
+        let registry = match profile {
+            Some(p) => json!({"profiles":[p],"routes":{"decision":"decision"}}),
+            None => json!({"profiles":[],"routes":{}}),
+        };
+        capabilities.save(&registry, revision).unwrap();
+        if let Some(key) = key {
+            let identity = capabilities.pin("decision").unwrap()["identity"].clone();
+            capabilities
+                .set_key("decision", &json!(key), &identity)
+                .unwrap();
+        }
+    }
+    fn decisions(capabilities: &Capabilities, clock: Arc<dyn DecisionClock>) -> Decisions {
+        Decisions::with_backend_and_clock(
+            Arc::new(CapabilityDecisionBackend::new(capabilities.clone())),
+            clock,
+        )
     }
     fn answer(p: f64) -> Value {
         json!({"model":"fixture","answers":{"q":{"type":"noul","noul":p}}})
     }
-    fn setup(handler: Handler) -> (Decisions, Arc<FixtureTransport>, Arc<Clock>) {
+    fn setup(handler: Handler) -> (Decisions, Arc<FixtureTransport>, Arc<Clock>, Capabilities) {
         let transport = Arc::new(FixtureTransport {
             handler,
             calls: Mutex::new(Vec::new()),
@@ -1506,17 +1067,19 @@ mod tests {
             Arc::new(NoDns),
             transport.clone(),
         );
-        let clock = Arc::new(Clock::default());
-        let decisions = Decisions::with_options(
-            network,
-            ResourceGate::default(),
-            clock.clone(),
-            Arc::new(|r| format!("cap:{r}")),
+        let capabilities = owner(network, ResourceGate::default());
+        save(
+            &capabilities,
+            Some(profile("http://localhost:9090/v1")),
+            None,
         );
-        decisions
-            .configure(&registry(profile("http://localhost:9090/v1")), None)
-            .unwrap();
-        (decisions, transport, clock)
+        let clock = Arc::new(Clock::default());
+        (
+            decisions(&capabilities, clock.clone()),
+            transport,
+            clock,
+            capabilities,
+        )
     }
     struct InjectedBackend {
         ready: std::sync::atomic::AtomicBool,
@@ -1556,19 +1119,9 @@ mod tests {
         }
     }
     #[tokio::test]
-    async fn injected_backend_is_the_only_configuration_and_key_authority() {
+    async fn injected_backend_availability_and_close_stay_separate() {
         let backend = InjectedBackend::new();
         let d = Decisions::with_backend(backend.clone());
-        assert!(d.standalone.is_none());
-        assert_eq!(
-            d.configure(
-                &registry(profile("http://localhost/v1")),
-                Some("must-not-be-stored")
-            )
-            .unwrap_err()
-            .status,
-            409
-        );
         assert_eq!(
             d.yes(&json!({"task":"one"}), "q", &RequestCancellation::new())
                 .await
@@ -1606,7 +1159,10 @@ mod tests {
         let backend = InjectedBackend::new();
         let clock = Arc::new(Clock::default());
         backend.replies.lock().unwrap().extend([
-            Err(DecisionError::upstream(429)),
+            Err(DecisionError {
+                upstream_status: Some(429),
+                ..DecisionError::new(502, "能力接続 HTTP 429")
+            }),
             Ok(answer(0.7)),
             Err(DecisionError::invalidated("Capability endpoint changed")),
             Err(DecisionError::cancelled()),
@@ -1744,16 +1300,15 @@ mod tests {
         assert!(system_one_payload("m", &json!("日".repeat(23_000)), &q).is_err());
     }
     #[tokio::test]
-    async fn invalid_saved_route_fails_closed_without_reusing_old_endpoint() {
-        let (d, t, _) = setup(Arc::new(|_, _| (200, answer(0.5))));
-        let mut invalid = registry(profile("http://localhost/v1"));
-        invalid["profiles"][0]["enabled"] = json!(false);
-        assert!(Decisions::validate_configuration(&invalid, None).is_err());
-        assert!(
-            d.available(),
-            "Pure validation cannot change the current route"
-        );
-        assert!(d.configure(&invalid, None).is_err());
+    async fn disabled_saved_route_fails_closed_without_reusing_old_endpoint() {
+        let (d, t, _, capabilities) = setup(Arc::new(|_, _| (200, answer(0.5))));
+        assert!(d.available());
+        let mut disabled = profile("http://localhost:9090/v1");
+        disabled["enabled"] = json!(false);
+        let revision = capabilities.get().unwrap()["revision"].as_u64().unwrap();
+        capabilities
+            .save(&json!({"profiles":[disabled],"routes":{}}), revision)
+            .unwrap();
         assert!(!d.available());
         assert_eq!(
             d.yes(&json!("private"), "q", &RequestCancellation::new())
@@ -1765,15 +1320,15 @@ mod tests {
     }
     #[tokio::test]
     async fn ask_uses_real_systemone_payload_auth_and_no_result_cache() {
-        let (d, t, _) = setup(Arc::new(|payload, _| {
+        let (d, t, _, capabilities) = setup(Arc::new(|payload, _| {
             assert!(payload["state"].is_string());
             (200, answer(0.75))
         }));
-        d.configure(
-            &registry(profile("http://localhost:9090/v1")),
+        save(
+            &capabilities,
+            Some(profile("http://localhost:9090/v1")),
             Some("fixture-only-key"),
-        )
-        .unwrap();
+        );
         for _ in 0..2 {
             assert_eq!(
                 d.yes(
@@ -1803,7 +1358,7 @@ mod tests {
     }
     #[tokio::test]
     async fn malformed_responses_fall_back_without_inventing_probabilities() {
-        let (d, _, _) = setup(Arc::new(|_, _| {
+        let (d, _, _, _) = setup(Arc::new(|_, _| {
             (200, json!({"answers":{"q":{"type":"noul","noul":7}}}))
         }));
         assert_eq!(
@@ -1824,7 +1379,7 @@ mod tests {
     }
     #[tokio::test]
     async fn rate_limits_retry_one_two_four_seconds_and_count_only_exhausted_calls() {
-        let (d, t, clock) = setup(Arc::new(|_, n| {
+        let (d, t, clock, _) = setup(Arc::new(|_, n| {
             if n < 3 {
                 (429, json!({}))
             } else {
@@ -1840,7 +1395,7 @@ mod tests {
         assert_eq!(*clock.sleeps.lock().unwrap(), vec![1000, 2000, 4000]);
         assert_eq!(t.calls.lock().unwrap().len(), 4);
         assert_eq!(d.health()["failures"], 0);
-        let (d, t, clock) = setup(Arc::new(|_, _| (429, json!({}))));
+        let (d, t, clock, _) = setup(Arc::new(|_, _| (429, json!({}))));
         assert_eq!(
             d.yes(&json!("s"), "q", &RequestCancellation::new())
                 .await
@@ -1855,7 +1410,7 @@ mod tests {
     async fn third_failure_opens_bounded_circuit_and_success_resets_failures() {
         let status = Arc::new(AtomicUsize::new(500));
         let s = status.clone();
-        let (d, t, clock) = setup(Arc::new(move |_, _| {
+        let (d, t, clock, _) = setup(Arc::new(move |_, _| {
             (s.load(Ordering::SeqCst) as u16, answer(0.6))
         }));
         let c = RequestCancellation::new();
@@ -1910,14 +1465,9 @@ mod tests {
         let clock = Arc::new(PausedClock {
             entered: Notify::new(),
         });
-        let d = Decisions::with_options(
-            network,
-            ResourceGate::default(),
-            clock.clone(),
-            Arc::new(str::to_owned),
-        );
-        d.configure(&registry(profile("http://localhost/v1")), None)
-            .unwrap();
+        let capabilities = owner(network, ResourceGate::default());
+        save(&capabilities, Some(profile("http://localhost/v1")), None);
+        let d = decisions(&capabilities, clock.clone());
         let c = RequestCancellation::new();
         let child = c.clone();
         let dd = d.clone();
@@ -1943,17 +1493,16 @@ mod tests {
             );
             let gate = ResourceGate::default();
             let held = gate
-                .acquire("shared", 1, 0.0, 0, &RequestCancellation::new())
+                .acquire("cap:fixture", 1, 0.0, 0, &RequestCancellation::new())
                 .await
                 .unwrap();
-            let d = Decisions::with_options(
-                network,
-                gate.clone(),
-                Arc::new(Clock::default()),
-                Arc::new(|_| "shared".into()),
+            let capabilities = owner(network, gate.clone());
+            save(
+                &capabilities,
+                Some(profile("http://localhost/v1")),
+                Some("old-key"),
             );
-            d.configure(&registry(profile("http://localhost/v1")), Some("old-key"))
-                .unwrap();
+            let d = decisions(&capabilities, Arc::new(Clock::default()));
             let c = RequestCancellation::new();
             let cc = c.clone();
             let dd = d.clone();
@@ -1962,9 +1511,11 @@ mod tests {
                 tokio::task::yield_now().await;
             }
             if revoke {
-                let mut p = profile("http://localhost:9091/v1");
-                p["identity"] = json!("new-identity");
-                d.configure(&registry(p), Some("new-key")).unwrap();
+                save(
+                    &capabilities,
+                    Some(profile("http://localhost:9091/v1")),
+                    Some("new-key"),
+                );
                 assert_eq!(task.await.unwrap().unwrap(), None);
             } else {
                 c.cancel();
@@ -2005,9 +1556,9 @@ mod tests {
         });
         let n =
             NativeNetwork::with_components(NetworkPolicy::default(), Arc::new(NoDns), t.clone());
-        let d = Decisions::new(n.clone());
-        d.configure(&registry(profile("http://localhost/v1")), None)
-            .unwrap();
+        let capabilities = owner(n.clone(), ResourceGate::default());
+        save(&capabilities, Some(profile("http://localhost/v1")), None);
+        let d = decisions(&capabilities, Arc::new(SystemDecisionClock));
         let dd = d.clone();
         let task =
             tokio::spawn(
@@ -2019,10 +1570,14 @@ mod tests {
         assert_eq!(d.health()["active"], 0);
         assert_eq!(n.active_count(), 0);
         assert!(!d.available());
+        assert!(
+            CapabilityDecisionBackend::new(capabilities.clone()).available(),
+            "Closing Decisions cannot close shared Capabilities"
+        );
     }
     #[tokio::test]
     async fn relevance_batches_sixteen_and_keeps_lexical_fallback_for_later_failed_batch() {
-        let (d, t, _) = setup(Arc::new(|payload, n| {
+        let (d, t, _, capabilities) = setup(Arc::new(|payload, n| {
             if n > 0 {
                 return (500, json!({}));
             }
@@ -2045,7 +1600,7 @@ mod tests {
         assert_eq!(&result.scores[..16], &[0.25; 16]);
         assert_eq!(&result.scores[16..], &[1.0; 4]);
         assert_eq!(t.calls.lock().unwrap().len(), 2);
-        d.configure(&Value::Null, None).unwrap();
+        save(&capabilities, None, None);
         assert_eq!(
             d.relevance("price", &sections, &RequestCancellation::new())
                 .await
@@ -2056,7 +1611,7 @@ mod tests {
     }
     #[tokio::test]
     async fn relevance_japanese_batches_stay_under_the_actual_json_budget() {
-        let (d, t, _) = setup(Arc::new(|p, _| {
+        let (d, t, _, _) = setup(Arc::new(|p, _| {
             let a: Map<String, Value> = p["questions"]
                 .as_object()
                 .unwrap()
@@ -2113,12 +1668,19 @@ mod tests {
                 }
             }
         });
-        let d = Decisions::new(NativeNetwork::new(NetworkPolicy {
-            mode: NetworkMode::Offline,
-            ..Default::default()
-        }));
-        d.configure(&registry(profile(&format!("http://{address}/v1"))), None)
-            .unwrap();
+        let capabilities = owner(
+            NativeNetwork::new(NetworkPolicy {
+                mode: NetworkMode::Offline,
+                ..Default::default()
+            }),
+            ResourceGate::default(),
+        );
+        save(
+            &capabilities,
+            Some(profile(&format!("http://{address}/v1"))),
+            None,
+        );
+        let d = decisions(&capabilities, Arc::new(SystemDecisionClock));
         assert_eq!(
             d.yes(
                 &json!("A real fixture"),
