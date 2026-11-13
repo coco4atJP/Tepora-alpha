@@ -8,7 +8,7 @@ This branch now uses V3 for root startup, development, regression checks and nat
 
 ## Agent harness rebuild (2026-10-06 to 2026-10-07, branch `feat/agent-harness`)
 
-The agent runtime was rebuilt ([AGENT-HARNESS.md](AGENT-HARNESS.md)): a resident character that delegates to asynchronous work agents, a loop that recovers instead of failing, batch-only prompt rewrites for cache hits, careful compaction (exact ledger, chapters, identifier rescue, `recall`), decision-model features (Liquid d1 / Laya), schedule and change-driven check-ins, plugin hooks, skills, media generation, image input, and computer use (CDP browser, decision-model control loop, macOS Accessibility helper).
+The agent runtime was rebuilt ([AGENT-HARNESS.md](AGENT-HARNESS.md)): a resident character that delegates to asynchronous work agents, a loop that recovers instead of failing, batch-only prompt rewrites for cache hits, careful compaction (exact ledger, handoff to a fresh conversation with a brief for both the character and work agents, identifier rescue, `recall`), decision-model features (Liquid d1 / Laya), schedule and change-driven check-ins, plugin hooks, skills, media generation, image input, and computer use (CDP browser, decision-model control loop, macOS Accessibility helper).
 
 Evidence on this Mac (2026-10-07):
 

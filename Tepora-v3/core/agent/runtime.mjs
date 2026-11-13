@@ -90,6 +90,9 @@ export class AgentRuntime{
   this.workRoot=workRoot||this.settings().workRoot||path.join(os.homedir(),'Tepora');
   this.tools=new ToolRegistry({pluginDir,mcp:toolHub});this.mcp=new McpPool({store,toolHub,network});
   this.decisions=new Decisions(capabilities);this.dreamer=new Dreamer(this);
+  // Work run in order on the idle lease while the user is quiet; input preempts it. The handoff comes first;
+  // later idle work (memory consolidation, skill retention) appends here.
+  this.idleTasks=[(id,signal)=>this.idleHandoff(id,signal)];
   // Pages built by JavaScript are rendered in the computer-use browser when one is available.
   this.web=new WebTools({network,settings:()=>this.settings(),keys:name=>this.store.value('search-keys')?.[name]||'',decisions:this.decisions,browser:computer?{render:(url,o)=>computer.render(url,o)}:null});
   this.scheduler=new Scheduler(this);
@@ -394,7 +397,7 @@ export class AgentRuntime{
   }
   this.nativeRuntime.dispatch({type:'initialize'});
   this.scheduleHeartbeat();this.scheduler.start();
-  this.idleTimer=setInterval(()=>this.idleCompact(main.id).catch(()=>{}),15000);this.idleTimer.unref?.();
+  this.idleTimer=setInterval(()=>this.idle(main.id).catch(()=>{}),15000);this.idleTimer.unref?.();
   this.dreamTimer=setInterval(()=>this.dreamer.maybe().catch(e=>this.store.emit('agent.event',{type:'dream-failed',message:String(e?.message||e).slice(0,200)})),3600000);this.dreamTimer.unref?.();
  }
  /** What a check-in should look at. `key` covers only what changes meaningfully (who is working, waiting,
@@ -427,10 +430,18 @@ export class AgentRuntime{
   this.send(m.id,{text:`${h.text||'Check-in. Look at the work below and tell the user anything they should hear about now. Reply NO_REPLY if nothing needs attention.'}\n\nCurrent work:\n${state.text||'(nothing running)'}`,from:'timer',kind:'heartbeat',source:'check-in'});
   return true;
  }
- /** The resident session compacts while nobody is talking, so the next spoken reply is fast. */
- async idleCompact(id){
-  this.nativeRuntime.dispatch({type:'auxiliary',sessionId:id,kind:'idleCompaction',lastAtMs:Date.parse(this.sessions.tail(id,1)[0]?.at)||0});
-  const run=this.runs.get(id);if(run?.leaseKind==='idleCompaction')await run.promise;
+ /** While the user is quiet the main session's idle work runs, so the next reply never waits on it. */
+ async idle(id){
+  this.nativeRuntime.dispatch({type:'auxiliary',sessionId:id,lastAtMs:Date.parse(this.sessions.tail(id,1)[0]?.at)||0});
+  const run=this.runs.get(id);if(run?.leaseKind==='idle')await run.promise;
+ }
+ /** Hand the conversation off to a fresh one (ledger + brief + verbatim tail) once it passes the idle threshold. */
+ async idleHandoff(id,signal){
+  const session=this.loop.prompt(this.sessions.get(id)),toolDefs=this.tools.definitions(session.tools),b=await this.loop.budget(session,toolDefs,signal);
+  signal.throwIfAborted();if(!b.chain.length||b.B<1200)return;
+  const built=this.assembler.build(id,{system:session.system});
+  if(this.compactor.plan(built,b.B,b.ratio,{idle:true,session}).action!=='compact')return;
+  await this.loop.compact(session,{built,B:b.B,ratio:b.ratio,toolDefs,chain:b.chain,signal,reason:'idle'});
  }
  async close(){
   this.canvas?.close();this.nativeRuntime.dispatch({type:'close'});

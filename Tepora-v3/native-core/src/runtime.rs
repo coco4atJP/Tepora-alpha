@@ -115,6 +115,9 @@ pub fn needs_step(tail: &Value) -> bool {
         match e["type"].as_str().unwrap_or("") {
             "event" | "clear" | "checkpoint" => continue,
             "input" if crate::js_value::truthy(&e["passive"]) => continue,
+            // A handoff's notice only frames the fresh conversation; it is not work. After an idle handoff the
+            // session is still waiting for the user, so the next input is delivered rather than answered late.
+            "notice" if !e["compaction"].is_null() => continue,
             "assistant" => {
                 let calls = &e["toolCalls"];
                 let has_length = match calls {
@@ -369,8 +372,26 @@ impl RuntimeEngine {
             return;
         }
         if let Some(run) = self.runs.get_mut(id) {
+            let mut preempt = None;
             if !auxiliary && (run.draining || run.auxiliary) {
                 run.wake_after = true;
+                // Idle work (the main session's handoff) never makes the user wait: input preempts it, and the
+                // turn starts as soon as the aborted lease drains. The work is redone at the next quiet moment.
+                if run.auxiliary && !run.draining {
+                    run.draining = true;
+                    preempt = Some(run.epoch);
+                }
+            }
+            if let Some(epoch) = preempt {
+                let invalid = self.token();
+                self.controls.entry(id.into()).or_default().epoch = invalid;
+                action(
+                    out,
+                    Some(id),
+                    Some(epoch),
+                    "abortRun",
+                    json!({"reason":"Input arrived"}),
+                );
             }
             return;
         }
@@ -415,7 +436,7 @@ impl RuntimeEngine {
             Some(id),
             Some(epoch),
             "createRun",
-            json!({"sessionKind":kind,"leaseKind":if auxiliary{"idleCompaction"}else{"work"}}),
+            json!({"sessionKind":kind,"leaseKind":if auxiliary{"idle"}else{"work"}}),
         );
         self.issue(
             id,
@@ -425,7 +446,7 @@ impl RuntimeEngine {
             } else {
                 Await::Deliver
             },
-            if auxiliary { "idleCompact" } else { "deliver" },
+            if auxiliary { "idle" } else { "deliver" },
             json!({"followups":observed.session["turnBoundary"]==true||!needs_step(&observed.tail)}),
             out,
         );
@@ -1282,6 +1303,8 @@ mod tests {
         assert!(!needs_step(
             &json!([{"type":"assistant"},{"type":"input","passive":true}])
         ));
+        assert!(!needs_step(&json!([{"type":"assistant"},{"type":"checkpoint"},{"type":"notice","compaction":7}])));
+        assert!(needs_step(&json!([{"type":"tool"},{"type":"checkpoint"},{"type":"notice","compaction":7}])));
         let mut tail = vec![json!({"type":"input"})];
         tail.extend((0..12).map(|_| json!({"type":"event"})));
         assert!(!needs_step(&json!(tail)));
@@ -1449,11 +1472,11 @@ mod tests {
         assert_eq!(r["complete"], true);
     }
     #[test]
-    fn auxiliary_reserves_before_async_work_and_wakes_input_after_drain() {
+    fn input_preempts_idle_work_and_starts_the_turn_after_drain() {
         let mut h = Harness::new(vec![observation("m", "main")]);
         let r = h.send(json!({"type":"auxiliary","sessionId":"m"}));
-        assert_eq!(cmd(&r)["kind"], "idleCompact");
-        assert_eq!(actions(&r, "createRun")[0]["leaseKind"], "idleCompaction");
+        assert_eq!(cmd(&r)["kind"], "idle");
+        assert_eq!(actions(&r, "createRun")[0]["leaseKind"], "idle");
         assert!(
             h.send(json!({"type":"auxiliary","sessionId":"m"}))["commands"]
                 .as_array()
@@ -1461,7 +1484,12 @@ mod tests {
                 .is_empty()
         );
         h.observed("m")["pending"] = json!([{"text":"new"}]);
-        h.send(json!({"type":"wake","sessionId":"m"}));
+        let wake = h.send(json!({"type":"wake","sessionId":"m"}));
+        // The idle handoff is aborted at once instead of finishing while the user waits.
+        let aborted = actions(&wake, "abortRun");
+        assert_eq!(aborted.len(), 1);
+        assert_eq!(aborted[0]["runEpoch"], cmd(&r)["runEpoch"]);
+        assert!(wake["commands"].as_array().unwrap().is_empty());
         let r = h.resolve(&cmd(&r), Value::Null);
         assert_eq!(actions(&r, "releaseRun").len(), 1);
         assert_eq!(cmd(&r)["kind"], "deliver");
@@ -1525,7 +1553,7 @@ mod tests {
         assert!(empty["commands"].as_array().unwrap().is_empty());
         h.observed("worker")["tail"] = json!([{"type":"input","text":"old work"}]);
         let compact = h.send(json!({"type":"auxiliary","sessionId":"worker","lastAtMs":0}));
-        assert_eq!(cmd(&compact)["kind"], "idleCompact");
+        assert_eq!(cmd(&compact)["kind"], "idle");
         assert_eq!(actions(&compact, "createRun")[0]["sessionKind"], "main");
         assert_eq!(h.engine.active_workers(), 0);
     }

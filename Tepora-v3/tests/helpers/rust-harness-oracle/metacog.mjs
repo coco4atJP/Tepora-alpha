@@ -55,14 +55,14 @@ const pct=x=>`${Math.round(x*100)}%`;
 /** The self-check message: measured facts first, then one question per trigger. */
 export function renderSelfCheck(f,why,{kind='worker'}={}){
  const lines=[`- Run: ${f.steps} steps, ${f.minutes} min${f.model?`, model ${f.model}${f.escalated?' (stronger model, after stalling)':''}`:''}${f.cost?`, cost so far $${f.cost.toFixed(4)}`:''}.`];
- if(f.context)lines.push(`- Context: ${pct(f.context.share)} of the working budget (${f.context.used.toLocaleString()} of ${f.context.budget.toLocaleString()} tokens). Old tool results are cleared at ${pct(COMPACTION.softClear)}; the conversation is compacted at ${pct(COMPACTION.hard)}.`);
+ if(f.context)lines.push(`- Context: ${pct(f.context.share)} of the working budget (${f.context.used.toLocaleString()} of ${f.context.budget.toLocaleString()} tokens). Old tool results are cleared at ${pct(COMPACTION.softClear)}; the conversation is handed off to a fresh one at ${pct(kind==='main'?COMPACTION.mainHard:COMPACTION.hard)}.`);
  lines.push(`- Tools: ${f.calls} calls, ${f.errors} failed${f.recentCalls?` (${f.recentErrors} of the last ${f.recentCalls})`:''}${f.variety<0.5&&f.recentCalls>=6?'; many calls repeat earlier ones':''}.`);
  if(f.todo)lines.push(`- Checklist: ${f.todo.done}/${f.todo.total} done${f.todo.blocked?`, ${f.todo.blocked} blocked`:''}${f.todo.open&&f.todo.still>=5?`; unchanged for ${f.todo.still} steps`:''}.`);
  if(f.reflection)lines.push(`- Your reflect notes: confidence ${f.reflection.confidence??'not given'}, ${f.reflection.assumptions} unverified assumption${f.reflection.assumptions===1?'':'s'}, ${f.reflection.questions} open question${f.reflection.questions===1?'':'s'}; updated ${f.reflection.age} steps ago.`);
  else lines.push('- Your reflect notes: none yet.');
  if(f.team.length)lines.push(`- Work agents running: ${f.team.join(', ')}.`);
  const ask={
-  context:'Context is filling up. Make sure the checklist and your reflect notes hold everything you would need after compaction (goal, verified results, open points).',
+  context:'Context is filling up. Make sure the checklist and your reflect notes hold everything you would need after the handoff (goal, verified results, open points).',
   errors:'Several recent calls failed. Is your picture of the environment wrong (path, version, permissions, API)? Check the assumption behind the failing calls before trying again.',
   stalled:'The checklist has not moved for a while. Are you making real progress or circling? If the current approach is not working, change it, or report what blocks you.',
   unreflected:'You have done substantial work without stating your understanding. Write reflect notes: the task as you understand it, your plan, what is verified, what is only assumed, and your confidence.',

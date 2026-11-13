@@ -300,3 +300,48 @@ fn cancelled_heartbeat_rechecks_unchanged_work_after_configuration() {
         f.close();
     }
 }
+
+#[test]
+fn the_schedules_tick_hands_the_quiet_main_session_off_with_its_brief() {
+    let brief = [
+        "About the user",
+        "Commitments and pending items",
+        "Open topics",
+        "Delegated work",
+        "Tone and relationship",
+        "Verified facts",
+        "Unverified guesses",
+        "Re-fetch pointers",
+    ]
+    .iter()
+    .map(|h| format!("## {h}\n- noted"))
+    .collect::<Vec<_>>()
+    .join("\n");
+    let mut f = Fixture::new(move |_, _, wire| {
+        let last = wire["messages"].as_array().and_then(|m| m.last()).cloned().unwrap_or_default();
+        if last["content"].as_str().unwrap_or("").starts_with("[harness] Handoff.") {
+            answer(&brief)
+        } else {
+            answer(&"長い返事。".repeat(2400))
+        }
+    });
+    f.state("kv.set", json!({"key":"agent-settings","value":{"idleCompactSeconds":0}}));
+    let main = f.main();
+    let id = main["id"].as_str().unwrap().to_owned();
+    // Four long replies pass the idle threshold (55% of B) but stay under the in-turn force threshold (90%).
+    for i in 0..4 {
+        f.input(&format!("質問 {i}"));
+        f.idle(&id);
+    }
+    let checkpoints = |f: &Fixture| {
+        f.entries(&id).into_iter().filter(|e| e["type"] == "checkpoint").collect::<Vec<_>>()
+    };
+    assert!(checkpoints(&f).is_empty(), "no handoff inside the turns");
+    tick(&f, SchedulerKind::Schedules);
+    f.wait("idle handoff", || !checkpoints(&f).is_empty());
+    let cp = checkpoints(&f).remove(0);
+    assert_eq!(cp["reason"], "idle");
+    assert!(cp["text"].as_str().unwrap().starts_with("<handoff covers=\"#1–#"));
+    assert!(cp["text"].as_str().unwrap().contains("## Brief (written at the handoff)\n## About the user\n- noted"));
+    f.close();
+}

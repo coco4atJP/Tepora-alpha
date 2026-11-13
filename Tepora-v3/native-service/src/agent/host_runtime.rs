@@ -833,7 +833,7 @@ impl RuntimeState {
         Ok(self.send(services,&text(&s,"parentId"),&json!({"text":message,"from":format!("child:{id}"),"kind":"report","mode":"notify","source":format!("progress of \"{}\" ({id})",text(&s,"title")),"meta":{"sessionId":id,"title":s["title"],"status":"running"}}))?.events)
     }
     /// None means the parent effect host must dispatch this command (notably
-    /// idleCompact) to its real implementation, or reject it as unavailable.
+    /// the idle lease's work) to its real implementation, or reject it as unavailable.
     pub fn effect(
         &mut self,
         services: &dyn HostServices,

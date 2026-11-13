@@ -97,13 +97,7 @@ export class RuntimeHost {
    case 'completionDecision':return rt.decisions.yes(c.state,c.q.text,signal);
    case 'mainTurn':return {delegated:await rt.delegated(id,c.text,signal)};
    case 'yield':return new Promise(resolve=>{const t=setTimeout(()=>resolve(null),0);t.unref?.();});
-   case 'idleCompact':{
-    const session=rt.loop.prompt(rt.sessions.get(id)),toolDefs=rt.tools.definitions(session.tools),b=await rt.loop.budget(session,toolDefs,signal);
-    signal.throwIfAborted();if(!b.chain.length||b.B<1200)return null;
-    const built=rt.assembler.build(id,{system:session.system});
-    if(rt.compactor.plan(built,b.B,b.ratio,{idle:true}).action!=='compact')return null;
-    await rt.loop.compact(session,{built,B:b.B,ratio:b.ratio,toolDefs,chain:b.chain,signal,reason:'idle'});return null;
-   }
+   case 'idle':for(const task of rt.idleTasks){signal.throwIfAborted();await task(id,signal);}return null;
    default:throw new Error('Unknown Rust runtime command: '+c.kind);
   }
  }

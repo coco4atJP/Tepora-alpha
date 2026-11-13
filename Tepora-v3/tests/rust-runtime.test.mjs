@@ -116,6 +116,8 @@ test('Rust runtime: needsStep preserves passive/event/checkpoint/clear and last-
   ['truncation',[['assistant',{content:'partial',truncated:true}]],true],
   ['tool receipt',[['tool',{callId:'x',content:'result'}]],true],
   ['notice',[['notice',{text:'continue'}]],true],
+  ['idle handoff notice after an answer',[['assistant',{content:'done'}],['checkpoint',{}],['notice',{text:'Fresh conversation',compaction:2}]],false],
+  ['handoff notice inside a turn',[['tool',{callId:'x',content:'result'}],['checkpoint',{}],['notice',{text:'Fresh conversation',compaction:2}]],true],
   ['passive only',[['input',{text:'context only',passive:true}]],false],
   ['ignored after answer',[['assistant',{content:'done'}],['event',{}],['checkpoint',{}],['clear',{}],['input',{text:'passive',passive:true}]],false],
   ['ignored after input',[['input',{text:'continue'}],['event',{}],['checkpoint',{}],['clear',{}],['input',{text:'passive',passive:true}]],true],
@@ -361,20 +363,21 @@ test('Rust runtime: close retains completed sibling tool receipts while withdraw
  assert.equal(receipts[1].notExecuted,true);assert.equal(writes,0);assert.equal(rt.policy.list()[0].status,'withdrawn');assert.equal(finished(f,s.id).length,0);
 });
 
-test('Rust runtime: idle compaction reserves before its first await and queues incoming work until release',async t=>{
- const f=await fixture(t,{settings:{idleCompactSeconds:0}}),{rt}=f,s=f.session({kind:'main',task:null}),budget=f.gate(),compact=f.gate(),step=f.gate();
+test('Rust runtime: idle work reserves before its first await, input preempts it, and the turn starts after release',async t=>{
+ const f=await fixture(t,{settings:{idleCompactSeconds:0}}),{rt}=f,s=f.session({kind:'main',task:null}),budget=f.gate(),step=f.gate();
  rt.sessions.append(s.id,'assistant',{content:'prior answer'});f.clock.now+=60000;
- let budgets=0,compacting=0,steps=0,overlap=false;
+ let budgets=0,compactions=0,steps=0,idleSignal=null;
  rt.loop.prompt=session=>({...session,tools:session.tools||[]});
- rt.loop.budget=async()=>{budgets++;await budget.promise;return {chain:[{}],B:5000,ratio:1};};
+ rt.loop.budget=async(session,defs,signal)=>{budgets++;idleSignal=signal;await budget.promise;return {chain:[{}],B:5000,ratio:1};};
  rt.assembler.build=()=>({});rt.compactor.plan=()=>({action:'compact'});
- rt.loop.compact=async()=>{compacting++;try{await compact.promise;}finally{compacting--;}};
- rt.loop.step=async(id,signal)=>{steps++;if(compacting)overlap=true;await step.promise;signal.throwIfAborted();return answer(rt,id);};
- const first=rt.idleCompact(s.id),second=rt.idleCompact(s.id);
- await until(()=>budgets===1,'one auxiliary lease');rt.send(s.id,{text:'Arrived during compaction',from:'user'});await delay(20);
- assert.equal(budgets,1);assert.equal(steps,0,'normal work cannot overlap the asynchronous budget phase');
- budget.resolve();compact.resolve();await Promise.all([first,second]);await until(()=>steps===1,'input resumes after auxiliary release');
- assert.equal(overlap,false);const current=rt.runs.get(s.id);assert.ok(current);await delay(20);assert.equal(rt.runs.get(s.id),current);
+ rt.loop.compact=async()=>{compactions++;};
+ rt.loop.step=async(id,signal)=>{steps++;await step.promise;signal.throwIfAborted();return answer(rt,id);};
+ const first=rt.idle(s.id),second=rt.idle(s.id);
+ await until(()=>budgets===1,'one idle lease');rt.send(s.id,{text:'Arrived during the idle handoff',from:'user'});
+ await until(()=>idleSignal.aborted,'input preempts the idle lease');await delay(20);
+ assert.equal(budgets,1);assert.equal(steps,0,'the turn waits only for the preempted idle work to unwind');
+ budget.resolve();await Promise.allSettled([first,second]);await until(()=>steps===1,'input resumes after idle release');
+ assert.equal(compactions,0,'preempted idle work never hands off');
  step.resolve();await until(()=>idle(rt),'main release');assert.equal(steps,1);assert.equal(rt.sessions.pending(s.id).length,0);
 });
 

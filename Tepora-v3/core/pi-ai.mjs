@@ -12,7 +12,7 @@ import {ProviderError,classifyResponse} from './provider-protocols.mjs';
 import {atomicVault} from './provider-auth.mjs';
 import {checkedPiModels,storedPiCatalog,supportedPiApi} from './pi-model-catalog.mjs';
 
-export const PI_VERSION='1.5.1';
+export const PI_VERSION='1.5.2';
 const catalog=teporaPiModels();
 const accountPattern=/^pi-[a-f0-9-]{36}$/;
 const authOrigins={

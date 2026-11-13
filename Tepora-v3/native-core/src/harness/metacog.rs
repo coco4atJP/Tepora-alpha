@@ -436,7 +436,7 @@ fn render_self_check(f: &Value, why: &[Value], kind: &Value) -> CoreResult<Strin
     )];
     if truth(f, "context") {
         let c = &f["context"];
-        lines.push(format!("- Context: {} of the working budget ({} of {} tokens). Old tool results are cleared at 72%; the conversation is compacted at 80%.",pct(c.get("share")),locale(c.get("used"))?,locale(c.get("budget"))?));
+        lines.push(format!("- Context: {} of the working budget ({} of {} tokens). Old tool results are cleared at 72%; the conversation is handed off to a fresh one at {}.",pct(c.get("share")),locale(c.get("used"))?,locale(c.get("budget"))?,if kind == "main" { "90%" } else { "80%" }));
     }
     let recent = if truth(f, "recentCalls") {
         format!(
@@ -503,7 +503,7 @@ fn render_self_check(f: &Value, why: &[Value], kind: &Value) -> CoreResult<Strin
         ));
     }
     let questions = why.iter().filter_map(|v| match v.as_str() {
-        Some("context") => Some("Context is filling up. Make sure the checklist and your reflect notes hold everything you would need after compaction (goal, verified results, open points)."),
+        Some("context") => Some("Context is filling up. Make sure the checklist and your reflect notes hold everything you would need after the handoff (goal, verified results, open points)."),
         Some("errors") => Some("Several recent calls failed. Is your picture of the environment wrong (path, version, permissions, API)? Check the assumption behind the failing calls before trying again."),
         Some("stalled") => Some("The checklist has not moved for a while. Are you making real progress or circling? If the current approach is not working, change it, or report what blocks you."),
         Some("unreflected") => Some("You have done substantial work without stating your understanding. Write reflect notes: the task as you understand it, your plan, what is verified, what is only assumed, and your confidence."),
