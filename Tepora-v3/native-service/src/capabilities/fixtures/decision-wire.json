@@ -1,0 +1,1075 @@
+{
+ "note": "Shared by tests/agent-decisions.test.mjs and native-service capabilities tests. Synthetic only; no real provider is called. Wire shapes follow the providers' public docs (2026-11).",
+ "cases": [
+  {
+   "name": "system-one appends /systemone (TypeSafe Jev, Strands, Laya)",
+   "protocol": "system-one",
+   "basePath": "/v1",
+   "model": "m",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "action": {
+     "type": "choice",
+     "instructions": "Select the next single action.",
+     "criteria": {
+      "click_e3": "click button \"Send\"",
+      "fill_a2": "type the supplied text into textbox \"Name\"",
+      "done": "done: the success condition is visibly satisfied now"
+     }
+    },
+    "level": {
+     "type": "score",
+     "instructions": "How relevant is it?",
+     "criteria": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/systemone",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "m",
+     "state": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true": "Everything asked is done",
+        "false": "Something is missing"
+       }
+      },
+      "action": {
+       "type": "choice",
+       "instructions": "Select the next single action.",
+       "criteria": {
+        "click_e3": "click button \"Send\"",
+        "fill_a2": "type the supplied text into textbox \"Name\"",
+        "done": "done: the success condition is visibly satisfied now"
+       }
+      },
+      "level": {
+       "type": "score",
+       "instructions": "How relevant is it?",
+       "criteria": [
+        "low",
+        "medium",
+        "high"
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "model": "served",
+    "answers": {
+     "q": {
+      "type": "noul",
+      "noul": 0.8
+     },
+     "action": {
+      "type": "choice",
+      "choice": "click_e3",
+      "probabilities": {
+       "click_e3": 0.7,
+       "fill_a2": 0.2,
+       "done": 0.1
+      },
+      "confidence": 0.55
+     },
+     "level": {
+      "type": "score",
+      "score": 1.5,
+      "probabilities": {
+       "0": 0.1,
+       "1": 0.3,
+       "2": 0.6
+      },
+      "legend": {
+       "0": "low",
+       "1": "medium",
+       "2": "high"
+      },
+      "confidence": 0.4
+     }
+    },
+    "usage": {
+     "input_tokens": 10,
+     "output_tokens": 0
+    }
+   },
+   "expectModel": "served",
+   "expectAnswers": {
+    "q": {
+     "type": "noul",
+     "noul": 0.8
+    },
+    "action": {
+     "type": "choice",
+     "choice": "click_e3",
+     "probabilities": {
+      "click_e3": 0.7,
+      "fill_a2": 0.2,
+      "done": 0.1
+     },
+     "confidence": 0.55
+    },
+    "level": {
+     "type": "score",
+     "score": 1.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.3,
+      "2": 0.6
+     },
+     "legend": {
+      "0": "low",
+      "1": "medium",
+      "2": "high"
+     },
+     "confidence": 0.4
+    }
+   }
+  },
+  {
+   "name": "system-one under a /decisions/v1 prefix still appends /systemone (Liquid d1)",
+   "protocol": "system-one",
+   "basePath": "/decisions/v1",
+   "model": "m",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "action": {
+     "type": "choice",
+     "instructions": "Select the next single action.",
+     "criteria": {
+      "click_e3": "click button \"Send\"",
+      "fill_a2": "type the supplied text into textbox \"Name\"",
+      "done": "done: the success condition is visibly satisfied now"
+     }
+    },
+    "level": {
+     "type": "score",
+     "instructions": "How relevant is it?",
+     "criteria": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   },
+   "expectRequest": {
+    "path": "/decisions/v1/systemone",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "m",
+     "state": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true": "Everything asked is done",
+        "false": "Something is missing"
+       }
+      },
+      "action": {
+       "type": "choice",
+       "instructions": "Select the next single action.",
+       "criteria": {
+        "click_e3": "click button \"Send\"",
+        "fill_a2": "type the supplied text into textbox \"Name\"",
+        "done": "done: the success condition is visibly satisfied now"
+       }
+      },
+      "level": {
+       "type": "score",
+       "instructions": "How relevant is it?",
+       "criteria": [
+        "low",
+        "medium",
+        "high"
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "model": "served",
+    "answers": {
+     "q": {
+      "type": "noul",
+      "noul": 0.8
+     },
+     "action": {
+      "type": "choice",
+      "choice": "click_e3",
+      "probabilities": {
+       "click_e3": 0.7,
+       "fill_a2": 0.2,
+       "done": 0.1
+      },
+      "confidence": 0.55
+     },
+     "level": {
+      "type": "score",
+      "score": 1.5,
+      "probabilities": {
+       "0": 0.1,
+       "1": 0.3,
+       "2": 0.6
+      },
+      "legend": {
+       "0": "low",
+       "1": "medium",
+       "2": "high"
+      },
+      "confidence": 0.4
+     }
+    },
+    "usage": {
+     "input_tokens": 10,
+     "output_tokens": 0
+    }
+   },
+   "expectModel": "served",
+   "expectAnswers": {
+    "q": {
+     "type": "noul",
+     "noul": 0.8
+    },
+    "action": {
+     "type": "choice",
+     "choice": "click_e3",
+     "probabilities": {
+      "click_e3": 0.7,
+      "fill_a2": 0.2,
+      "done": 0.1
+     },
+     "confidence": 0.55
+    },
+    "level": {
+     "type": "score",
+     "score": 1.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.3,
+      "2": 0.6
+     },
+     "legend": {
+      "0": "low",
+      "1": "medium",
+      "2": "high"
+     },
+     "confidence": 0.4
+    }
+   }
+  },
+  {
+   "name": "system-one at a full /decisions endpoint is used as-is (Perplexity, OpenRouter alpha)",
+   "protocol": "system-one",
+   "basePath": "/v1/decisions",
+   "model": "m",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "action": {
+     "type": "choice",
+     "instructions": "Select the next single action.",
+     "criteria": {
+      "click_e3": "click button \"Send\"",
+      "fill_a2": "type the supplied text into textbox \"Name\"",
+      "done": "done: the success condition is visibly satisfied now"
+     }
+    },
+    "level": {
+     "type": "score",
+     "instructions": "How relevant is it?",
+     "criteria": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "m",
+     "state": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true": "Everything asked is done",
+        "false": "Something is missing"
+       }
+      },
+      "action": {
+       "type": "choice",
+       "instructions": "Select the next single action.",
+       "criteria": {
+        "click_e3": "click button \"Send\"",
+        "fill_a2": "type the supplied text into textbox \"Name\"",
+        "done": "done: the success condition is visibly satisfied now"
+       }
+      },
+      "level": {
+       "type": "score",
+       "instructions": "How relevant is it?",
+       "criteria": [
+        "low",
+        "medium",
+        "high"
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "model": "served",
+    "answers": {
+     "q": {
+      "type": "noul",
+      "noul": 0.8
+     },
+     "action": {
+      "type": "choice",
+      "choice": "click_e3",
+      "probabilities": {
+       "click_e3": 0.7,
+       "fill_a2": 0.2,
+       "done": 0.1
+      },
+      "confidence": 0.55
+     },
+     "level": {
+      "type": "score",
+      "score": 1.5,
+      "probabilities": {
+       "0": 0.1,
+       "1": 0.3,
+       "2": 0.6
+      },
+      "legend": {
+       "0": "low",
+       "1": "medium",
+       "2": "high"
+      },
+      "confidence": 0.4
+     }
+    },
+    "usage": {
+     "input_tokens": 10,
+     "output_tokens": 0
+    }
+   },
+   "expectModel": "served",
+   "expectAnswers": {
+    "q": {
+     "type": "noul",
+     "noul": 0.8
+    },
+    "action": {
+     "type": "choice",
+     "choice": "click_e3",
+     "probabilities": {
+      "click_e3": 0.7,
+      "fill_a2": 0.2,
+      "done": 0.1
+     },
+     "confidence": 0.55
+    },
+    "level": {
+     "type": "score",
+     "score": 1.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.3,
+      "2": 0.6
+     },
+     "legend": {
+      "0": "low",
+      "1": "medium",
+      "2": "high"
+     },
+     "confidence": 0.4
+    }
+   }
+  },
+  {
+   "name": "openai-decisions sends input and a question list, answers by name",
+   "protocol": "openai-decisions",
+   "basePath": "/v1",
+   "model": "gpt-6-luna",
+   "state": {
+    "goal": "send",
+    "done": false
+   },
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "action": {
+     "type": "choice",
+     "instructions": "Select the next single action.",
+     "criteria": {
+      "click_e3": "click button \"Send\"",
+      "fill_a2": "type the supplied text into textbox \"Name\"",
+      "done": "done: the success condition is visibly satisfied now"
+     }
+    },
+    "level": {
+     "type": "score",
+     "instructions": "How relevant is it?",
+     "criteria": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "gpt-6-luna",
+     "input": "{\"goal\":\"send\",\"done\":false}",
+     "questions": [
+      {
+       "type": "predicate",
+       "name": "q",
+       "instructions": "Is the task finished?\nYes means: Everything asked is done\nNo means: Something is missing"
+      },
+      {
+       "type": "choice",
+       "name": "action",
+       "instructions": "Select the next single action.",
+       "choices": [
+        {
+         "value": "click_e3",
+         "description": "click button \"Send\""
+        },
+        {
+         "value": "fill_a2",
+         "description": "type the supplied text into textbox \"Name\""
+        },
+        {
+         "value": "done",
+         "description": "done: the success condition is visibly satisfied now"
+        }
+       ]
+      },
+      {
+       "type": "score",
+       "name": "level",
+       "instructions": "How relevant is it?",
+       "levels": [
+        {
+         "label": "low"
+        },
+        {
+         "label": "medium"
+        },
+        {
+         "label": "high"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "response": {
+    "id": "dec_1",
+    "model": "gpt-6-luna",
+    "answers": [
+     {
+      "type": "predicate",
+      "name": "q",
+      "probability": 0.8
+     },
+     {
+      "type": "choice",
+      "name": "action",
+      "choice": "click_e3",
+      "probabilities": [
+       {
+        "value": "click_e3",
+        "probability": 0.7
+       },
+       {
+        "value": "fill_a2",
+        "probability": 0.2
+       },
+       {
+        "value": "done",
+        "probability": 0.1
+       }
+      ],
+      "confidence": 0.55
+     },
+     {
+      "type": "score",
+      "name": "level",
+      "score": 1.5,
+      "probabilities": [
+       {
+        "value": 0,
+        "label": "low",
+        "probability": 0.1
+       },
+       {
+        "value": 1,
+        "label": "medium",
+        "probability": 0.3
+       },
+       {
+        "value": 2,
+        "label": "high",
+        "probability": 0.6
+       }
+      ],
+      "confidence": 0.4
+     }
+    ],
+    "usage": {
+     "input_tokens": 20,
+     "output_tokens": 0,
+     "total_tokens": 20
+    }
+   },
+   "expectModel": "gpt-6-luna",
+   "expectAnswers": {
+    "q": {
+     "type": "noul",
+     "noul": 0.8
+    },
+    "action": {
+     "type": "choice",
+     "choice": "click_e3",
+     "probabilities": {
+      "click_e3": 0.7,
+      "fill_a2": 0.2,
+      "done": 0.1
+     },
+     "confidence": 0.55
+    },
+    "level": {
+     "type": "score",
+     "score": 1.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.3,
+      "2": 0.6
+     },
+     "confidence": 0.4
+    }
+   }
+  },
+  {
+   "name": "openai-decisions refusal falls back without counting a failure",
+   "protocol": "openai-decisions",
+   "basePath": "/v1",
+   "model": "gpt-6-luna",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "gpt-6-luna",
+     "input": "Goal: send the form",
+     "questions": [
+      {
+       "type": "predicate",
+       "name": "q",
+       "instructions": "Is the task finished?\nYes means: Everything asked is done\nNo means: Something is missing"
+      }
+     ]
+    }
+   },
+   "response": {
+    "answers": [
+     {
+      "type": "refusal",
+      "name": "q"
+     }
+    ]
+   },
+   "expectError": {
+    "status": 502,
+    "refused": true,
+    "knownRejected": true
+   }
+  },
+  {
+   "name": "openai-decisions refusal of one question refuses the whole decision",
+   "protocol": "openai-decisions",
+   "basePath": "/v1",
+   "model": "gpt-6-luna",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "r": {
+     "type": "noul",
+     "instructions": "Is the form valid?",
+     "criteria": {
+      "true": "All fields pass",
+      "false": "A field fails"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "gpt-6-luna",
+     "input": "Goal: send the form",
+     "questions": [
+      {
+       "type": "predicate",
+       "name": "q",
+       "instructions": "Is the task finished?\nYes means: Everything asked is done\nNo means: Something is missing"
+      },
+      {
+       "type": "predicate",
+       "name": "r",
+       "instructions": "Is the form valid?\nYes means: All fields pass\nNo means: A field fails"
+      }
+     ]
+    }
+   },
+   "response": {
+    "answers": [
+     {
+      "type": "predicate",
+      "name": "q",
+      "probability": 0.9
+     },
+     {
+      "type": "refusal",
+      "name": "r"
+     }
+    ]
+   },
+   "expectError": {
+    "status": 502,
+    "refused": true,
+    "message": "Decision refused: r",
+    "knownRejected": true
+   }
+  },
+  {
+   "name": "openai-decisions rejects an unknown answer name",
+   "protocol": "openai-decisions",
+   "basePath": "/v1",
+   "model": "gpt-6-luna",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1/decisions",
+    "headers": {
+     "authorization": "Bearer fixture-key"
+    },
+    "body": {
+     "model": "gpt-6-luna",
+     "input": "Goal: send the form",
+     "questions": [
+      {
+       "type": "predicate",
+       "name": "q",
+       "instructions": "Is the task finished?\nYes means: Everything asked is done\nNo means: Something is missing"
+      }
+     ]
+    }
+   },
+   "response": {
+    "answers": [
+     {
+      "type": "predicate",
+      "name": "other",
+      "probability": 0.5
+     }
+    ]
+   },
+   "expectError": {
+    "status": 502,
+    "refused": false,
+    "message": "Invalid decision answer names",
+    "knownRejected": null
+   }
+  },
+  {
+   "name": "gemini-decisions uses x-goog-api-key, input and true_description",
+   "protocol": "gemini-decisions",
+   "basePath": "/v1beta",
+   "model": "gemini-decision-1",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    },
+    "action": {
+     "type": "choice",
+     "instructions": "Select the next single action.",
+     "criteria": {
+      "click_e3": "click button \"Send\"",
+      "fill_a2": "type the supplied text into textbox \"Name\"",
+      "done": "done: the success condition is visibly satisfied now"
+     }
+    },
+    "level": {
+     "type": "score",
+     "instructions": "How relevant is it?",
+     "criteria": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   },
+   "expectRequest": {
+    "path": "/v1beta/decisions",
+    "headers": {
+     "x-goog-api-key": "fixture-key"
+    },
+    "absentHeaders": [
+     "authorization"
+    ],
+    "body": {
+     "model": "gemini-decision-1",
+     "input": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true_description": "Everything asked is done",
+        "false_description": "Something is missing"
+       }
+      },
+      "action": {
+       "type": "choice",
+       "instructions": "Select the next single action.",
+       "criteria": {
+        "click_e3": "click button \"Send\"",
+        "fill_a2": "type the supplied text into textbox \"Name\"",
+        "done": "done: the success condition is visibly satisfied now"
+       }
+      },
+      "level": {
+       "type": "score",
+       "instructions": "How relevant is it?",
+       "criteria": [
+        "low",
+        "medium",
+        "high"
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q": {
+      "type": "noul",
+      "noul": 0.8,
+      "confidence": 0.8
+     },
+     "action": {
+      "type": "choice",
+      "choice": "click_e3",
+      "probabilities": {
+       "click_e3": 0.7,
+       "done": 0.1,
+       "fill_a2": 0.2
+      },
+      "confidence": 0.55
+     },
+     "level": {
+      "type": "score",
+      "score": 1.5,
+      "legend": {
+       "0": "low",
+       "1": "medium",
+       "2": "high"
+      },
+      "probabilities": {
+       "0": 0.1,
+       "1": 0.3,
+       "2": 0.6
+      },
+      "confidence": 0.4
+     }
+    },
+    "usage": {
+     "total_input_tokens": 30,
+     "input_tokens_by_modality": [
+      {
+       "modality": "text",
+       "tokens": 30
+      }
+     ],
+     "total_output_tokens": 0,
+     "total_tokens": 30
+    }
+   },
+   "expectModel": "gemini-decision-1",
+   "expectAnswers": {
+    "q": {
+     "type": "noul",
+     "noul": 0.8,
+     "confidence": 0.8
+    },
+    "action": {
+     "type": "choice",
+     "choice": "click_e3",
+     "probabilities": {
+      "click_e3": 0.7,
+      "done": 0.1,
+      "fill_a2": 0.2
+     },
+     "confidence": 0.55
+    },
+    "level": {
+     "type": "score",
+     "score": 1.5,
+     "legend": {
+      "0": "low",
+      "1": "medium",
+      "2": "high"
+     },
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.3,
+      "2": 0.6
+     },
+     "confidence": 0.4
+    }
+   }
+  },
+  {
+   "name": "gemini-decisions safety block is a refusal",
+   "protocol": "gemini-decisions",
+   "basePath": "/v1beta",
+   "model": "gemini-decision-1",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1beta/decisions",
+    "headers": {
+     "x-goog-api-key": "fixture-key"
+    },
+    "absentHeaders": [
+     "authorization"
+    ],
+    "body": {
+     "model": "gemini-decision-1",
+     "input": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true_description": "Everything asked is done",
+        "false_description": "Something is missing"
+       }
+      }
+     }
+    }
+   },
+   "status": 400,
+   "response": {
+    "error": {
+     "code": "safety",
+     "message": "Request blocked due to safety violations."
+    }
+   },
+   "expectError": {
+    "status": 502,
+    "upstreamStatus": 400,
+    "refused": true,
+    "knownRejected": true
+   }
+  },
+  {
+   "name": "gemini-decisions ordinary 400 (numeric code) is a failure",
+   "protocol": "gemini-decisions",
+   "basePath": "/v1beta",
+   "model": "gemini-decision-1",
+   "state": "Goal: send the form",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    }
+   },
+   "expectRequest": {
+    "path": "/v1beta/decisions",
+    "headers": {
+     "x-goog-api-key": "fixture-key"
+    },
+    "absentHeaders": [
+     "authorization"
+    ],
+    "body": {
+     "model": "gemini-decision-1",
+     "input": "Goal: send the form",
+     "questions": {
+      "q": {
+       "type": "noul",
+       "instructions": "Is the task finished?",
+       "criteria": {
+        "true_description": "Everything asked is done",
+        "false_description": "Something is missing"
+       }
+      }
+     }
+    }
+   },
+   "status": 400,
+   "response": {
+    "error": {
+     "code": 400,
+     "message": "API key not valid.",
+     "status": "INVALID_ARGUMENT"
+    }
+   },
+   "expectError": {
+    "status": 502,
+    "upstreamStatus": 400,
+    "refused": false,
+    "knownRejected": true
+   }
+  },
+  {
+   "name": "gemini-decisions refuses an empty input before sending",
+   "protocol": "gemini-decisions",
+   "basePath": "/v1beta",
+   "model": "gemini-decision-1",
+   "state": "",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Is the task finished?",
+     "criteria": {
+      "true": "Everything asked is done",
+      "false": "Something is missing"
+     }
+    }
+   },
+   "expectError": {
+    "status": 400,
+    "refused": false,
+    "message": "Decision context is empty",
+    "knownRejected": null
+   }
+  },
+  {
+   "name": "question keys follow the Gemini rule for every protocol",
+   "protocol": "system-one",
+   "basePath": "/v1",
+   "model": "m",
+   "state": "Goal: send the form",
+   "questions": {
+    "bad key": {
+     "type": "noul",
+     "instructions": "?"
+    }
+   },
+   "expectError": {
+    "status": 400,
+    "refused": false,
+    "message": "Invalid decision question key",
+    "knownRejected": null
+   }
+  }
+ ]
+}

@@ -6,7 +6,7 @@
  *   node scripts/eval-agent.mjs --list
  *   node scripts/eval-agent.mjs --run --url http://127.0.0.1:8080/v1 --model qwen3 [--protocol chat-completions]
  *        [--key-env OPENAI_API_KEY] [--allow-cloud] [--cases a,b] [--repeat 3] [--timeout 300] [--context 32768] [--out report.json]
- *        [--decision liquid|laya|<System One base URL>] [--decision-model d1:free] [--decision-key-env LIQUID_API_KEY]
+ *        [--decision liquid|laya|<decision base URL>] [--decision-model d1.1] [--decision-key-env LIQUID_API_KEY]
  *        [--state DIR] keep the record (episodes, learnt policy) in DIR across runs and models instead of a fresh folder
  *        [--dream]     dream once after the run (with --state, the record of earlier runs counts too)
  *        [--rounds 3]  run → record → dream → run again (Dream-RSI): after each round the decision-model episodes are
@@ -22,6 +22,7 @@ import {ProviderRegistry} from '../core/provider-registry.mjs';
 import {AgentRuntime} from '../core/agent/runtime.mjs';
 import {Capabilities} from '../core/capabilities.mjs';
 import {invariant} from '../core/policy.mjs';
+import {decisionProtocol} from '../web/capability-ui.mjs';
 import {evaluateChecks} from './eval-checks.mjs';
 import {budgetCost} from '../core/model-usage.mjs';
 
@@ -53,11 +54,11 @@ registry.save({profiles:[{id:'eval',protocol,baseUrl:url,model,domain,capabiliti
  * also needs --allow-cloud. */
 let capabilities=null;const decision=get('--decision');
 if(decision){
- const preset={liquid:{baseUrl:'https://api.liquid.ai/decisions/v1',model:'d1:free',domain:'cloud',apiKeyEnv:'LIQUID_API_KEY',maxParallel:1},laya:{baseUrl:'http://127.0.0.1:8767/v1',model:'multilingual',domain:'device'}}[decision]
+ const preset={liquid:{baseUrl:'https://api.liquid.ai/decisions/v1',model:'d1.1',domain:'cloud',apiKeyEnv:'LIQUID_API_KEY',maxParallel:1},laya:{baseUrl:'http://127.0.0.1:8767/v1',model:'multilingual',domain:'device'}}[decision]
   ||{baseUrl:decision,model:'multilingual',domain:/^https?:\/\/(localhost|127\.)/.test(decision)?'device':'cloud'};
  invariant(preset.domain!=='cloud'||args.includes('--allow-cloud'),'The decision model is a cloud API: add --allow-cloud.');
  capabilities=new Capabilities(store,network);
- capabilities.save({profiles:[{id:'decision',name:'eval decision',protocol:'system-one',...preset,...(get('--decision-model')?{model:get('--decision-model')}:{}),...(get('--decision-key-env')?{apiKeyEnv:get('--decision-key-env')}:{}),enabled:true}],routes:{decision:'decision'}},capabilities.get().revision);
+ capabilities.save({profiles:[{id:'decision',name:'eval decision',protocol:decisionProtocol(preset.baseUrl),...preset,...(get('--decision-model')?{model:get('--decision-model')}:{}),...(get('--decision-key-env')?{apiKeyEnv:get('--decision-key-env')}:{}),enabled:true}],routes:{decision:'decision'}},capabilities.get().revision);
 }
 const rt=new AgentRuntime(store,{registry,network,capabilities,workRoot:path.join(directory,'work'),autoStart:false});
 const results=[],dreams=[];

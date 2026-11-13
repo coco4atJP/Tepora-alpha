@@ -1,5 +1,4 @@
 import {boundedJSON} from './transport.mjs';
-import { DecisionClient } from './decision.mjs';
 import { endpoint, invariant } from './policy.mjs';
 export const PROVIDERS = Object.freeze([
   {id:'llama.cpp', name:'llama.cpp', url:'http://127.0.0.1:8080/v1'},
@@ -73,11 +72,6 @@ export class Runtime {
     invariant(tool_calls.every(c=>c.id && c.function.name),'Incomplete tool call metadata',502);
     invariant(tool_calls.length<=16&&new Set(tool_calls.map(c=>c.id)).size===tool_calls.length,'Invalid number or duplicate tool calls');
     return {role:'assistant',content:content||null,...(tool_calls.length?{tool_calls}: {})};
-  }
-  async decide(state,signal) {
-    this.decisionClient ||= new DecisionClient({url:this.settings.decisionUrl,model:this.settings.decisionModel||'multilingual'},this.fetch);
-    const result=await this.decisionClient.decide(state,undefined,signal);
-    return result ? {...result.answers.intent,advisory:true,model:result.model} : null;
   }
 }
 export async function discover() {

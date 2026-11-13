@@ -108,7 +108,7 @@ offline. It never installs packages from metadata or treats a capability listing
 | Role | API adapter in this build |
 | --- | --- |
 | Main/chat/work/vision/dictation | Chat Completions, Responses, Anthropic Messages, Gemini generateContent |
-| Typed decisions | System One `state + questions -> answers`: Liquid d1 (cloud) and the local Laya multilingual worker |
+| Typed decisions | System One `state + questions -> answers` (TypeSafe Jev, Liquid d1, Perplexity, Strands, OpenRouter, LiteLLM, the local Laya worker), OpenAI Decisions and Gemini Decisions; the format follows the base URL's host |
 | Embeddings | OpenAI-compatible `/embeddings`, Ollama `/embed` |
 | Recorded STT | GPT-Transcribe `languages[]` and Whisper-compatible `language` multipart `/audio/transcriptions` |
 | TTS | OpenAI-compatible `/audio/speech`, local MOSS/Qwen/Kokoro WAV and Inworld TTS-2 |
@@ -197,7 +197,7 @@ builds include and source checkouts build with cargo on first use. Both helpers 
 commands (`core/computer/desktop-contract.json`) and report the same roles. Linux on Wayland, or with no
 display, is reported as unsupported; browser control still works there. The preferred way is
 **decision-model control**: the agent gives a small goal, the text to enter and checks that prove
-completion; the decision model (Liquid d1 or Laya) picks each next action from controls that exist on
+completion; the decision model (for example Jev, Liquid d1 or Laya) picks each next action from controls that exist on
 screen, with probability gates, freshness checks and local verification. Without a decision model the
 agent's own model chooses from the same shortlist. Direct actions (click, type, key, scroll, screenshot,
 coordinates) are always available too.

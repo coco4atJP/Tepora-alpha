@@ -52,7 +52,8 @@ flowchart TD
 | `core/agent/prompts.mjs` | 固定のシステムプロンプト、引き継ぎ書の指示、立て直し用の文 |
 | `core/tools/*.mjs` | ツール登録と組み込みツール |
 | `core/sandbox.mjs` | 実行の隔離（seatbelt・bubblewrap・コンテナ） |
-| `core/agent/decisions.mjs` | 判断モデル（System One: Liquid d1 / Laya）による軽い判定と、その代わりの手段 |
+| `core/agent/decisions.mjs` | 判断モデルによる軽い判定と、その代わりの手段 |
+| `core/decision.mjs` | 判断モデルの送信形式（System One・OpenAI Decisions・Gemini Decisions）への変換と、答えの検証 |
 | `core/agent/schedule.mjs` | 予定とくり返し（対話エージェントへの入力になる） |
 | `core/agent/images.mjs` | 画像の寸法・トークン見積もり・読み込み |
 | `core/computer/*.mjs` | コンピューター操作（CDPブラウザ、macOSのアクセシビリティ補助、判断モデルの操作ループ） |
@@ -123,7 +124,8 @@ flowchart TD
 | 無通信のまま長く考える | 無通信の上限で切れたら、その接続先の上限を倍にして記録し、すぐ再試行する（最大30分）。推論要約（Responses の `reasoning.summary`、Gemini の `includeThoughts`）と llama.cpp の読み込み進捗（`return_progress`）を要求して、そもそも黙らないようにする |
 | 429 | `Retry-After` に従って待つ |
 | 認証エラー | 5分ごとに再試行しつつ、画面に理由を出す |
-| 判断モデルの429（d1:free の混雑） | 1秒・2秒・4秒と待って聞き直す。これは故障として数えない。無料枠の接続は1本ずつ送る |
+| 判断モデルの429・529（混雑） | 1秒・2秒・4秒と待って聞き直す。これは故障として数えない。無料枠の接続は1本ずつ送る |
+| 判断モデルの拒否（OpenAI の refusal、Gemini の安全フィルタによる400） | 聞き直さず、代わりの手段で続ける。故障としては数えない |
 | 文脈の溢れ | エラー文から上限を読み取って記録する。強めのコンパクションをかけて再試行する |
 | 黙った切り詰め | 窓が推定でしかないのに、送った量の半分未満しか数えられていなければ、サーバーが会話の頭を黙って捨てたと判断する。その答えは捨て、窓を学習し、コンパクションしてから聞き直す。窓が検出済みなら、補正の学習から外すだけにする |
 | 出力上限での打ち切り | ツール呼び出しが切れていたら実行しない。分割して書くよう伝える。本文だけが切れていたら「続きを書く」で継ぐ |
@@ -402,7 +404,7 @@ d1-computer-use の構成（観測 → 候補 → 判断 → 操作 → 検証�
 
    ハーネスは目標に達するまで次をくり返します。
    1. 観測し、候補を最大16個に絞る（指定された入力の欄への記入、目標の語に近い押せる要素、スクロール、記入直後のEnter、そして wait / done / blocked）。効果がなかった操作と、3回やった操作は候補から外す。
-   2. 判断モデル（System One）が候補から1つ選ぶ（確率つき）。確率0.6未満または2位との差0.1未満なら `uncertain` として作業エージェントに返す。判断モデルが無ければ、作業エージェントのモデルが同じ候補から選ぶ。
+   2. 判断モデルが候補から1つ選ぶ（確率つき）。確率0.6未満または2位との差0.1未満なら `uncertain` として作業エージェントに返す。判断モデルが無ければ、作業エージェントのモデルが同じ候補から選ぶ。
    3. 判断のあいだに画面が変わっていたら、操作せずに観測し直す。
    4. 実行し、落ち着くのを待って、変化を確かめる。同じ状態に3回戻ったら `blocked`（行ったり来たりの検出）。
    5. `checks` がすべて満たされたら `completed`（ローカルで検証済み）。判断モデルの「done」だけなら `model_completed`（未検証）。
@@ -420,9 +422,21 @@ d1-computer-use の構成（観測 → 候補 → 判断 → 操作 → 検証�
 - **思考オフ**: プロファイルの `thinking:'off'` で推論フェーズなしに答えさせる（未設定はモデルの既定）。chat-completions は `thinking:{type:"disabled"}`（DeepSeek・Kimi・GLM・OpenCode Go 系が読む。拒否するサーバーでは他の任意パラメーターと同じく落として再試行）、Ollama は `think:false`、Gemini は `thinkingBudget:0`。Anthropic は既定で思考なし、Responses には切る手段がないので何も送らない。`reasoningEffort`・`thinkingBudget` との併用は検証で拒否する。
 - **記録**: `usage`（入力・出力・キャッシュ読み書き）をステップごとに記録する。Ollama はキャッシュ済みの部分を入力に数えないので、送った量の見積もりとの差をキャッシュ読み出しとして記録する（他の接続先と同じ意味の命中率になる）。費用は models.dev の公開価格（キャッシュの読み書きは別料金）で見積もり、セッションごとと日ごとに貯める。端末内とLANは0。
 
-### 判断モデル（System One）
+### 判断モデル
 
-選ぶ・判定するだけで文章を作らない、速くて安いモデルです（Liquid d1 をクラウドで、Laya をこのPCで）。「能力の接続」の「判断」としてつなぎます。使い道と、無いときの代わりは次のとおりです。
+選ぶ・判定するだけで文章を作らない、速くて安いモデルです（TypeSafe Jev・Liquid d1・Gemini Decision 1・OpenAI GPT-6 Luna をクラウドで、Laya や Strands Decider をこのPCで）。「能力の接続」の「判断」としてつなぎます。
+
+内部の形は System One（`{model, state, questions}` → `{answers}`）だけで、送る直前と受け取った直後に形式を変換します（`core/decision.mjs` と Rust の `agent/decisions.rs` に同じ表。共通の例は `native-service/src/capabilities/fixtures/decision-wire.json`）。形式は選ばせず、保存するときにベースURLのホスト名で決めます。
+
+| 形式（`protocol`） | 決め方 | 送信先 | 認証 |
+| --- | --- | --- | --- |
+| `system-one` | 下の2つ以外（Jev、Liquid、Perplexity、Strands、Laya、OpenRouter、LiteLLM） | `{baseUrl}/systemone` | Bearer |
+| `openai-decisions` | `api.openai.com`、`ai-gateway.vercel.sh` | `{baseUrl}/decisions` | Bearer |
+| `gemini-decisions` | `generativelanguage.googleapis.com` | `{baseUrl}/decisions`（例 `…/v1beta/decisions`） | `x-goog-api-key` |
+
+ベースURLの最後が `systemone` か `decisions` なら、それを送信先そのものとして扱います（Perplexity の `…/v1/decisions`、OpenRouter の `…/api/alpha/decisions` は System One 形式のまま届きます）。OpenAI には `input` と問いの配列（yes/no は `predicate`、段階は `levels`）を送り、答えを名前で System One の形に戻します。Gemini には `input` を送り、yes/no の基準を `true_description`/`false_description` にします。問いの名前は `[A-Za-z0-9_-]{1,64}` に限ります。画像は送りません。pi-ai の `classify()` は使いません（Gemini に対応しておらず、Rust からも使えないため。[PI-AI.md](PI-AI.md)）。
+
+使い道と、無いときの代わりは次のとおりです。
 
 | 使い道 | 無いとき |
 | --- | --- |
@@ -443,7 +457,7 @@ node scripts/eval-agent.mjs --list
 node scripts/eval-agent.mjs --run --url http://127.0.0.1:8080/v1 --model qwen3 --repeat 3
 ```
 
-判断モデルも試すときは `--decision liquid --allow-cloud`（`LIQUID_API_KEY` が必要。`laya` や System One のURLも指定可）。
+判断モデルも試すときは `--decision liquid --allow-cloud`（`LIQUID_API_KEY` が必要。`laya` や判断モデルのベースURLも指定可。形式は画面と同じくホスト名で決まる）。
 
 課題の準備ファイルは推論を始める前に作成します。JSONの値・件数やファイルの完全一致、必要なツールの成功記録、セッションの正常完了を判定し、成果物は当該セッションに限定します。失敗・未実施・不正なケース指定では終了コードを非0にします。費用は既知の推定額と不明な呼び出し件数を併記します。この課題集は一般能力や他ハーネスに対する優位性を示すベンチマークではありません。
 

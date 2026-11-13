@@ -357,7 +357,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Atomic revisioned shared capability settings; valid decision routes are connected to typed actor-owned advice. Buffered advice rechecks registry/identity/key generation/close; user-requested media jobs consume pinned transport, while media agent tools and other speech consumers remain separate.",
+      "limit": "Atomic revisioned shared capability settings; valid decision routes (system-one, openai-decisions, gemini-decisions) are connected to typed actor-owned advice. Buffered advice rechecks registry/identity/key generation/close; user-requested media jobs consume pinned transport, while media agent tools and other speech consumers remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

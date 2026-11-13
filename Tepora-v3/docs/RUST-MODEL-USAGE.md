@@ -2,7 +2,7 @@
 
 The ordinary Node host and the opt-in Rust agent record one final receipt per
 dispatched chat or summary attempt, including provider retries/fallbacks and
-unsuccessful summary attempts. Typed decision `/systemone` transport requests are
+unsuccessful summary attempts. Typed decision transport requests (System One, OpenAI and Gemini Decisions) are
 counted too. Both hosts use the same Rust estimator, receipt format, aggregate
 logic and transactional store on their existing sole SQLite owner. This does not
 change the normal launcher, provider admission, cancellation authority, or permissions.

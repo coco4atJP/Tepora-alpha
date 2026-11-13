@@ -99,11 +99,16 @@ pub fn search_tokens(value: &Value, max: usize, unicode: u64) -> Vec<String> {
     const WORDS_ADDED_17: &str = r"\u{88f}\u{c5c}\u{cdc}\u{a7ce}-\u{a7cf}\u{a7d2}\u{a7d4}\u{a7f1}\u{10940}-\u{10959}\u{10ec5}-\u{10ec7}\u{11db0}-\u{11ddb}\u{11de0}-\u{11de9}\u{16ea0}-\u{16eb8}\u{16ebb}-\u{16ed3}\u{16ff2}-\u{16ff6}\u{187f8}-\u{187ff}\u{18d09}-\u{18d1e}\u{18d80}-\u{18df2}\u{1e6c0}-\u{1e6de}\u{1e6e0}-\u{1e6e2}\u{1e6e4}-\u{1e6e5}\u{1e6e7}-\u{1e6ed}\u{1e6f0}-\u{1e6f4}\u{1e6fe}-\u{1e6ff}\u{2b73a}-\u{2b73f}\u{2cea2}-\u{2cead}\u{323b0}-\u{33479}";
     const CJK_ADDED_17: &str =
         r"\u{16ff2}-\u{16ff6}\u{2b73a}-\u{2b73f}\u{2cea2}-\u{2cead}\u{323b0}-\u{33479}";
+    // unicode-normalization 0.1.26 ships Unicode 18 data. These are the scalars
+    // newly assigned in Unicode 18 (DerivedAge 18.0.0); a Unicode 17 index must
+    // treat them as unassigned instead of normalizing them into older letters.
+    const ADDED_18: &str = r"\u{558}\u{58b}-\u{58c}\u{5c8}-\u{5c9}\u{b53}-\u{b54}\u{1ade}-\u{1adf}\u{1aec}-\u{1af0}\u{208f}\u{209d}-\u{209f}\u{20c2}-\u{20c4}\u{2e60}-\u{2e63}\u{a7dd}\u{a7e2}\u{ab6c}-\u{ab6d}\u{107bb}-\u{107bf}\u{10ec9}-\u{10ecf}\u{10ed9}-\u{10eee}\u{10ef0}-\u{10ef9}\u{11b0a}\u{11df0}-\u{11df1}\u{1246f}\u{12475}-\u{1247f}\u{12550}-\u{12686}\u{18cd6}-\u{18cda}\u{18d1f}-\u{18d20}\u{18e00}-\u{19191}\u{191a0}-\u{191d2}\u{1b123}-\u{1b128}\u{1b168}\u{1ced2}-\u{1ced4}\u{1cedd}-\u{1cedf}\u{1cef1}-\u{1cefd}\u{1d127}-\u{1d128}\u{1d1eb}-\u{1d1ff}\u{1d250}-\u{1d281}\u{1d6a6}\u{1db00}-\u{1db1c}\u{1df1f}-\u{1df24}\u{1df2b}-\u{1df81}\u{1df90}-\u{1df96}\u{1dfcd}-\u{1dfff}\u{1f1ae}\u{1f6d9}\u{1f7da}-\u{1f7db}\u{1f7f1}-\u{1f7ff}\u{1fa8b}-\u{1fa8d}\u{1facc}\u{1fadd}\u{1faeb}\u{1faf9}-\u{1fafa}\u{2b81e}\u{3d000}-\u{3fc3f}";
     static WORDS_16: OnceLock<Regex> = OnceLock::new();
     static WORDS_17: OnceLock<Regex> = OnceLock::new();
     static CJK_16: OnceLock<Regex> = OnceLock::new();
     static CJK_17: OnceLock<Regex> = OnceLock::new();
-    static NEW: OnceLock<Regex> = OnceLock::new();
+    static NEW_16: OnceLock<Regex> = OnceLock::new();
+    static NEW_17: OnceLock<Regex> = OnceLock::new();
     let words = if unicode < 17 {
         WORDS_16.get_or_init(|| Regex::new(r"[\p{L}\p{N}_]+").unwrap())
     } else {
@@ -126,10 +131,16 @@ pub fn search_tokens(value: &Value, max: usize, unicode: u64) -> Vec<String> {
         String::new()
     };
     let text = json_codec::sql_text(&text);
-    // Characters unassigned in Unicode 16 cannot create words or normalize into
-    // old letters in a Node 22 index. Keep them as separating replacement chars.
+    // Characters unassigned in the caller's Unicode version cannot create words
+    // or normalize into old letters. Keep them as separating replacement chars.
     let text = if unicode < 17 {
-        NEW.get_or_init(|| Regex::new(r"\P{Age:16.0}").unwrap())
+        NEW_16
+            .get_or_init(|| Regex::new(r"\P{Age:16.0}").unwrap())
+            .replace_all(&text, "\u{fffd}")
+            .into_owned()
+    } else if unicode == 17 {
+        NEW_17
+            .get_or_init(|| Regex::new(&format!("[{ADDED_18}]")).unwrap())
             .replace_all(&text, "\u{fffd}")
             .into_owned()
     } else {
@@ -242,7 +253,7 @@ fn atomic(
 }
 
 pub fn default_settings() -> Value {
-    json!({"dictationEditing":false,"codexEnabled":false,"codexNetwork":false,"codexBinary":"","codexModel":"","companion":"Tepora","provider":"llama.cpp","baseUrl":"http://127.0.0.1:8080/v1","model":"","apiKeyEnv":"","allowCloud":false,"allowNetwork":false,"shareMemory":false,"maxSteps":64,"maxTokens":2048,"concurrency":2,"asrUrl":"","asrStreamUrl":"","asrModel":"Qwen/Qwen3-ASR-0.6B","decisionUrl":"","decisionModel":"multilingual","voiceEnabled":true,"autoAmbient":false,"weatherCity":"","newsUrl":"","runtimeBinary":"","modelPath":"","bravePath":""})
+    json!({"dictationEditing":false,"codexEnabled":false,"codexNetwork":false,"codexBinary":"","codexModel":"","companion":"Tepora","provider":"llama.cpp","baseUrl":"http://127.0.0.1:8080/v1","model":"","apiKeyEnv":"","allowCloud":false,"allowNetwork":false,"shareMemory":false,"maxSteps":64,"maxTokens":2048,"concurrency":2,"asrUrl":"","asrStreamUrl":"","asrModel":"Qwen/Qwen3-ASR-0.6B","voiceEnabled":true,"autoAmbient":false,"weatherCity":"","newsUrl":"","runtimeBinary":"","modelPath":"","bravePath":""})
 }
 fn settings(state: &mut NativeState) -> CoreResult<Value> {
     let mut settings = default_settings();

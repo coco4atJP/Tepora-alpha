@@ -1013,11 +1013,9 @@ function closePanel(){
 function openInbox(){openPanel('あなたの番',inboxHTML(inboxList(),{presence}),'inbox');}
 function paintInbox(){const body=$('#panel .panel-body');if(!body||activePanel?.kind!=='inbox')return;const top=body.scrollTop;body.innerHTML=inboxHTML(inboxList(),{presence});body.scrollTop=top;}
 function voiceSheet(){
- const s=settings();openSheet('ローカル音声と軽量判断',`<p>役割別の音声認識は、能力の接続でモデル・送信先を選びます。外部への録音送信は、停止後に毎回確認します。リアルタイム入力は下のローカル設定から選べます。</p>${btn('abilities-open','音声認識の接続先を選ぶ','','button secondary')}<form id="voice-form">
+ const s=settings();openSheet('ローカル音声',`<p>役割別の音声認識は、能力の接続でモデル・送信先を選びます。外部への録音送信は、停止後に毎回確認します。リアルタイム入力は下のローカル設定から選べます。</p>${btn('abilities-open','音声認識の接続先を選ぶ','','button secondary')}<form id="voice-form">
  ${field('リアルタイム音声ワーカーのURL','asrStreamUrl',s.asrStreamUrl||'','http://127.0.0.1:8768')}
- ${field('LayaのSystem One URL','decisionUrl',s.decisionUrl,'http://127.0.0.1:8767/v1/systemone')}
- ${field('判断モデル','decisionModel',s.decisionModel||'multilingual')}
- <p class="small-text">Layaは multilingual を使用します。ワーカーとモデルの導入・実機性能確認は別途必要です。未接続でも文字での依頼はできます。</p>
+ <p class="small-text">ワーカーとモデルの導入・実機性能確認は別途必要です。未接続でも文字での依頼はできます。</p>
  <details><summary>録音後に認識する互換経路</summary>${field('音声認識URL','asrUrl',s.asrUrl||'')}${field('音声モデル','asrModel',s.asrModel||'')}</details>
  ${toggle('ローカルモデルで言い直しを整理する','dictationEditing',s.dictationEditing,'途中の音声を実行命令にせず、版付きの下書き編集だけを行います。ローカルの会話モデルが必要です。')}
  ${toggle('音声入力を使用する','voiceEnabled',s.voiceEnabled,'マイクはボタンを押すまで起動しません。')}
