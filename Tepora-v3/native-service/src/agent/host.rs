@@ -1,5 +1,6 @@
 //! Native effect integration. Engines remain the scheduling authority; this host
 //! reads owned snapshots and commits effects only on the coordinator thread.
+mod memory;
 mod scheduling;
 #[cfg(test)]
 mod tests;
@@ -192,6 +193,7 @@ impl NativeAgentHost {
                 "schedule",
                 "memory_search",
                 "memory_write",
+                "episode_search",
                 "web_search",
                 "web_fetch",
                 "recall",
@@ -345,7 +347,8 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,project_instructions,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        let layers = self.memory_layers(&session)?;
+        Ok(context::PromptSnapshot{session,available_tools,layers,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,project_instructions,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
@@ -558,6 +561,7 @@ impl NativeAgentHost {
                     cache_retention: self.retention(&session)?,
                     reason: c["reason"].as_str().unwrap_or("budget").into(),
                     tail_share: c["tailShare"].as_f64(),
+                    topics: if session["kind"] == "main" { self.episode_topics(id)? } else { String::new() },
                     unicode_version: 17,
                 };
                 self.state(
@@ -845,6 +849,39 @@ impl NativeAgentHost {
                                 .await
                                 .map(|result| EffectResult::new(json!({"result":result})))
                         })));
+                    }
+                }
+                // Episode cards ranked by meaning too, when the embedding model is on this computer.
+                let query = args["query"].as_str().map(|q| q.trim_matches(char::is_whitespace).to_owned()).unwrap_or_default();
+                if name == "episode_search" && !query.is_empty() {
+                    if let Some((semantic, profile)) = self.semantic.as_ref().and_then(|s| s.local_profile().map(|p| (s.clone(), p))) {
+                        let date = args["date"].as_str().unwrap_or("").to_owned();
+                        if date.is_empty() || regex::Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap().is_match(&date) {
+                            let main = if session["kind"] == "main" { id.clone() } else { self.runtime.lock().map_err(|_| EffectError::new("Runtime state unavailable"))?.main(self)?["id"].as_str().unwrap_or("").to_owned() };
+                            let pool = super::tools::episode_pool(array(&self.state("document.list", json!({"kind":"episode"}))?), &main, &date);
+                            let terms = tepora_core::store_domain::search_tokens(&json!(query), 32, 17);
+                            let expression = terms.iter().map(|t| format!("\"{}\"", t.replace('"', "\"\""))).collect::<Vec<_>>().join(" OR ");
+                            let hits = if expression.is_empty() { vec![] } else { array(&self.state("document.search", json!({"kind":"episode","expression":expression,"limit":24}))?) };
+                            let lexical = super::tools::episode_ids(&hits, &pool);
+                            let candidates = super::tools::episode_candidates(&pool, &lexical);
+                            // A card is bounded (title 60, summary 300, 12 short entities), well under rank's 4000.
+                            let texts = candidates.iter().map(super::tools::episode_card).collect::<Result<Vec<_>, _>>()?;
+                            let limit = args["limit"].as_u64().unwrap_or(5).clamp(1, 10) as usize;
+                            let cancel = ctx.cancellation.clone();
+                            return Ok(EffectTask::Async(Box::pin(async move {
+                                let mut rankings = vec![lexical];
+                                if !candidates.is_empty() {
+                                    if let Ok(ranked) = semantic.rank(&json!(query), &json!(texts), Some(&profile), &cancel).await {
+                                        rankings.push(array(&ranked).iter().filter(|r| r["similarity"].as_f64().unwrap_or(0.) > 0.).filter_map(|r| r["index"].as_u64().and_then(|i| candidates.get(i as usize)).map(|c| c["id"].as_str().unwrap_or("").to_owned())).collect());
+                                    }
+                                }
+                                if cancel.is_cancelled() {
+                                    return Err(EffectError::cancelled(false));
+                                }
+                                let cards = super::tools::episode_fuse(&pool, &rankings, limit);
+                                Ok(EffectResult::new(json!({"result":{"text":super::tools::episode_text(&cards)?}})))
+                            })));
+                        }
                     }
                 }
                 if matches!(name.as_str(), "web_search" | "web_fetch") {
@@ -1389,18 +1426,23 @@ impl AgentHost for NativeAgentHost {
             {
                 return Ok(task);
             }
-            // The idle lease's work, while the user is quiet: the main session's handoff. It is preempted as soon
-            // as input arrives. Further idle work (e.g. memory consolidation) belongs here, after the handoff.
+            // The idle lease's work, while the user is quiet; input preempts it. One job per
+            // lease: label the stretch into episodes and hand off when the handoff is due,
+            // otherwise Dreaming when episodes changed since the last consolidation.
             if c["kind"] == "idle" {
-                let session = self.prompt(self.session(&ctx.scope.session_id)?, false)?;
+                let id = ctx.scope.session_id.clone();
+                let session = self.prompt(self.session(&id)?, false)?;
                 let snapshot = self.budget_snapshot(session.clone(), self.definitions(&session))?;
-                let entries = self.entries(&ctx.scope.session_id)?;
+                let entries = self.entries(&id)?;
                 let retention = self.retention(&session)?;
                 let provider = self.provider.clone();
                 let cancel = ctx.cancellation.clone();
-                let children =
-                    array(&self.state("session.list", json!({"parentId":ctx.scope.session_id}))?);
-                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":self.process_host.live(&ctx.scope.session_id)});
+                let children = array(&self.state("session.list", json!({"parentId":id}))?);
+                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":self.process_host.live(&id)});
+                let labels = self.label_snapshot(&id, &entries)?;
+                let dream = if self.dream_due()? { Some(self.dream_snapshot()?) } else { None };
+                // The prompt as the commit will refresh it, so the warm-up processes the same prefix.
+                let refreshed = context::prompt(&self.prompt_snapshot(session.clone())?, true)?.session;
                 return Ok(EffectTask::Async(Box::pin(async move {
                     let budget = context::budget(&provider, &snapshot, &cancel).await?;
                     if array(&budget["chain"]).is_empty() || num(&budget["B"]) < 1200.0 {
@@ -1417,24 +1459,64 @@ impl AgentHost for NativeAgentHost {
                         unicode_version: 17,
                     })?;
                     if built["plan"]["action"] != "compact" {
-                        return Ok(EffectResult::new(Value::Null));
+                        let Some(dream) = dream else { return Ok(EffectResult::new(Value::Null)) };
+                        let out = memory::dream(&provider, &dream, num(&budget["B"]), &cancel).await?;
+                        return Ok(EffectResult::new(json!({"dream":out})));
                     }
+                    let labeled = memory::label(&provider, &session, &built["built"], &budget, &labels, &retention, &cancel).await?;
+                    let topics = if labeled.is_null() {
+                        String::new()
+                    } else {
+                        // The labels are not committed yet: render the topics from the proposed cards.
+                        let mut cards: Vec<Value> = array(&labels["known"]);
+                        for c in array(&labeled["cards"]) {
+                            cards.retain(|k| k["id"] != c["id"]);
+                            cards.push(c);
+                        }
+                        compute("harness.memory.topics", json!({"cards":cards}))?.as_str().unwrap_or("").to_owned()
+                    };
                     let snap = context::CompactionSnapshot {
                         session: session.clone(),
-                        entries,
+                        entries: entries.clone(),
                         built: built["built"].clone(),
-                        budget,
+                        budget: budget.clone(),
                         todo: session["todo"].clone(),
                         reflection: session["reflection"].clone(),
                         live,
-                        cache_retention: retention,
+                        cache_retention: retention.clone(),
                         reason: "idle".into(),
                         tail_share: None,
+                        topics,
                         unicode_version: 17,
                     };
-                    let proposal =
-                        context::compact(&provider, &snap, &cancel, Arc::new(now)).await?;
-                    Ok(EffectResult::new(proposal.map(|p|json!({"checkpoint":p.checkpoint,"notice":p.notice,"event":p.event})).unwrap_or(Value::Null)))
+                    let proposal = context::compact(&provider, &snap, &cancel, Arc::new(now)).await?;
+                    let Some(p) = proposal else {
+                        return Ok(EffectResult::new(json!({"labels":labeled})));
+                    };
+                    // Every upper layer is rewritten at once: warm the new prefix while the user is away.
+                    let last = entries.last().and_then(|e| e["seq"].as_u64()).unwrap_or(0);
+                    let mut next = entries.clone();
+                    let mut checkpoint = p.checkpoint.clone();
+                    checkpoint["seq"] = json!(last + 1);
+                    checkpoint["type"] = json!("checkpoint");
+                    next.push(checkpoint);
+                    let mut notice = p.notice.clone();
+                    notice["seq"] = json!(last + 2);
+                    notice["type"] = json!("notice");
+                    notice["compaction"] = json!(last + 1);
+                    next.push(notice);
+                    let fresh = context::context(&context::ContextSnapshot {
+                        session: refreshed.clone(),
+                        entries: next,
+                        budget: budget.clone(),
+                        vision: true,
+                        plan: false,
+                        force: false,
+                        idle: false,
+                        unicode_version: 17,
+                    })?;
+                    memory::warm(&provider, &refreshed, &fresh["built"], &budget, &retention, &cancel).await?;
+                    Ok(EffectResult::new(json!({"labels":labeled,"checkpoint":p.checkpoint,"notice":p.notice,"event":p.event})))
                 })));
             }
             return Err(EffectError::new(format!(
@@ -1550,8 +1632,20 @@ impl AgentHost for NativeAgentHost {
                     return Err(EffectError::cancelled(false));
                 }
                 let id = &ctx.scope.session_id;
-                if !result.value.is_null() {
+                if c["kind"] == "idle" {
+                    if result.value["labels"].is_object() {
+                        self.commit_labels(id, &result.value["labels"])?;
+                    }
+                    if result.value["dream"].is_object() {
+                        self.commit_dream(&result.value["dream"])?;
+                    }
+                }
+                if !result.value.is_null() && (c["kind"] != "idle" || result.value["checkpoint"].is_object()) {
                     let mut p = result.value.clone();
+                    if let Some(o) = p.as_object_mut() {
+                        o.remove("labels");
+                        o.remove("dream");
+                    }
                     p["id"] = json!(id);
                     self.state("context.checkpoint", p)?;
                     self.prompt(self.session(id)?, true)?;

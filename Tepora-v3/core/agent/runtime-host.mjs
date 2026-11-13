@@ -60,7 +60,7 @@ export class RuntimeHost {
    case 'abortRun':if(run?.runEpoch===a.runEpoch){run.controller.abort(Object.assign(new Error(a.reason||'Stopped'),{stopped:true}));rt.streamEnd(id,{discard:true});}break;
    case 'stopResources':run?.controller.abort(Object.assign(new Error(a.reason||'Stopped'),{stopped:true}));rt.streamEnd(id,{discard:true});rt.processes.killSession(id);rt.policy.cancel(id);rt.computer?.release(id);break;
    case 'cancelAllApprovals':rt.policy.cancelAll();break;
-   case 'shutdownSchedulers':for(const r of rt.runs.values())r.controller.abort(Object.assign(new Error('Service closing'),{stopped:true}));clearInterval(rt.heartbeatTimer);clearInterval(rt.idleTimer);clearInterval(rt.dreamTimer);rt.scheduler.close();break;
+   case 'shutdownSchedulers':for(const r of rt.runs.values())r.controller.abort(Object.assign(new Error('Service closing'),{stopped:true}));clearInterval(rt.heartbeatTimer);clearInterval(rt.idleTimer);rt.scheduler.close();break;
    case 'closeResources':if(!this.resourcesClosed){this.resourcesClosed=true;rt.processes.close();rt.mcp.close();rt.policy.cancelAll();rt.store.listeners.delete(rt.entryListener);}break;
    case 'appendNotice':rt.sessions.append(id,'notice',{text:a.text});break;
    case 'notice':rt.sessions.append(id,'notice',{text:NOTICE[a.notice](...(a.args||[]))});break;
@@ -97,7 +97,7 @@ export class RuntimeHost {
    case 'completionDecision':return rt.decisions.yes(c.state,c.q.text,signal);
    case 'mainTurn':return {delegated:await rt.delegated(id,c.text,signal)};
    case 'yield':return new Promise(resolve=>{const t=setTimeout(()=>resolve(null),0);t.unref?.();});
-   case 'idle':for(const task of rt.idleTasks){signal.throwIfAborted();await task(id,signal);}return null;
+   case 'idle':for(const task of rt.idleTasks){signal.throwIfAborted();if(await task(id,signal))break;}return null;
    default:throw new Error('Unknown Rust runtime command: '+c.kind);
   }
  }

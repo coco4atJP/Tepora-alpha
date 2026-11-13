@@ -306,7 +306,6 @@ fn the_schedules_tick_hands_the_quiet_main_session_off_with_its_brief() {
     let brief = [
         "About the user",
         "Commitments and pending items",
-        "Open topics",
         "Delegated work",
         "Tone and relationship",
         "Verified facts",
@@ -343,5 +342,49 @@ fn the_schedules_tick_hands_the_quiet_main_session_off_with_its_brief() {
     assert_eq!(cp["reason"], "idle");
     assert!(cp["text"].as_str().unwrap().starts_with("<handoff covers=\"#1–#"));
     assert!(cp["text"].as_str().unwrap().contains("## Brief (written at the handoff)\n## About the user\n- noted"));
+    // The same lease labeled the stretch first (no usable labels here: one fallback episode) and listed it.
+    assert!(!cp["text"].as_str().unwrap().contains("made="), "no clock in the stable handoff block");
+    let cards = array(&f.state("document.list", json!({"kind":"episode"})));
+    assert_eq!(cards.len(), 1);
+    assert_eq!(cards[0]["title"], "質問 0");
+    assert!(cp["text"].as_str().unwrap().contains("## Open topics (episodes"));
+    assert!(cp["text"].as_str().unwrap().contains("- E1 質問 0"));
+    assert!(f
+        .entries(&id)
+        .iter()
+        .filter(|e| e["type"] == "input" || e["type"] == "assistant")
+        .all(|e| e["episodeId"] == "E1"));
+    // The next quiet tick has no handoff due, so it dreams once: core memory records the consolidated revision.
+    let core = |f: &Fixture| f.state("kv.get", json!({"key":"memory-core"}));
+    tick(&f, SchedulerKind::Schedules);
+    f.wait("dreaming", || core(&f)["revision"] == 1);
+    let dreams = f.transport.requests.lock().unwrap().iter().filter(|r| r.to_string().contains("You consolidate the long-term memory")).count();
+    assert_eq!(dreams, 1);
+    f.close();
+}
+
+#[test]
+fn finished_work_agents_are_archived_under_their_episode_and_restored_on_update() {
+    let mut f = Fixture::new(|_, _, _| answer("unused"));
+    let main = f.main();
+    let id = main["id"].as_str().unwrap().to_owned();
+    f.state("session.create", json!({"kind":"worker","id":"worker-done","extra":{"parentId":id,"status":"done"}}));
+    f.state("session.create", json!({"kind":"worker","id":"worker-busy","extra":{"parentId":id,"status":"running"}}));
+    let a = f.state("session.append", json!({"id":id,"type":"input","body":{"text":"調べて","from":"user"}}));
+    let b = f.state("session.append", json!({"id":id,"type":"tool","body":{"name":"sessions_spawn","content":"started","data":{"sessionId":"worker-done"}}}));
+    let c = f.state("session.append", json!({"id":id,"type":"tool","body":{"name":"sessions_spawn","content":"started","data":{"sessionId":"worker-busy"}}}));
+    let entries = vec![a, b, c];
+    let snap = f.host.label_snapshot(&id, &entries).unwrap();
+    let (from, to) = (entries[0]["seq"].as_u64().unwrap(), entries[2]["seq"].as_u64().unwrap());
+    let labeled = super::super::memory::apply_labels(&snap, &json!(id), &format!("Enew | open | 調べ物 | 調査を頼んだ | #{from}-#{to}")).unwrap();
+    f.host.commit_labels(&id, &labeled).unwrap();
+    let live = |f: &Fixture| array(&f.state("session.list", json!({}))).iter().map(|s| s["id"].as_str().unwrap().to_owned()).collect::<Vec<_>>();
+    assert!(!live(&f).contains(&"worker-done".to_owned()), "a finished child leaves the live list");
+    assert!(live(&f).contains(&"worker-busy".to_owned()), "a running child stays");
+    let archived = f.state("session.get", json!({"id":"worker-done"}));
+    assert_eq!(archived["archivedIn"], "E1");
+    f.state("session.update", json!({"id":"worker-done","patch":{"status":"idle"}}));
+    assert!(live(&f).contains(&"worker-done".to_owned()), "an update brings it back");
+    assert!(f.state("session.get", json!({"id":"worker-done"})).get("archivedIn").is_none());
     f.close();
 }

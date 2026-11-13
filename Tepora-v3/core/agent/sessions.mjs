@@ -10,7 +10,7 @@ export const ENTRY_TYPES=['input','assistant','tool','notice','checkpoint','clea
 
 /** A session as listeners see it: without the cached system prompt and tool list, which change rarely and are large.
  * Updates are broadcast, not stored as events: a reconnecting screen gets a fresh snapshot anyway. */
-export const publicSession=({system,tools,...rest})=>rest;
+export const publicSession=({system,tools,layers,...rest})=>rest;
 /** Sessions are documents; their transcripts are an append-only table, never rewritten. */
 export class SessionStore{
  constructor(store){
@@ -25,11 +25,22 @@ export class SessionStore{
    createdAt:now(),updatedAt:now(),...fields.extra};
   this.store.put('session',s);this.store.broadcast('session.updated',publicSession(s));return s;
  }
- get(id){return this.store.get('session',id);}
+ /** Live sessions first; a finished work agent archived under its episode is still found by id. */
+ get(id){return this.store.get('session',id)||this.store.get('session-archive',id);}
+ /** Live sessions only: archived ones are reached through their episode card. */
  list({kind,parentId,status}={}){return this.store.list('session').filter(s=>(!kind||s.kind===kind)&&(parentId===undefined||s.parentId===parentId)&&(!status||s.status===status));}
+ /** Updating an archived session (new input, a status change) brings it back to the live list. */
  update(id,patch){
   const s=this.get(id);invariant(s,'Session not found',404);
-  const next={...s,...patch,updatedAt:now()};this.store.put('session',next);this.store.broadcast('session.updated',publicSession(next));return next;
+  const {archivedIn,...base}=s,restore=!this.store.get('session',id);
+  const next={...base,...patch,updatedAt:now()};this.store.put('session',next);if(restore)this.store.remove('session-archive',id);
+  this.store.broadcast('session.updated',publicSession(next));return next;
+ }
+ /** Move a finished session under its episode: out of the live list, transcript untouched. */
+ archive(id,episodeId){
+  const s=this.store.get('session',id);if(!s)return null;
+  const doc={...s,archivedIn:episodeId};this.store.put('session-archive',doc);this.store.remove('session',id);
+  this.store.broadcast('session.archived',{id,episodeId});return doc;
  }
  seq(id){return this.db.call('session.seq',{id});}
  append(id,type,body){

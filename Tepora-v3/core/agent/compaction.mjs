@@ -77,9 +77,10 @@ function ledgerSections(l,{todo,reflection,live,evidence,files:fileCount,task}){
 }
 /** A fresh conversation: the exact ledger and the brief, with a work agent's original task verbatim. The character
  * has no task; its latest exchanges follow the handoff verbatim instead. */
-export function handoffText({kind='worker',upTo,at,method,reason,task,ledger,brief}){
+export function handoffText({kind='worker',upTo,method,reason,task,ledger,brief,topics=''}){
  const main=kind==='main';
- return `<handoff covers="#1–#${upTo}" made="${at}" method="${method}" reason="${reason}">
+ // No clock here: the handoff is part of the stable prefix of every later request.
+ return `<handoff covers="#1–#${upTo}" method="${method}" reason="${reason}">
 ${main?'This is a fresh conversation continuing your conversation with the user; the latest exchanges follow this message verbatim. Earlier turns are stored in full':'This is a fresh conversation continuing the task below. Earlier conversations are stored in full'}: recall("#n") reads any entry exactly and history_search finds older details.
 ${main?'':`
 ## Original task (verbatim${task?`, #${task.seq}`:''})
@@ -87,7 +88,10 @@ ${task?task.text:'(not recorded)'}
 `}
 ## Ledger (exact, kept by the harness)
 ${ledger}
-
+${main?`
+## Open topics (episodes; episode_search finds paused and closed ones, recall("#a-#b") reads one)
+${topics||'(none labeled yet)'}
+`:''}
 ## Brief (written at the handoff)
 ${brief}
 </handoff>`;
@@ -213,7 +217,7 @@ export class Compactor{
  }
  /** Hand off to a fresh conversation: the character keeps its latest exchanges verbatim after the handoff, a work
   * agent drops its whole conversation. Never throws for a model failure: degrades to a deterministic brief. */
- async compact(session,{built,B,ratio,system,toolDefs,chain,signal,reason='budget',tailShare,todo=null,reflection=null,live={},cacheRetention='short'}){
+ async compact(session,{built,B,ratio,system,toolDefs,chain,signal,reason='budget',tailShare,todo=null,reflection=null,live={},cacheRetention='short',topics=''}){
   const kind=session.kind,main=kind==='main';
   const bound=main?this.boundary(built,B,ratio,tailShare):this.handoffBoundary(built);
   if(!bound)return null;
@@ -252,11 +256,11 @@ export class Compactor{
    const steps=transcriptText(folded.filter(e=>e.type!=='tool'||e.error||!e.ephemeralKey),built.view.clearUpTo).split('\n').map(l=>oneLine(l,240));
    summary=fitTokens(`${prev?.summary?prev.summary+'\n\n':''}## Steps since the previous checkpoint (automatic list; the model summary failed)\n${steps.join('\n')}`,maxTokens,'#'+bound.upTo).text;
   }
-  const at=new Date().toISOString(),tokensBefore=Math.round(built.tokens*ratio);
+  const tokensBefore=Math.round(built.tokens*ratio);
   summary=fitTokens(summary,maxTokens*2,'#'+bound.upTo).text;
   const extra=missingIdentifiers(folded,ledgerText+'\n'+summary);
   const fullLedger=ledgerText+(extra.length?`\n\n### Links and paths seen in this stretch but not in the brief\n${extra.join('\n')}`:'');
-  const text=handoffText({kind,upTo:bound.upTo,at,method,reason,task:ledger.task,ledger:fullLedger,brief:summary});
+  const text=handoffText({kind,upTo:bound.upTo,topics,method,reason,task:ledger.task,ledger:fullLedger,brief:summary});
   const cp=this.sessions.append(session.id,'checkpoint',{upTo:bound.upTo,text,summary,ledger,method,reason,previous:prev?.seq||null,tokensBefore,stepsDone:doneSteps(todo)});
   this.sessions.append(session.id,'notice',{text:main?NOTICE.conversationHandedOff(bound.upTo):NOTICE.handedOff(bound.upTo),compaction:cp.seq});
   const s=this.sessions.get(session.id);this.sessions.update(session.id,{stats:{...s.stats,compactions:(s.stats?.compactions||0)+1}});

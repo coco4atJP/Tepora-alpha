@@ -48,10 +48,13 @@ fn string_arg<'a>(args: &'a Value, key: &str) -> Result<&'a str, ApiError> {
 fn broadcast(events: &mut Vec<Value>, kind: &str, data: Value) {
     events.push(json!({"seq":null,"type":kind,"data":data,"at":now()}));
 }
+/// Finished work agents archived under their episode (see agent/host/memory.rs).
+const ARCHIVE: &str = "session-archive";
 fn public_session(mut session: Value) -> Value {
     if let Some(o) = session.as_object_mut() {
         o.remove("system");
         o.remove("tools");
+        o.remove("layers");
     }
     session
 }
@@ -186,7 +189,26 @@ impl State {
                         && (!truth(&args["status"]) || s["status"] == args["status"])
                 })
                 .collect::<Vec<_>>())),
-            "session.get" => self.get("session", string_arg(args, "id")?),
+            // Live sessions first; a finished work agent archived under its episode is still found by id.
+            "session.get" => {
+                let id = string_arg(args, "id")?;
+                let live = self.get("session", id)?;
+                if live.is_null() { self.get(ARCHIVE, id) } else { Ok(live) }
+            }
+            // Move a finished session under its episode: out of the live list, transcript untouched.
+            "session.archive" => {
+                let id = string_arg(args, "id")?;
+                let mut doc = self.get("session", id)?;
+                if doc.is_null() {
+                    return Ok(Value::Null);
+                }
+                doc["archivedIn"] = args["episodeId"].clone();
+                self.put(ARCHIVE, doc.clone())?;
+                self.call("document.remove", json!({"kind":"session","id":id}))?;
+                broadcast(events, "session.archived", json!({"id":id,"episodeId":args["episodeId"]}));
+                Ok(doc)
+            }
+            "session.label" => self.call(op, args.clone()),
             "session.remove" => {
                 let id=string_arg(args,"id")?;
                 require(!self.get("session",id)?.is_null(),404,"Session not found")?;
@@ -221,12 +243,21 @@ impl State {
             }
             "session.update" => {
                 let id = string_arg(args, "id")?;
-                let current = self.get("session", id)?;
+                // Updating an archived session (new input, a status change) brings it back to the live list.
+                let live = self.get("session", id)?;
+                let restore = live.is_null();
+                let mut current = if restore { self.get(ARCHIVE, id)? } else { live };
                 require(!current.is_null(), 404, "Session not found")?;
                 require(args["patch"].is_object(), 400, "Invalid session patch")?;
+                if let Some(o) = current.as_object_mut() {
+                    o.remove("archivedIn");
+                }
                 let mut next = merge(&current, &args["patch"]);
                 next["updatedAt"] = json!(now());
                 self.put("session", next.clone())?;
+                if restore {
+                    self.call("document.remove", json!({"kind":ARCHIVE,"id":id}))?;
+                }
                 broadcast(events, "session.updated", public_session(next.clone()));
                 Ok(next)
             }

@@ -22,7 +22,9 @@ export class AgentLoop{
   const rt=this.rt,projectInstructions=nativeCore.projectInstructions(session.cwd||'');
   if(session.system&&!refresh){if(session.projectInstructions!==projectInstructions){this.update(session,projectInstructions);return rt.sessions.get(session.id);}return session;}
   const tools=session.tools?.length&&!refresh?session.tools:rt.tools.toolset(session.toolset,{exclude:rt.excludedTools(session)});
-  return rt.sessions.update(session.id,{system:this.render(session,tools,projectInstructions),projectInstructions,tools,promptAt:new Date().toISOString(),promptStale:false,announced:null});
+  // The character's <memory> block is snapshotted with the system prompt: both change only here, at a handoff.
+  const layers=session.kind==='main'?rt.episodes?.layers()||'':'';
+  return rt.sessions.update(session.id,{system:this.render(session,tools,projectInstructions),layers,projectInstructions,tools,promptAt:new Date().toISOString(),promptStale:false,announced:null});
  }
  render(session,tools,projectInstructions=nativeCore.projectInstructions(session.cwd||'')){
   const rt=this.rt,persona=session.kind==='main'?personaForPrompt(rt.personas().character):personaForPrompt(session.persona||rt.personas().worker);
@@ -120,7 +122,7 @@ export class AgentLoop{
     const session=c.overflow?rt.sessions.get(id):c.session,toolDefs=c.toolDefs||rt.tools.definitions(session.tools),budget=await this.budget(session,toolDefs,signal);
     return {...budget,toolDefs,toolsTokens:toolsTokens(toolDefs),vision:budget.profile?rt.registry.visionAllowed(budget.profile):false};
    }
-   case 'context':{const built=rt.assembler.build(id,{system:c.session.system,vision:c.vision});return {built,...(c.plan?{plan:rt.compactor.plan(built,c.budget.B,c.budget.ratio,{force:c.force,session:c.session})}:{})};}
+   case 'context':{const built=rt.assembler.build(id,{system:c.session.system,layers:c.session.layers,vision:c.vision});return {built,...(c.plan?{plan:rt.compactor.plan(built,c.budget.B,c.budget.ratio,{force:c.force,session:c.session})}:{})};}
    case 'clear':rt.compactor.clear(c.session,c.upTo);return null;
    case 'compact':{
     const session=c.overflow?rt.sessions.get(id):c.session;
@@ -178,7 +180,8 @@ export class AgentLoop{
   const rt=this.rt;
   const live={sessions:Object.fromEntries(rt.sessions.list({parentId:session.id}).map(s=>[s.id,s.status])),processes:Object.fromEntries(rt.processes.list(session.id).map(p=>[p.id,p.status+(p.exitCode!==null?' '+p.exitCode:'')]))};
   rt.sessions.update(session.id,{note:'文脈を整理しています'});
-  const cp=await rt.compactor.compact(session,{built,B,ratio,system:session.system,toolDefs,chain,signal,reason,tailShare,todo:session.todo||null,reflection:session.reflection||null,live,cacheRetention:rt.cacheRetention(session)});
+  const topics=session.kind==='main'&&rt.episodes?rt.episodes.topics(session.id):'';
+  const cp=await rt.compactor.compact(session,{built,B,ratio,system:session.system,toolDefs,chain,signal,reason,tailShare,todo:session.todo||null,reflection:session.reflection||null,live,cacheRetention:rt.cacheRetention(session),topics});
   // The checkpoint resets the cache anyway: refresh the system prompt and tool set now if settings changed.
   if(cp){this.prompt(rt.sessions.get(session.id),{refresh:true});this.state(session.id).selfCheckContext=false;}
   return cp;

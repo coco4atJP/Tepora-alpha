@@ -536,13 +536,16 @@ fn render_ledger(p: &Value) -> String {
 fn handoff(p: &Value) -> String {
     let task = &p["task"];
     let main = p["kind"] == "main";
-    format!("<handoff covers=\"#1–#{}\" made=\"{}\" method=\"{}\" reason=\"{}\">\n{}: recall(\"#n\") reads any entry exactly and history_search finds older details.\n{}\n## Ledger (exact, kept by the harness)\n{}\n\n## Brief (written at the handoff)\n{}\n</handoff>",
-        text(p, "upTo"), text(p, "at"), text(p, "method"), text(p, "reason"),
+    // No clock here: the handoff is part of the stable prefix of every later request.
+    format!("<handoff covers=\"#1–#{}\" method=\"{}\" reason=\"{}\">\n{}: recall(\"#n\") reads any entry exactly and history_search finds older details.\n{}\n## Ledger (exact, kept by the harness)\n{}\n{}\n## Brief (written at the handoff)\n{}\n</handoff>",
+        text(p, "upTo"), text(p, "method"), text(p, "reason"),
         if main { "This is a fresh conversation continuing your conversation with the user; the latest exchanges follow this message verbatim. Earlier turns are stored in full" } else { "This is a fresh conversation continuing the task below. Earlier conversations are stored in full" },
         if main { String::new() } else { format!("\n## Original task (verbatim{})\n{}\n",
             if truthy(task) { format!(", #{}", text(task, "seq")) } else { String::new() },
             if truthy(task) { text(task, "text") } else { "(not recorded)".into() }) },
-        text(p, "ledger"), text(p, "brief"))
+        text(p, "ledger"),
+        if main { format!("\n## Open topics (episodes; episode_search finds paused and closed ones, recall(\"#a-#b\") reads one)\n{}\n", p.get("topics").and_then(Value::as_str).filter(|t| !t.is_empty()).unwrap_or("(none labeled yet)")) } else { String::new() },
+        text(p, "brief"))
 }
 /// `fork`: the requester's ledger and latest brief in the handoff shape, plus its turns since that brief.
 fn fork_context(p: &Value) -> String {
@@ -1116,7 +1119,6 @@ fn finalize(p: &Value) -> CoreResult<Value> {
             .unwrap()
             .into();
     }
-    let at_ref = &p["at"];
     let tokens_before = round(num(built, "tokens", 0.) * num(p, "ratio", 1.));
     let reason = p.get("reason").cloned().unwrap_or(json!("budget"));
     let previous = prev
@@ -1146,7 +1148,7 @@ fn finalize(p: &Value) -> CoreResult<Value> {
     );
     let main = prepared["kind"] == "main";
     let text = handoff(
-        &json!({"kind":prepared["kind"],"upTo":prepared["bound"]["upTo"],"at":at_ref,"method":method,"reason":reason,"task":prepared["ledger"]["task"],"ledger":full_ledger,"brief":summary}),
+        &json!({"kind":prepared["kind"],"upTo":prepared["bound"]["upTo"],"topics":p["topics"],"method":method,"reason":reason,"task":prepared["ledger"]["task"],"ledger":full_ledger,"brief":summary}),
     );
     Ok(
         json!({"checkpoint":{"upTo":prepared["bound"]["upTo"],"text":text,"summary":summary,"ledger":prepared["ledger"],"method":method,"reason":reason,"previous":previous,"tokensBefore":tokens_before,"stepsDone":prepared["stepsDone"]},"notice":prompts::notice(if main {"conversationHandedOff"} else {"handedOff"},&[prepared["bound"]["upTo"].clone()])?}),

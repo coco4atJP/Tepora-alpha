@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { DEFAULT_SETTINGS, invariant, LIMITS } from './policy.mjs';
 
+/** Collections with a full-text index (content_search). */
+const SEARCHABLE=['memory','job','episode'];
 const alive = pid => {
   try { process.kill(pid, 0); return true; }
   catch (e) { return e.code !== 'ESRCH'; }
@@ -61,7 +63,7 @@ export class Store {
   index(kind,doc){this.db.call('document.index',{kind,id:doc.id,terms:indexedText(doc)});}
   put(kind,doc) {
     invariant(typeof doc.id==='string' && doc.id.length>0 && doc.id.length<=300,'Document id required');
-    this.db.call('document.put',{kind,doc,...(['memory','job'].includes(kind)?{terms:indexedText(doc)}:{})});
+    this.db.call('document.put',{kind,doc,...(SEARCHABLE.includes(kind)?{terms:indexedText(doc)}:{})});
     return doc;
   }
   remove(kind,id) { return this.db.call('document.remove',{kind,id}); }
@@ -92,7 +94,7 @@ export class Store {
     return this.domain('store.memory',{content,options:{source,confirmed,scope,title}});
   }
   search(kind,query,{limit=20,filter=()=>true}={}) {
-    invariant(['memory','job'].includes(kind),'Unknown search collection');
+    invariant(SEARCHABLE.includes(kind),'Unknown search collection');
     const expression=matchExpression(query);if(!expression)return [];
     // Keep recall bounded even with a large archive; consent filters stay in JS.
     const result=[],pageSize=32;

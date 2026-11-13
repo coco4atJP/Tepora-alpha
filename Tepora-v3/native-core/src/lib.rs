@@ -197,7 +197,7 @@ impl NativeState {
                 "INSERT INTO documents(kind,id,body) VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body",
                 params![sql_text(kind), sql_text(id), json_codec::stringify(doc)?],
             )?;
-            if matches!(kind, "memory" | "job") {
+            if matches!(kind, "memory" | "job" | "episode") {
                 self.index(kind, id, terms)?;
             }
             Ok(doc.clone())
@@ -348,7 +348,7 @@ impl NativeState {
             "document.remove" => self.atomic(|| {
                 let kind = string(p, "kind")?;
                 let id = string(p, "id")?;
-                if matches!(kind, "memory" | "job") {
+                if matches!(kind, "memory" | "job" | "episode") {
                     self.db()?.execute("DELETE FROM content_search WHERE kind=? AND id=?", params![sql_text(kind), sql_text(id)])?;
                 }
                 let changes = self.db()?.execute("DELETE FROM documents WHERE kind=? AND id=?", params![sql_text(kind), sql_text(id)])?;
@@ -361,7 +361,7 @@ impl NativeState {
             }),
             "document.search" => {
                 let kind = string(p, "kind")?;
-                if !matches!(kind, "memory" | "job") { return Err(invalid("Unknown search collection")); }
+                if !matches!(kind, "memory" | "job" | "episode") { return Err(invalid("Unknown search collection")); }
                 let expression = string(p, "expression")?;
                 if expression.is_empty() { return Ok(json!([])); }
                 let offset = number(p, "offset", 0)?;
@@ -590,6 +590,22 @@ impl NativeState {
                     for key in keys { merged.shift_remove(key.as_str().unwrap()); }
                 }
                 Ok(Value::Object(merged))
+            }),
+            // Episode labels for a run of entries, one UPDATE per run. Only `episodeId` changes,
+            // which no context rendering reads, so the cached prompt prefix is unaffected.
+            "session.label" => self.atomic(|| {
+                let id = string(p, "id")?;
+                let runs = p.get("labels").and_then(Value::as_array).ok_or_else(|| invalid("labels must be an array"))?;
+                let mut changes = 0;
+                for run in runs {
+                    let (Some(from), Some(to), Some(episode)) = (run.get(0).and_then(Value::as_i64), run.get(1).and_then(Value::as_i64), run.get(2).and_then(Value::as_str)) else {
+                        return Err(invalid("labels must hold [from,to,episodeId]"));
+                    };
+                    changes += self.db()?.execute(
+                        "UPDATE session_log SET body=json_set(body,'$.episodeId',?) WHERE session_id=? AND seq>=? AND seq<=? AND json_valid(body)",
+                        params![sql_text(episode), sql_text(id), from, to])?;
+                }
+                Ok(json!({"changes":changes}))
             }),
             "session.search" => {
                 let expression = string(p, "expression")?;

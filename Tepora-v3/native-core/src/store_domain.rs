@@ -209,7 +209,7 @@ fn list(state: &mut NativeState, kind: &str) -> CoreResult<Vec<Value>> {
         .clone())
 }
 fn put(state: &mut NativeState, kind: &str, doc: &Value, unicode: u64) -> CoreResult<Value> {
-    let terms = if matches!(kind, "memory" | "job") {
+    let terms = if matches!(kind, "memory" | "job" | "episode") {
         indexed_text(doc, unicode)
     } else {
         String::new()

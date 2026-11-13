@@ -1,5 +1,11 @@
 # Tepora 3.0.0-beta.11 — current status
 
+## Main-agent memory restructure (2026-11-11, branch `feat/memory-restructure`)
+
+The main session's context has a fixed layer order: system → `<memory>` (skill index, core memory, how to engage; rewritten only by Dreaming, read at a handoff) → `<handoff>` (ledger, open episodes, brief) → append-only tail, with no timestamps in the stable layers. Every main transcript entry now carries an `episodeId`, labeled in the cached context at the idle handoff; at most seven episodes stay open and are listed in the handoff instead of the brief's former "Open topics" heading. Episode cards are searchable (`episode_search`: full text, local-only semantic ranking, or a day's list) and read exactly with range `recall("#a-#b")`. Finished work agents are archived under their episode. Dreaming (the existing `dream` setting) consolidates memories and rewrites core memory within window-derived caps on the idle lease, one job per lease, preempted by input; the hourly dream timer was removed. Node and the native service share the `native-core` `harness.memory.*` operations. See [AGENT-HARNESS](AGENT-HARNESS.md) §5–§6.
+
+Not verified: label, brief and Dreaming quality on real models (covered by scripted models only), and the cache benefit of the post-handoff warm-up against a real llama.cpp slot.
+
 ## pi-ai integration (2026-10-16)
 
 The ordinary host now calls the actual pinned pi-ai SDK for new model connections. SDK-derived provider/model catalogs, nine OAuth implementations, generic prompts, account rotation, streamed tool calls and production dependency packaging have deterministic regression coverage. The provider catalog is not an entitlement or live-quality certification; Bedrock/Vertex dedicated transports and the standalone Rust host are not implemented for pi-ai. See [PI-AI](PI-AI.md) for exact tests and restrictions. Historical validation totals below belong to their recorded revisions.

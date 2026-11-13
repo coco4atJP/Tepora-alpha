@@ -71,11 +71,10 @@ async fn skills_http_refreshes_real_actor_snapshots_and_preserves_cached_prefix(
         .enable_agent(tokio::runtime::Handle::current())
         .unwrap();
     let access = workspace.access();
-    let main = access.agent_state("main", json!({})).unwrap();
-    let id = main["id"].as_str().unwrap();
-    // An old declared tool list makes the saved skill index visible in the
-    // pure renderer. No skill tool dispatch is attempted or made available.
-    access.agent_state("session.update",json!({"id":id,"patch":{"system":"stable cached prefix","tools":["skill"],"status":"idle"}})).unwrap();
+    // A work agent lists skills in its instructions. An old declared tool list makes the saved skill index
+    // visible in the pure renderer. No skill tool dispatch is attempted or made available.
+    access.agent_state("session.create",json!({"kind":"worker","id":"idle-fixture","extra":{"status":"idle","system":"stable cached prefix","tools":["skill"]}})).unwrap();
+    let id = "idle-fixture";
     for (session, status, system) in [
         ("done-fixture", "done", "stable"),
         ("stopped-fixture", "stopped", "stable"),

@@ -553,6 +553,14 @@ pub(crate) fn build(payload: &Value) -> CoreResult<Value> {
     let estimator = tokens::Estimator::from_payload(payload);
     let rendered = render_entries_with(view, payload.get("clearUpTo"), vision, estimator)?;
     let mut messages = vec![role_message("system", payload.get("system").cloned())];
+    // The memory block (skill index, core memory) sits between the system prompt and
+    // the handoff: both change only at a handoff, so the prefix above the tail is stable.
+    if let Some(layers) = payload
+        .get("layers")
+        .filter(|v| v.as_str().is_some_and(|s| !s.is_empty()))
+    {
+        messages.push(role_message("user", Some(layers.clone())));
+    }
     let checkpoint = view.get("checkpoint").filter(|value| truthy(value));
     if let Some(checkpoint) = checkpoint {
         let mut message = role_message("user", checkpoint.get("text").cloned());

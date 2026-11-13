@@ -19,8 +19,9 @@ export class ContextAssembler{
  renderEntries(view,{clearUpTo=view.clearUpTo,vision=true}={}){
   return nativeCompute('context.renderEntries',{view,clearUpTo,vision});
  }
- build(id,{system,clearUpTo,vision=true}={}){
-  const built=nativeCompute('context.build',{view:this.view(id),system,clearUpTo,vision});
+ /** layers: the session's memory block snapshot (skill index, core memory), placed between system and handoff. */
+ build(id,{system,layers='',clearUpTo,vision=true}={}){
+  const built=nativeCompute('context.build',{view:this.view(id),system,layers,clearUpTo,vision});
   // Undefined is absent from JSON, but remains an own property of the public JS API.
   if(system===undefined)built.messages[0].content=undefined;
   return built;

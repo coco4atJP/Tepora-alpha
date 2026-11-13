@@ -14,6 +14,7 @@ function progress(f,id){const session=f.rt.sessions.get(id);return {status:sessi
 
 const text=m=>typeof m?.content==='string'?m.content:'';
 const isHandoff=body=>text(last(body,'user')).startsWith('[harness] Handoff.')&&body.tool_choice==='none';
+const isLabeling=body=>text(last(body,'user')).startsWith('[harness] Episode labeling.')&&body.tool_choice==='none';
 const isCompaction=body=>(isHandoff(body)||text(last(body,'user')).includes('Context compaction'))&&body.tool_choice==='none';
 const isRolling=body=>text(body.messages[0]).includes('working memory of a long-running agent');
 const summary=(extra,kind='worker')=>headingsFor(kind).map(h=>`## ${h}\n- ${['Key facts','Verified facts'].includes(h)?'big.txt has 120 lines; '+extra:'noted'}`).join('\n');
@@ -116,6 +117,7 @@ test('while the user is quiet the main session hands off to a fresh conversation
  let size=0;
  const f=await agentFixture(t,body=>{
   if(isHandoff(body))return {content:summary('idle','main')};
+  if(isLabeling(body))return {content:'Enew | open | 質問の練習 | 短い質問が続いている | #1-#99 | 質問'};
   return {content:size?`返事です。${lorem(size)}`:'短い返事'};
  },{context:12000,settings:{idleCompactSeconds:0}});
  const main=f.rt.main();
@@ -124,13 +126,20 @@ test('while the user is quiet the main session hands off to a fresh conversation
  assert.equal(f.rt.sessions.entries(main.id,{types:['checkpoint']}).length,0,'no handoff during the turns');
  const before=f.model.requests.length;
  await f.rt.idle(main.id);
- assert.equal(f.model.requests.length,before+1);
+ // One idle lease: label the stretch into episodes, hand off, then warm the new prefix (a model on this computer).
+ assert.equal(f.model.requests.length,before+3);
+ assert.ok(isLabeling(f.model.requests[before]));assert.ok(isHandoff(f.model.requests[before+1]));
+ assert.ok((f.model.requests[before+2].max_tokens??f.model.requests[before+2].max_completion_tokens)<=256,'warm-up only processes the prefix');
+ assert.ok(isPrefix({messages:f.model.requests[before].messages.slice(0,-1)},f.model.requests[before+1]),'labeling shares the cached prefix of the handoff request');
  const cp=f.rt.sessions.entries(main.id,{types:['checkpoint']}).at(-1);
  assert.equal(cp.reason,'idle');assert.equal(cp.method,'in-context');
- assert.match(cp.text,/^<handoff covers="#1–#\d+"[^>]*>\nThis is a fresh conversation continuing your conversation with the user/);
+ assert.match(cp.text,/^<handoff covers="#1–#\d+" method="in-context" reason="idle">\nThis is a fresh conversation continuing your conversation with the user/);
+ assert.doesNotMatch(cp.text,/made=|\d{4}-\d{2}-\d{2}T/,'no clock in the stable handoff block');
  assert.doesNotMatch(cp.text,/## Original task|Chapters|Recent conversation/);
- assert.match(cp.text,/## Ledger \(exact, kept by the harness\)\n[\s\S]*## Brief \(written at the handoff\)\n## About the user\n/);
- const instruction=text(last(f.model.requests[before],'user'));
+ assert.match(cp.text,/## Ledger \(exact, kept by the harness\)\n[\s\S]*## Open topics \(episodes[^\n]*\n- E1 質問の練習 — 短い質問が続いている \(#1-#\d+\)\n\n## Brief \(written at the handoff\)\n## About the user\n/);
+ const cards=f.rt.store.list('episode');assert.equal(cards.length,1);assert.equal(cards[0].state,'open');
+ assert.ok(f.rt.sessions.entries(main.id,{types:['input','assistant']}).every(e=>e.episodeId==='E1'),'every entry is labeled');
+ const instruction=text(last(f.model.requests[before+1],'user'));
  for(const h of MAIN_BRIEF_HEADINGS)assert.ok(instruction.includes('## '+h+'\n'),h);
  // The next turn starts from the handoff, then exactly the last three exchanges, then the new message.
  size=0;f.rt.send(main.id,{text:'次の質問',from:'user'});
@@ -138,11 +147,18 @@ test('while the user is quiet the main session hands off to a fresh conversation
  assert.equal(f.rt.sessions.entries(main.id).at(-1).type,'assistant','the handoff notice is not answered on its own; the next input is');
  const next=f.model.requests.at(-1).messages;
  assert.match(text(next[1]),/^<handoff/);
+ const warmed=f.model.requests[before+2].messages;assert.deepEqual(next.slice(0,2),warmed.slice(0,2),'the warmed prefix is the next request\'s prefix');
  const view=next.slice(2).map(text).join('\n');
 
  for(const q of ['質問 2','質問 3','質問 4','次の質問'])assert.ok(view.includes(q),q);
  for(const q of ['質問 0','質問 1'])assert.ok(!view.includes(q),q+' left view');assert.ok(!view.includes('返事です。'),'the long reply left view');
  assert.match(view,/Fresh conversation\. Turns up to #\d+ are stored but out of view/);
+ // The next idle lease has no handoff due, so it dreams: one consolidation call, outside the conversation's cache.
+ const n=f.model.requests.length;await f.rt.idle(main.id);
+ assert.equal(f.model.requests.length,n+1,'one job per idle lease');
+ assert.match(text(f.model.requests.at(-1).messages[0]),/^You consolidate the long-term memory/);
+ assert.equal(f.store.value('memory-core').revision,1,'core memory records the episodes it consolidated');
+ await f.rt.idle(main.id);assert.equal(f.model.requests.length,n+1,'nothing more to do until something changes');
 });
 
 test('the ledger is exact: task, verbatim instructions, files, artifacts, sessions and errors',()=>{
@@ -170,7 +186,8 @@ test('summary validation and token calibration',()=>{
  assert.equal(validSummary(SUMMARY_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000),true);
  assert.equal(validSummary(MAIN_BRIEF_HEADINGS.map(h=>'## '+h+'\n- x').join('\n'),1000,'main'),true);
  // The main brief is about the user and the relationship, not a story of what was said.
- assert.deepEqual(MAIN_BRIEF_HEADINGS,['About the user','Commitments and pending items','Open topics','Delegated work','Tone and relationship','Verified facts','Unverified guesses','Re-fetch pointers']);
+ // Open topics are the harness's episode list, not part of the brief.
+ assert.deepEqual(MAIN_BRIEF_HEADINGS,['About the user','Commitments and pending items','Delegated work','Tone and relationship','Verified facts','Unverified guesses','Re-fetch pointers']);
  // The brief is forward-looking (App. G): what is left, how to tell it is done, and where things are; no narrative.
  for(const h of ['Current work','Remaining plan','Completion criteria','Artifact locations','Verified facts','Unverified assumptions','Dead ends','Re-fetch commands'])assert.ok(SUMMARY_HEADINGS.includes(h),h);
  assert.ok(!SUMMARY_HEADINGS.includes('Chapter digest')&&!SUMMARY_HEADINGS.includes('Progress'));

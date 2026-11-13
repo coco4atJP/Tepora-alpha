@@ -104,7 +104,7 @@ test('Rust harness compaction hot window, .72/.8/.55 thresholds and tail turn bo
 
 test('Rust harness handoff text, fork context, brief budget, handoff boundary and step plan match oracle',()=>{
  for(const B of [100,1000,7500,100000,1e7])equal(native('compaction.briefBudget',{B}),compact.briefBudget(B));
- for(const task of [null,{seq:1,text:'Task 日本語 🦊'}])for(const kind of [undefined,'worker','main']){const p={kind,upTo:32,at:'2026-01-01',method:'in-context',reason:'step',task,ledger:'ledger',brief:'## Objective\n- x'};equal(native('compaction.handoffText',p),compact.handoffText(p));}
+ for(const task of [null,{seq:1,text:'Task 日本語 🦊'}])for(const kind of [undefined,'worker','main']){for(const topics of ['','- E1 t — s (#1-#4)']){const p={kind,upTo:32,at:'2026-01-01',method:'in-context',reason:'step',task,ledger:'ledger',brief:'## Objective\n- x',topics},text=native('compaction.handoffText',p);equal(text,compact.handoffText(p));assert.doesNotMatch(text,/made=|2026-01-01/);assert.equal(text.includes('## Open topics (episodes'),kind==='main');if(kind==='main')assert.equal(text.includes(topics||'(none labeled yet)'),true);}}
  const entries=log(),todo=[{text:'a',status:'done'},{text:'b',status:'pending'}],reflection={understanding:'u',verified:['v'],assumptions:['a'],confidence:.4};
  for(const checkpoint of [null,{seq:40,upTo:10,summary:'## Objective\n- brief 日本語',ledger:compact.foldLedger(null,entries.slice(0,10),{kind:'main'})},{seq:41,upTo:33,ledger:compact.emptyLedger()}])for(const kind of ['main','worker'])for(const list of [entries,[]]){
   const p={parentId:'parent-1',kind,checkpoint,entries:list,todo,reflection};equal(native('compaction.forkContext',p),compact.forkContext(p),'forkContext '+kind);
