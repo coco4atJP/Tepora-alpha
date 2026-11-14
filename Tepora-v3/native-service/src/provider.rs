@@ -216,6 +216,7 @@ struct Inner {
     active: Mutex<ActiveState>,
     detect_limits: bool,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+    pi: std::sync::OnceLock<crate::pi::PiService>,
 }
 #[derive(Clone)]
 pub struct ProviderRuntime {
@@ -264,8 +265,16 @@ impl ProviderRuntime {
                 active: Mutex::new(ActiveState::default()),
                 detect_limits,
                 clock,
+                pi: std::sync::OnceLock::new(),
             }),
         }
+    }
+    /// The pi-ai host (worker, vault, login). Attached once by the workspace.
+    pub fn attach_pi(&self, pi: crate::pi::PiService) {
+        let _ = self.inner.pi.set(pi);
+    }
+    pub fn pi(&self) -> Result<&crate::pi::PiService, ApiError> {
+        self.inner.pi.get().ok_or_else(|| ApiError::unavailable("このホストにはpi-ai接続がありません。"))
     }
     pub fn get(&self) -> Result<Value, ApiError> {
         Ok(self
@@ -313,7 +322,7 @@ impl ProviderRuntime {
     }
     /// Reject stale identities before reading a same-ID profile's replacement key.
     fn key_for(&self, p: &Value) -> Result<String, ApiError> {
-        if p["authMode"]=="chatgpt" || p["engine"]=="pi-ai" { return Ok(String::new()); }
+        if p["authMode"]=="chatgpt" || s(p,"authMode").starts_with("pi-") { return Ok(String::new()); }
         // Disabled profiles still show whether a saved key exists. Exact identity
         // is mandatory so a stale endpoint can never read its replacement key.
         if !array(&self.get()?["profiles"])
@@ -340,8 +349,9 @@ impl ProviderRuntime {
         let mut c = self.get()?;
         let mut profiles = vec![];
         for mut p in array(&c["profiles"]).to_vec() {
+            // pi-ai account status is added by decorate_snapshot below.
             p["keyPresent"] = json!(!self.key_for(&p)?.is_empty());
-            if p["authMode"]=="chatgpt" || p["engine"]=="pi-ai" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT / pi-ai認証は通常起動で利用してください。"}); }
+            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
             p["limits"] = self.known_limits(&p)?.unwrap_or(Value::Null);
             p["probe"] = self
                 .inner
@@ -371,6 +381,11 @@ impl ProviderRuntime {
                 if let Some(value) = limits.get(s(p, "identity")) {
                     p["limits"] = value.clone();
                 }
+                if let (Some(pi), true) = (self.inner.pi.get(), s(p, "authMode").starts_with("pi-")) {
+                    let status = pi.status(s(p, "accountId"));
+                    p["keyPresent"] = json!(status["connected"] == true);
+                    p["authStatus"] = status;
+                }
             }
         }
         registry["resources"] = self.inner.gate.snapshot();
@@ -382,6 +397,9 @@ impl ProviderRuntime {
             return Err(ApiError::new(409, "接続設定が更新されています。"));
         }
         let validated = validate_registry(raw)?;
+        for p in array(&validated["profiles"]).iter().filter(|p| p["engine"] == "pi-ai") {
+            self.pi()?.assert_profile(p)?;
+        }
         let mut c = json!({"schema":2,"revision":expected_revision+1});
         c["profiles"] = validated["profiles"].clone();
         c["routes"] = validated["routes"].clone();
@@ -393,7 +411,7 @@ impl ProviderRuntime {
         if let Some(keys) = keys.as_object_mut() {
             keys.retain(|id,_|{
             let a=array(&old["profiles"]).iter().find(|p|s(p,"id")==id);let b=array(&c["profiles"]).iter().find(|p|s(p,"id")==id);
-            matches!((a,b),(Some(a),Some(b)) if a["baseUrl"]==b["baseUrl"]&&a["protocol"]==b["protocol"]&&validation::credential_class(a)==validation::credential_class(b))
+            matches!((a,b),(Some(a),Some(b)) if a["baseUrl"]==b["baseUrl"]&&a["protocol"]==b["protocol"]&&a["engine"]==b["engine"]&&a["piProvider"]==b["piProvider"]&&validation::credential_class(a)==validation::credential_class(b))
         });
         }
         self.inner.state.set_values(&[
@@ -425,7 +443,7 @@ impl ProviderRuntime {
             .iter()
             .find(|p| s(p, "id") == id)
             .ok_or_else(|| ApiError::new(404, "接続先が見つかりません。"))?;
-        if p["authMode"]=="chatgpt" || p["engine"]=="pi-ai" { return Err(ApiError::bad_request("ChatGPT接続にはAPIキーを設定できません。")); }
+        if p["authMode"]=="chatgpt" || s(p,"authMode").starts_with("pi-") { return Err(ApiError::bad_request("ChatGPT接続にはAPIキーを設定できません。")); }
         if key.encode_utf16().count() > 8000 {
             return Err(ApiError::bad_request("Invalid key"));
         }
@@ -618,7 +636,15 @@ impl ProviderRuntime {
         p: &Value,
         cancel: &RequestCancellation,
     ) -> Result<Value, ProviderFailure> {
-        if !self.inner.detect_limits {
+        if p["engine"] == "pi-ai" {
+            let pi = self.pi()?;
+            pi.catalog_async().await?;
+            let account = Some(s(p, "accountId")).filter(|a| !a.is_empty());
+            let context = pi.model(s(p, "piProvider"), s(p, "model"), account).ok().flatten().and_then(|m| integer(&m["contextWindow"]))
+                .or_else(|| integer(&p["contextTokens"])).unwrap_or(128000);
+            return Ok(json!({"context":context,"server":"other","source":"pi-ai"}));
+        }
+        if !self.inner.detect_limits || p["authMode"] == "chatgpt" {
             return Ok(json!({}));
         }
         if s(p, "protocol") == "chat-completions" && s(p, "domain") != "cloud" {
@@ -768,6 +794,9 @@ impl ProviderRuntime {
         if s(route, "domain") != "cloud" {
             return Ok(None);
         }
+        if route["engine"] == "pi-ai" {
+            return Ok(self.inner.pi.get().and_then(|pi| pi.price(route)));
+        }
         let catalog = self
             .inner
             .state
@@ -851,10 +880,10 @@ impl ProviderRuntime {
             if validation::credential_class(p)!=validation::credential_class(&request.chain[0]) {
                 return Err(ProviderFailure::new("auth","認証・課金が異なる接続先へ自動切替しません。"));
             }
-            // OAuth's callback/credential owner is currently the ordinary local
-            // service. Never reinterpret a saved subscription as a paid API key.
-            if p["authMode"]=="chatgpt" || p["engine"]=="pi-ai" {
-                return Err(ProviderFailure::new("auth","ChatGPT / pi-ai認証は通常起動で利用してください。--dev-nativeへの認証ホスト移植は未完了です。"));
+            // Tepora's own ChatGPT OAuth (core/provider-auth.mjs) is still owned by the
+            // Node host. Never reinterpret a saved subscription as a paid API key.
+            if p["authMode"]=="chatgpt" {
+                return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。"));
             }
             if !self.permitted(p, purpose)? {
                 last.get_or_insert_with(|| {
@@ -912,7 +941,10 @@ impl ProviderRuntime {
                     let scope=NetworkScope{profile:Some(NetworkProfile::from_value(&profile)?),purpose,max_bytes:64_000_000,first_byte_timeout:Some(Duration::from_millis(n(&timeouts,"firstByteTimeoutMs",180000))),idle_timeout:Some(Duration::from_millis(n(&timeouts,"idleTimeoutMs",120000))),..Default::default()};
                     let state = self.inner.state.clone();
                     let receipt = crate::model_usage::Dispatch::new(&profile, &request.options["accountingSessionId"], request.options["accountingPurpose"].as_str().unwrap_or("normal"), attempted.saturating_add(request.options["accountingAttempt"].as_u64().unwrap_or(1).saturating_sub(1)), self.price(&profile)?, Arc::new(move |receipt| state.record_model_call(receipt)));
-                    let mut answer=wire::protocol_chat_accounted(&self.inner.network,&profile,&key,&request.messages,&options,scope,child,&sink,Some(receipt)).await?;check(child)?;check(cancel)?;self.assert_current(p,purpose)?;
+                    let mut answer=if p["engine"]=="pi-ai" {
+                        profile["firstByteTimeoutMs"]=json!(n(&timeouts,"firstByteTimeoutMs",180000));profile["idleTimeoutMs"]=json!(n(&timeouts,"idleTimeoutMs",120000));
+                        self.pi_chat(&profile,&key,&request.messages,&options,child,&sink,receipt).await?
+                    } else { wire::protocol_chat_accounted(&self.inner.network,&profile,&key,&request.messages,&options,scope,child,&sink,Some(receipt)).await? };check(child)?;check(cancel)?;self.assert_current(p,purpose)?;
                     lock(&self.inner.health).insert(s(p,"id").into(),json!({"identity":p["identity"],"failures":0,"until":0}));let mut route=event;route["maxTokens"]=json!(output_cap);answer["route"]=route;Ok::<_,ProviderFailure>(answer)
                 }.await;
                 let error = match result {
@@ -1001,8 +1033,8 @@ impl ProviderRuntime {
             .ok_or_else(|| {
                 ProviderFailure::new("bad-request", "Unknown enabled provider").with_status(404)
             })?;
-        if profile["authMode"]=="chatgpt" || profile["engine"]=="pi-ai" {
-            return Err(ProviderFailure::new("auth","ChatGPT / pi-ai認証は通常起動で利用してください。"));
+        if profile["authMode"]=="chatgpt" {
+            return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。"));
         }
         // Keep one cancellable lease over discovery and both roundtrip calls.
         // A service-wide Stop must not miss the gap between individual requests.
@@ -1096,6 +1128,22 @@ impl ProviderRuntime {
         }
         drop(state);
         self.inner.gate.close();
+        if let Some(pi) = self.inner.pi.get() {
+            pi.close();
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    async fn pi_chat(&self, profile: &Value, key: &str, messages: &[Value], options: &Value, cancel: &RequestCancellation, sink: &EventSink, mut receipt: crate::model_usage::Dispatch) -> Result<Value, ProviderFailure> {
+        let result = async { self.pi()?.chat(profile, key, messages, options, sink, cancel, Some(receipt.marker())).await }.await;
+        let outcome = match &result { Ok(_) => "completed", Err(e) if e.cancelled => "cancelled", Err(_) => "error" };
+        receipt.finish(match &result { Ok(answer) => Some(answer), Err(error) => error.accounting_usage.as_ref() }, outcome).map_err(|_| ProviderFailure::new("accounting", "Model dispatch accounting could not be persisted"))?;
+        result.map_err(|mut e| {
+            if !key.is_empty() {
+                e.message = e.message.replace(key, "[redacted]");
+                e.body = e.body.replace(key, "[redacted]");
+            }
+            e
+        })
     }
     pub fn active_count(&self) -> usize {
         lock(&self.inner.active).requests.len()
