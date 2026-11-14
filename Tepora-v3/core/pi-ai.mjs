@@ -1,18 +1,20 @@
 /** Pi owns provider protocols/catalogs/OAuth; Tepora owns permissions, storage and execution.
  * Workers isolate SDK globals. Every fetch crosses back through NetworkPolicy, including refresh.
  * The Store's exclusive data-directory lease provides cross-process credential ownership. */
-import {Worker} from 'node:worker_threads';
+import {spawn} from 'node:child_process';
+import {createInterface} from 'node:readline';
+import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
 import path from 'node:path';
 import {existsSync,lstatSync,readFileSync,openSync,closeSync,constants} from 'node:fs';
-import {teporaPiModels} from './pi-catalog.mjs';
+import {teporaPiModels,PI_VERSION} from './pi-catalog.mjs';
 import {invariant} from './policy.mjs';
 import {insideEndpoint,normalURL,NetworkBlocked} from './network-policy.mjs';
 import {ProviderError,classifyResponse} from './provider-protocols.mjs';
 import {atomicVault} from './provider-auth.mjs';
 import {checkedPiModels,storedPiCatalog,supportedPiApi} from './pi-model-catalog.mjs';
 
-export const PI_VERSION='1.5.2';
+export {PI_VERSION};
 const catalog=teporaPiModels();
 const accountPattern=/^pi-[a-f0-9-]{36}$/;
 const authOrigins={
@@ -43,6 +45,23 @@ export function validatePiProfile(p,resolveModel=piModel){
 }
 const publicAccount=a=>({id:a.id,provider:a.provider,type:a.type,label:a.label,connected:!!a.credential,error:a.error||null});
 const safeLink=s=>{try{const u=normalURL(s,{query:true});return u.protocol==='https:'?u.href:null;}catch{return null;}};
+const workerFile=fileURLToPath(new URL('./pi-worker.mjs',import.meta.url));
+/** The same child-process worker the Rust host runs. No process.env copy: OAuth-host overrides,
+ * ambient keys and proxy variables cannot change credential scope. Windows needs SystemRoot to start. */
+export function spawnPiWorker(data){
+ const env=process.platform==='win32'&&process.env.SystemRoot?{SystemRoot:process.env.SystemRoot}:{};
+ const child=spawn(process.execPath,['--max-old-space-size=256',workerFile],{env,stdio:['pipe','pipe','ignore'],windowsHide:true});
+ let exited=false;const exit=new Promise(resolve=>child.once('close',()=>{exited=true;resolve();}));
+ const w={onMessage:null,onError:null,onExit:null,
+  send(x){if(!exited&&child.stdin.writable)child.stdin.write(JSON.stringify(x)+'\n');},
+  async terminate(){if(!exited)child.kill('SIGKILL');await exit;}};
+ child.once('error',()=>{exited=true;w.onError?.();});
+ child.stdin.on('error',()=>{});
+ createInterface({input:child.stdout,crlfDelay:Infinity}).on('line',line=>{let m;try{m=JSON.parse(line);}catch{child.kill('SIGKILL');return;}w.onMessage?.(m);});
+ exit.then(()=>w.onExit?.());
+ w.send({type:'start',data});
+ return w;
+}
 function readVault(file){
  if(!existsSync(file))return {schema:1,deviceId:randomUUID(),accounts:{}};
  const d=lstatSync(path.dirname(file)),s=lstatSync(file);invariant(d.isDirectory()&&!d.isSymbolicLink()&&s.isFile()&&!s.isSymbolicLink(),'Unsafe Pi credential storage');
@@ -113,7 +132,7 @@ export class PiAIService{
   p.task=this.run({operation:'login',provider,accountId,authType:type,deviceId:this.vault.deviceId},{signal:p.cancel.signal,pending:p}).then(()=>{p.status='connected';delete a.error;this.changed();}).catch(()=>{p.status=p.cancel.signal.aborted?'cancelled':'error';p.error=p.cancel.signal.aborted?'ログインを取り消しました。':'認証に失敗しました。利用条件・入力内容を確認して再試行してください。';}).finally(()=>{clearTimeout(timer);delete p.prompt;delete p.event;this.changed();});
   return this.snapshot();
  }
- respond({id,promptId,value}={}){const p=this.pending;invariant(p?.id===id&&p.status==='pending'&&p.prompt?.id===promptId,'認証の入力待ちが更新されています。',409);invariant(typeof value==='string'&&value.length<=64000,'認証入力が不正です。');if(p.prompt.type==='select')invariant(p.prompt.options.some(x=>x.id===value),'選択肢が不正です。');p.worker.postMessage({type:'reply',id:promptId,value});delete p.prompt;return this.snapshot();}
+ respond({id,promptId,value}={}){const p=this.pending;invariant(p?.id===id&&p.status==='pending'&&p.prompt?.id===promptId,'認証の入力待ちが更新されています。',409);invariant(typeof value==='string'&&value.length<=64000,'認証入力が不正です。');if(p.prompt.type==='select')invariant(p.prompt.options.some(x=>x.id===value),'選択肢が不正です。');p.worker.send({type:'reply',id:promptId,value});delete p.prompt;return this.snapshot();}
  cancel(id){const p=this.pending;if(p&&(!id||p.id===id)){p.cancel.abort();if(p.status==='pending')p.status='cancelling';delete p.prompt;delete p.event;}return this.snapshot();}
  invalidate(id){this.catalogEpochs.set(id,(this.catalogEpochs.get(id)||0)+1);for(const j of this.jobs)if(j.data.accountId===id)j.abort();}
  async disconnect(id){const a=this.vault.accounts[id];invariant(a,'Unknown pi-ai account',404);this.invalidate(id);const release=await this.lock(id,new AbortController().signal);try{const previous=a.credential;delete a.credential;delete a.error;try{this.persist();}catch(e){a.credential=previous;throw e;}}finally{release();}this.changed();return this.snapshot();}
@@ -133,43 +152,47 @@ export class PiAIService{
   invariant(!this.closed&&!this.storageError,'pi-aiサービスを利用できません。');
   invariant(this.network.permitted(data.profile?.domain||'cloud','model'),'この通信モードではpi-ai接続を利用できません。',403);
   signal?.throwIfAborted();if(data.accountId)this.account(data.accountId,data.provider);
-  // No process.env copy: OAuth-host overrides, ambient keys and proxy vars cannot change credential scope.
-  const worker=new Worker(new URL('./pi-worker.mjs',import.meta.url),{workerData:data,env:{},execArgv:[],resourceLimits:{maxOldGenerationSizeMb:256}});
-  const hardCancel=new AbortController(),callerCancel=new AbortController(),leases=new Map(),ports=new Set();
+  const worker=spawnPiWorker(data);
+  const hardCancel=new AbortController(),callerCancel=new AbortController(),leases=new Map(),fetches=new Map();
   const durableRefresh=!!data.accountId&&data.operation!=='login'&&this.account(data.accountId,data.provider).type==='oauth';
   let lastError=null,settled=false,delivered=false,abortTimer,rejectCancelled;
   const cancelled=new Promise((_,reject)=>{rejectCancelled=reject;});cancelled.catch(()=>{});
   const job={data,abort:(hard=true,reason=new ProviderError('auth','pi-aiの処理を取り消しました。'))=>{
    if(!callerCancel.signal.aborted){callerCancel.abort(reason);rejectCancelled(reason);}
    if(hard)hardCancel.abort(reason);
-   worker.postMessage({type:'abort',hard});
+   worker.send({type:'abort',hard});
    // Only an already-leased OAuth mutation can drain after caller cancellation.
    if(hard){clearTimeout(abortTimer);abortTimer=setTimeout(()=>worker.terminate(),100);}
    else abortTimer??=setTimeout(()=>{hardCancel.abort(reason);worker.terminate();},this.refreshDrainMs);
   }};
   const onAbort=()=>job.abort(!durableRefresh,signal.reason);
   this.jobs.add(job);if(p)p.worker=worker;signal?.addEventListener('abort',onAbort,{once:true});
-  const cleanup=async()=>{signal?.removeEventListener('abort',onAbort);hardCancel.abort();clearTimeout(abortTimer);for(const lease of leases.values())lease.release();leases.clear();for(const port of ports)port.close();try{await worker.terminate();}finally{this.jobs.delete(job);}};
+  const cleanup=async()=>{signal?.removeEventListener('abort',onAbort);hardCancel.abort();clearTimeout(abortTimer);for(const lease of leases.values())lease.release();leases.clear();for(const stop of fetches.values())stop();try{await worker.terminate();}finally{this.jobs.delete(job);}};
   const operation=new Promise((resolve,reject)=>{
    const finish=(error,value)=>{if(settled)return;settled=true;if(callerCancel.signal.aborted)error=callerCancel.signal.reason;if(error&&delivered)error.partialOutput=true;error?reject(error):resolve(value);};
-   worker.on('error',()=>finish(new ProviderError('unavailable','pi-ai Workerを起動できません。依存パッケージとNodeのバージョンを確認してください。')));
-   worker.on('exit',()=>{if(!settled)finish(hardCancel.signal.aborted?hardCancel.signal.reason:new ProviderError('unavailable','pi-ai Workerが終了しました。'));});
-   worker.on('message',m=>{
+   worker.onError=()=>finish(new ProviderError('unavailable','pi-ai Workerを起動できません。依存パッケージとNodeのバージョンを確認してください。'));
+   worker.onExit=()=>{if(!settled)finish(hardCancel.signal.aborted?hardCancel.signal.reason:new ProviderError('unavailable','pi-ai Workerが終了しました。'));};
+   worker.onMessage=m=>{
     if(m.type==='fetch'){
-     const port=m.port;ports.add(port);let reader,busy=false;const requestCancel=new AbortController();
-     const stop=()=>{requestCancel.abort();reader?.cancel().catch(()=>{});port.close();ports.delete(port);};port.on('close',stop);
-     port.on('message',async command=>{if(command.type==='cancel')return stop();if(command.type==='pull'&&reader&&!busy){busy=true;try{const x=await reader.read();port.postMessage(x.done?{type:'end'}:{type:'chunk',bytes:x.value});if(x.done){port.close();ports.delete(port);}}catch{port.postMessage({type:'error',message:'Provider stream failed'});stop();}finally{busy=false;}}});
+     const id=m.id;let reader,busy=false;const requestCancel=new AbortController();
+     const stop=()=>{requestCancel.abort();reader?.cancel().catch(()=>{});fetches.delete(id);};fetches.set(id,stop);
      (async()=>{
       const durable=durableRefresh&&leases.get(m.credentialLease)?.durable===true;
       if(!durable)callerCancel.signal.throwIfAborted();
       const s=this.scope(m.url,data),requestSignal=AbortSignal.any([hardCancel.signal,requestCancel.signal,...(!durable?[callerCancel.signal]:[])]);
       if(s.inference)callerCancel.signal.throwIfAborted();
-      const response=await this.network.request(m.url,{...m.init,signal:requestSignal,redirect:'error'},{profile:s.profile,purpose:'model',allowCloud:true,asset:true,maxBytes:s.inference?64_000_000:4_000_000,
+      const init={...m.init,body:m.init.body==null?null:Buffer.from(m.init.body,'base64')};
+      const response=await this.network.request(m.url,{...init,signal:requestSignal,redirect:'error'},{profile:s.profile,purpose:'model',allowCloud:true,asset:true,maxBytes:s.inference?64_000_000:4_000_000,
        ...(s.inference?{firstByteTimeoutMs:data.profile.firstByteTimeoutMs,idleTimeoutMs:data.profile.idleTimeoutMs,onDispatch}: {timeoutMs:30000})});
       if(!response.ok){const error=await classifyResponse(response.clone());lastError=new ProviderError(error.kind,`pi-ai接続先がHTTP ${response.status}を返しました。`,{status:response.status,retryAfterMs:error.retryAfterMs,limit:error.limit});}
-      reader=response.body?.getReader();port.postMessage({type:'headers',status:response.status,headers:[...response.headers],noBody:!reader});
-     })().catch(e=>{lastError=e;try{port.postMessage({type:'error',message:'Checked provider request failed'});}finally{stop();}});return;
+      reader=response.body?.getReader();if(requestCancel.signal.aborted){reader?.cancel().catch(()=>{});return;}
+      worker.send({type:'fetch-headers',id,status:response.status,headers:[...response.headers],noBody:!reader});if(!reader)fetches.delete(id);
+     })().catch(e=>{lastError=e;worker.send({type:'fetch-error',id,message:'Checked provider request failed'});stop();});
+     fetches.get(id).pull=async()=>{if(!reader||busy)return;busy=true;try{const x=await reader.read();worker.send(x.done?{type:'fetch-end',id}:{type:'fetch-chunk',id,bytes:Buffer.from(x.value).toString('base64')});if(x.done)fetches.delete(id);}catch{worker.send({type:'fetch-error',id,message:'Provider stream failed'});stop();}finally{busy=false;}};
+     return;
     }
+    if(m.type==='fetch-pull'){fetches.get(m.id)?.pull?.();return;}
+    if(m.type==='fetch-cancel'){fetches.get(m.id)?.();return;}
     if(m.type==='rpc'){
      (async()=>{
       hardCancel.signal.throwIfAborted();
@@ -183,8 +206,8 @@ export class PiAIService{
        try{if(m.value.credential!==undefined){invariant(m.value.credential?.type===a.type&&JSON.stringify(m.value.credential).length<256000,'Invalid Pi credential');const previous=a.credential;a.credential=m.value.credential;try{this.persist();}catch(e){a.credential=previous;throw e;}}value=a.credential;}finally{held.release();leases.delete(m.value.lease);}
       }else if(m.kind==='credential-unlock'){held?.release();leases.delete(m.value.lease);}
       else throw new Error('Unknown Pi RPC');
-      if(!settled)worker.postMessage({type:'reply',id:m.id,value});
-     })().catch(()=>{if(!settled)worker.postMessage({type:'reply',id:m.id,error:'Pi credential operation failed'});});return;
+      if(!settled)worker.send({type:'reply',id:m.id,value});
+     })().catch(()=>{if(!settled)worker.send({type:'reply',id:m.id,error:'Pi credential operation failed'});});return;
     }
     if(m.type==='delta'){if(callerCancel.signal.aborted)return;delivered=true;try{(m.kind==='text_delta'?onDelta:onReasoning)?.(m.text);}catch(e){finish(e);}return;}
     if(p&&m.type==='prompt'){if(callerCancel.signal.aborted)return;p.prompt={id:m.id,...m.prompt};this.changed();return;}
@@ -196,7 +219,7 @@ export class PiAIService{
     }
     if(m.type==='result')finish(null,m.value);
     if(m.type==='failure')finish(lastError||new ProviderError(['oauth','auth'].includes(m.code)?'auth':'invalid-output','pi-aiの認証またはモデル応答を処理できませんでした。'));
-   });
+   };
   });
   // Release the caller promptly while logout/close retain ownership of the drain.
   const drained=operation.finally(cleanup);job.done=drained;drained.catch(()=>{});

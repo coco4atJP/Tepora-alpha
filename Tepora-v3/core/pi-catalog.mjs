@@ -1,5 +1,8 @@
 import {builtinModels} from '@earendil-works/pi-ai/providers/all';
 
+/** The pinned SDK version. Saved account catalogs from another version need an explicit refresh. */
+export const PI_VERSION='1.5.2';
+
 /** Narrow metadata supplement for Pi 1.5.0's OpenCode snapshot.
  * Pi 1.5.0 renamed `minimax-m3.1-flash-free` → `minimax-m3.1-flash` (paid) and already
  * uses `/inference/go/openai/v1` for OpenAI-compatible Go models. Tepora only adds
