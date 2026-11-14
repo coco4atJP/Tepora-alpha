@@ -2,6 +2,7 @@
 /** Change -> verify -> evidence. No automatic code mutation or pretend improvement count.
  * --watch rechecks only when source bytes change. --browser adds optional Playwright checks.
  * A model/provider is never called implicitly; live model evals remain an explicit separate step.
+ * home-evals replays evals/home-days.json on the Node and Rust hosts with scripted models (scripts/eval-home.mjs).
  */
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -13,7 +14,7 @@ const args=process.argv.slice(2),outFlag=args.indexOf('--out');
 const out=path.resolve(outFlag>=0?args[outFlag+1]||'validation/loop':path.join(root,'validation/loop'));
 const watch=args.includes('--watch'),browser=args.includes('--browser'),computer=args.includes('--computer'),capabilities=args.includes('--capabilities');
 const ignored=new Set(['.git','node_modules','target','binaries','resources','icons','gen','__pycache__','validation','native']);
-const roots=['core','web','workers','speech','tests','scripts','spec','docs','ci','desktop','native-core','native-service'];
+const roots=['core','web','workers','speech','tests','scripts','spec','evals','docs','ci','desktop','native-core','native-service'];
 let closing=false,child=null;
 async function fingerprint(){
  const entries=[];
@@ -33,6 +34,7 @@ async function verify(before){
  const folder=path.join(out,before.slice(0,12)+'-'+Date.now());await mkdir(folder,{recursive:true});
  const python=process.env.PYTHON|| (process.platform==='win32'?'python':'python3');
  const steps=[['rust-build',process.execPath,['scripts/build-core.mjs']],['rust-tests',process.env.CARGO||'cargo',['test','--locked','--no-default-features','--manifest-path','native-core/Cargo.toml']],['native-service-build',process.execPath,['scripts/build-native.mjs']],['native-service-tests',process.env.CARGO||'cargo',['test','--locked','--manifest-path','native-service/Cargo.toml']],['desktop-helper-tests',process.env.CARGO||'cargo',['test','--locked','--manifest-path','desktop-helper/Cargo.toml']],['syntax',process.execPath,['scripts/check.mjs']],['node-tests',process.execPath,process.platform==='win32'?['--import','./scripts/ci-diagnostics.mjs','--test','--test-concurrency=1','--test-timeout=120000']:['--test']],
+  ['home-evals',process.execPath,['scripts/eval-home.mjs','--out',folder]],
   ['worker-contracts',python,['-I','-S','-m','unittest','discover','-s','workers','-p','test_*.py','-v']],
   ['scenario-traceability',process.execPath,['scripts/verify-scenarios.mjs',folder]],['preview-build',process.execPath,['scripts/build-preview.mjs']]];
  if(browser){steps.push(['browser-first-use',python,['tests/browser-first-use.py',root,path.join(folder,'browser')]]);steps.push(['browser-routing',python,['tests/browser-routing.py',root,path.join(folder,'routing-ui')]]);steps.push(['browser-lamp',python,['tests/browser-lamp.py',root,path.join(folder,'lamp')]]);steps.push(['browser-avatar',python,['tests/browser-avatar.py',root,path.join(folder,'avatar')]]);}

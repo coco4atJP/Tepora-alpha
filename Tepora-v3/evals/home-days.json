@@ -1,0 +1,18 @@
+{
+ "about": "Three days of home life for scripts/eval-home.mjs. Costs are simulated milliseconds charged by the fake wake word, transcriber, model and speech engine; they are not measurements of any real model.",
+ "costs": {"wake": 120, "sttBase": 180, "sttPerSecond": 60, "llmFirstToken": 350, "llmPerChar": 4, "ttsFirstAudio": 160},
+ "budget": {"wakeToAudioMs": 1600},
+ "days": [
+  {"turns": [
+   {"id": "d1-morning", "say": "おはよう、今日は家で仕事するよ", "seconds": 1.4, "reply": "おはよう。家の日だね、無理せずいこう。"},
+   {"id": "d1-fact", "say": "そういえば好きな飲み物はほうじ茶なんだ", "seconds": 1.6, "remember": "cocoaさんの好きな飲み物はほうじ茶", "reply": "覚えておくね。"},
+   {"id": "d1-long", "say": "今日の予定を全部くわしく話して", "seconds": 1.2, "reply": "今日はまず午前に資料をまとめて、昼に少し休んで、午後は打ち合わせが二つあって、そのあと買い物にも行く予定だよ。", "interruptedBy": {"id": "d1-barge", "say": "やっぱりいいや、ありがとう", "seconds": 1.0, "reply": "了解、また声をかけてね。"}}
+  ]},
+  {"turns": [
+   {"id": "d2-weather", "say": "今日は寒いね", "seconds": 0.9, "reply": "冷えるね。温かくしてね。"}
+  ]},
+  {"turns": [
+   {"id": "d3-recall", "say": "私の好きな飲み物って何だっけ", "seconds": 1.3, "recall": {"query": "飲み物", "expect": "ほうじ茶"}, "reply": "ほうじ茶だよ。"}
+  ]}
+ ]
+}
