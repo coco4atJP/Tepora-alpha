@@ -731,6 +731,11 @@ impl HttpState {
             return self.json_operation(operation, 200).await;
         }
         if self.config.agent && method == Method::GET {
+            if path=="/api/pi/models" {
+                let text=|k: &str| tepora_core::json_codec::encode_text(&query(&url,k).unwrap_or_default());
+                let body=json!({"provider":text("provider"),"accountId":text("accountId")});
+                return self.json_operation(Operation::Pi{route:crate::PiRoute::Models,body},200).await;
+            }
             if path=="/api/model-catalog" {
                 let query=tepora_core::json_codec::encode_text(&query(&url,"q").unwrap_or_default());
                 return self.json_operation(Operation::ModelCatalogSearch{query},200).await;
@@ -1061,6 +1066,7 @@ enum NativeAgentRoute {
     Body(NativeAgentBodyRoute, u16),
 }
 enum NativeAgentBodyRoute {
+    Pi(crate::PiRoute),
     Display(crate::workspace::VisualAction),
     Avatar(crate::workspace::VisualAction),
     ModelCatalogImport,
@@ -1125,6 +1131,7 @@ impl NativeAgentBodyRoute {
             Self::SemanticIndex=>Operation::SemanticIndex{body},
             Self::SemanticSearch=>Operation::SemanticSearch{body},
             Self::Network => Operation::NetworkPatch { body },
+            Self::Pi(route) => Operation::Pi { route, body },
         }
     }
 }
@@ -1205,6 +1212,14 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("GET", "/api/network") => return Some(Ready(Operation::Network, 200)),
         ("PATCH", "/api/network") => return Some(Json(Body::Network, 200)),
         ("POST", "/api/stop") => return Some(Ready(Operation::StopAll, 200)),
+        ("GET", "/api/pi/providers") => return Some(Ready(Operation::Pi { route: crate::PiRoute::Providers, body: Value::Null }, 200)),
+        ("GET", "/api/pi/auth") => return Some(Ready(Operation::Pi { route: crate::PiRoute::Auth, body: Value::Null }, 200)),
+        ("POST", "/api/pi/models/refresh") => return Some(Json(Body::Pi(crate::PiRoute::RefreshModels), 200)),
+        ("POST", "/api/pi/auth/start") => return Some(Json(Body::Pi(crate::PiRoute::AuthStart), 200)),
+        ("POST", "/api/pi/auth/open") => return Some(Json(Body::Pi(crate::PiRoute::AuthOpen), 200)),
+        ("POST", "/api/pi/auth/respond") => return Some(Json(Body::Pi(crate::PiRoute::AuthRespond), 200)),
+        ("POST", "/api/pi/auth/cancel") => return Some(Json(Body::Pi(crate::PiRoute::AuthCancel), 200)),
+        ("POST", "/api/pi/auth/disconnect") => return Some(Json(Body::Pi(crate::PiRoute::AuthDisconnect), 200)),
         _ => {}
     }
     if let Some(id) = path.strip_prefix("/api/skills/").filter(|id| raw_id(id)) {
@@ -1397,10 +1412,10 @@ fn mime(path: &str) -> &'static str {
 fn known_unavailable(method: &Method, path: &str) -> bool {
     static ROUTES: LazyLock<Vec<(&'static str, regex::Regex)>> = LazyLock::new(|| {
         [
-  ("GET",r"^/api/(?:agent/(?:settings|policy|approvals)|dialogue/personas|display(?:/export)?|avatar(?:/export|/assets)?|frame|providers|network|setup|model-catalog|capabilities|media/jobs|computer)$"),
+  ("GET",r"^/api/(?:agent/(?:settings|policy|approvals)|dialogue/personas|display(?:/export)?|avatar(?:/export|/assets)?|frame|providers|network|setup|model-catalog|capabilities|media/jobs|computer|pi/(?:providers|models|auth))$"),
   ("PATCH",r"^/api/(?:agent/settings|settings|display|avatar|network|computer|skills/[^/]+|mcp/[^/]+)$"),
   ("PUT",r"^/api/(?:agent/search-key|dialogue/personas|avatar/assets|frame/photos|providers|capabilities)$"),
-  ("POST",r"^/api/(?:agent/(?:input|spawn|policy/revert|dream|plugins/reload|approvals(?:/[\w-]+)?)|stop|display/(?:undo|reset|import)|avatar/(?:undo|reset|import)|skills|shared/scan|inputs|providers/[\w-]+/(?:key|probe)|runtime/discover|setup/(?:install-help|scan|dismiss|select|install|stop)|model-catalog/(?:import|refresh)|capabilities/[^/]+/key|semantic/(?:index|search)|media/(?:jobs|embed|open)|connector/(?:weather|news)|mcp|tools/(?:import/(?:preview|apply)|connect/(?:preview|apply)|search|[^/]+/discover)|computer/(?:windows|status|release)|voice/(?:start|chunk|finish|cancel|edit|transcribe))$"),
+  ("POST",r"^/api/(?:agent/(?:input|spawn|policy/revert|dream|plugins/reload|approvals(?:/[\w-]+)?)|stop|display/(?:undo|reset|import)|avatar/(?:undo|reset|import)|skills|shared/scan|inputs|providers/[\w-]+/(?:key|probe)|runtime/discover|setup/(?:install-help|scan|dismiss|select|install|stop)|model-catalog/(?:import|refresh)|capabilities/[^/]+/key|semantic/(?:index|search)|media/(?:jobs|embed|open)|connector/(?:weather|news)|mcp|tools/(?:import/(?:preview|apply)|connect/(?:preview|apply)|search|[^/]+/discover)|computer/(?:windows|status|release)|voice/(?:start|chunk|finish|cancel|edit|transcribe)|pi/(?:models/refresh|auth/(?:start|open|respond|cancel|disconnect)))$"),
   ("POST",r"^/api/agent/sessions/[A-Za-z0-9_-]+/(?:message|stop|resume|accept)$"),
   ("GET",r"^/api/agent/sessions/[A-Za-z0-9_-]+/(?:files|download)$"),
   ("DELETE",r"^/api/agent/sessions/[A-Za-z0-9_-]+$"),
@@ -1725,6 +1740,15 @@ mod tests {
             ("GET", "/api/network", 200, "Network"),
             ("PATCH", "/api/network", 200, "NetworkPatch"),
             ("POST", "/api/stop", 200, "StopAll"),
+            ("GET", "/api/pi/providers", 200, "Pi { route: Providers"),
+            ("GET", "/api/pi/models?provider=groq&accountId=x", 200, "Pi { route: Models"),
+            ("POST", "/api/pi/models/refresh", 200, "Pi { route: RefreshModels"),
+            ("GET", "/api/pi/auth", 200, "Pi { route: Auth,"),
+            ("POST", "/api/pi/auth/start", 200, "Pi { route: AuthStart"),
+            ("POST", "/api/pi/auth/open", 200, "Pi { route: AuthOpen"),
+            ("POST", "/api/pi/auth/respond", 200, "Pi { route: AuthRespond"),
+            ("POST", "/api/pi/auth/cancel", 200, "Pi { route: AuthCancel"),
+            ("POST", "/api/pi/auth/disconnect", 200, "Pi { route: AuthDisconnect"),
         ] {
             let response = state.clone().handle(request(method, path, "{}")).await;
             assert_eq!(response.status(), status, "{method} {path}");
@@ -1735,7 +1759,8 @@ mod tests {
             assert_eq!(response.headers()["cache-control"], "no-store");
             assert_eq!(response.headers()["x-frame-options"], "DENY");
         }
-        assert_eq!(fake.calls.lock().unwrap().len(), 22);
+        assert_eq!(fake.calls.lock().unwrap().len(), 31);
+        assert!(format!("{:?}", fake.calls.lock().unwrap()[23]).contains(r#""provider": String("groq")"#));
     }
     #[tokio::test]
     async fn native_agent_routes_keep_auth_csrf_method_and_path_boundaries() {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../core/store.mjs';
@@ -13,10 +14,11 @@ const selected=piModel('groq','llama-3.3-70b-versatile');
 const profile=()=>({id:'pi-groq',name:'Groq through Pi',engine:'pi-ai',piProvider:'groq',protocol:'chat-completions',baseUrl:selected.baseUrl,model:selected.id,domain:'cloud',maxTokens:512});
 test('real SDK catalogs: all built-ins and all OAuth methods are exposed',()=>{const p=piProviders();assert.equal(p.version,'1.5.2');assert.equal(p.providers.length,43);assert.equal(p.providers.filter(x=>x.oauth).length,9);assert.ok(p.providers.reduce((n,x)=>n+x.modelCount,0)>1500);});
 test('real pi-ai SDK performs streamed inference through Tepora registry and checked transport',async t=>{
- const seen=[],deltas=[];const f=await fixture(t,async(admitted,init)=>{seen.push({url:admitted.url.href,body:JSON.parse(Buffer.from(init.body).toString()),headers:Object.fromEntries(new Headers(init.headers))});return sse([{id:'chatcmpl-fixture',choices:[{delta:{role:'assistant',content:'Hello Pi'},finish_reason:null}]},{choices:[{delta:{},finish_reason:'stop'}],usage:{prompt_tokens:12,completion_tokens:3}},'[DONE]']);});
- const snapshot=f.registry.save({profiles:[profile()],routes:{main:{primary:'pi-groq',fallbacks:[]}}},0);f.registry.setKey('pi-groq','synthetic-pi-key',snapshot.profiles[0].identity);
+ const chat=JSON.parse(readFileSync(new URL('./fixtures/pi-ai-chat.json',import.meta.url),'utf8'));
+ const seen=[],deltas=[];const f=await fixture(t,async(admitted,init)=>{seen.push({url:admitted.url.href,body:JSON.parse(Buffer.from(init.body).toString()),headers:Object.fromEntries(new Headers(init.headers))});return sse(chat.events);});
+ const snapshot=f.registry.save({profiles:[profile()],routes:{main:{primary:'pi-groq',fallbacks:[]}}},0);f.registry.setKey('pi-groq',chat.key,snapshot.profiles[0].identity);
  const answer=await f.registry.invoke('main',[{role:'user',content:'Hello'}],{onDelta:d=>deltas.push(d),signal:AbortSignal.timeout(15000)});
- assert.equal(answer.content,'Hello Pi');assert.equal(deltas.join(''),'Hello Pi');assert.equal(seen.length,1);assert.equal(seen[0].headers.authorization,'Bearer synthetic-pi-key');assert.equal(answer._native.engine,'pi-ai');assert.equal(answer.usage.input,12);assert.equal(answer.usageStatus.status,'complete');
+ assert.equal(answer.content,chat.expected.content);assert.equal(deltas.join(''),chat.expected.content);assert.equal(seen.length,1);assert.equal(seen[0].headers.authorization,chat.expected.authorization);assert.equal(answer._native.engine,'pi-ai');assert.equal(answer.usage.input,chat.expected.inputTokens);assert.equal(answer.usageStatus.status,chat.expected.usageStatus);
 });
 const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
 const bodyText=init=>Buffer.from(init.body||'').toString();

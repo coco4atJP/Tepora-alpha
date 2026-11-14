@@ -22,7 +22,7 @@ pub const SERVERS: &[&str] = &[
     "other",
 ];
 const FIELDS: &[&str] = &[
-    "authMode", "accountId",
+    "engine", "piProvider", "authMode", "accountId",
     "id",
     "name",
     "protocol",
@@ -128,10 +128,6 @@ fn sampling(raw: Option<&Value>) -> Result<Value, ApiError> {
 /// Profile insertion order is the persisted JavaScript SHA-256 identity contract.
 /// Input and output strings use the core's lossless UTF-16 JSON codec.
 pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
-    require(
-        s(raw, "engine") != "pi-ai",
-        "pi-ai接続は通常起動のNodeホストを使用してください。Rust単独ホストは未対応です。",
-    )?;
     let object = raw
         .as_object()
         .ok_or_else(|| ApiError::bad_request("Unknown provider field"))?;
@@ -236,12 +232,26 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
         "思考オフは推論の強さや思考予算と同時に指定できません。",
     )?;
     let auth_mode = if truth(&raw["authMode"]) { s(raw,"authMode") } else { "api-key" };
-    require(["api-key","chatgpt"].contains(&auth_mode), "Invalid authentication mode")?;
+    require(["api-key","chatgpt","pi-oauth","pi-key"].contains(&auth_mode), "Invalid authentication mode")?;
+    let pi = s(raw, "engine") == "pi-ai";
+    require(raw.get("engine").is_none() || pi, "Invalid provider engine")?;
+    if auth_mode.starts_with("pi-") { require(pi, "pi-ai認証にはpi-aiエンジンを指定してください。")?; }
+    if truth(&raw["piProvider"]) { require(pi, "piProvider requires pi-ai")?; }
     if auth_mode == "chatgpt" {
         require(s(raw,"protocol")=="responses" && domain==Domain::Cloud && url.as_str().trim_end_matches('/')=="https://api.openai.com/v1", "ChatGPT認証は公式Responses APIにだけ使用できます。")?;
         require(matches(r"^chatgpt-[a-f0-9-]{36}$",s(raw,"accountId")), "ChatGPTアカウントを選択してください。")?;
         require(!truth(&raw["apiKeyEnv"]) && !truth(&raw["sessionHeader"]), "ChatGPT認証にAPIキーや追加認証ヘッダーは使えません。")?;
-    } else { require(!truth(&raw["accountId"]), "APIキー接続にChatGPTアカウントは指定できません。")?; }
+    } else if !auth_mode.starts_with("pi-") { require(!truth(&raw["accountId"]), "APIキー接続にアカウントは指定できません。")?; }
+    // The SDK catalog checks (provider, model, API, OAuth endpoint, account) need the
+    // pi-ai worker and run in ProviderRuntime::save via PiService::assert_profile.
+    if pi {
+        require(auth_mode != "chatgpt", "pi-aiの認証方式が不正です。")?;
+        require(raw["piProvider"].as_str().is_some_and(|p| matches(r"^[a-z0-9][a-z0-9-]{0,63}$", p)), "pi-aiのプロバイダーとモデルを選択してください。")?;
+        if auth_mode.starts_with("pi-") {
+            require(matches(r"^pi-[a-f0-9-]{36}$", s(raw,"accountId")), "pi-aiの認証アカウントを選択してください。")?;
+            require(domain == Domain::Cloud && !truth(&raw["apiKeyEnv"]), "アカウント認証と環境変数のキーを混在できません。")?;
+        }
+    }
     let slow = match domain {
         Domain::Device => 600000,
         Domain::Lan => 300000,
@@ -275,7 +285,8 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
     if s(raw, "thinking") == "off" {
         p["thinking"] = json!("off");
     }
-    if auth_mode=="chatgpt" { p["authMode"]=json!("chatgpt"); p["accountId"]=raw["accountId"].clone(); }
+    if auth_mode=="chatgpt" || auth_mode.starts_with("pi-") { p["authMode"]=json!(auth_mode); p["accountId"]=raw["accountId"].clone(); }
+    if pi { p["engine"]=json!("pi-ai"); p["piProvider"]=raw["piProvider"].clone(); }
     p["identity"] = json!(digest(&p)?);
     Ok(p)
 }
@@ -394,5 +405,6 @@ pub fn role_chain(role: &str, registry: &Value) -> Vec<Value> {
 
 /// A subscription never silently changes account or falls back to an API key.
 pub fn credential_class(p: &Value) -> String {
-    if p["authMode"]=="chatgpt" { format!("chatgpt:{}",s(p,"accountId")) } else { "api-key".into() }
+    let mode = s(p, "authMode");
+    if mode == "chatgpt" || mode.starts_with("pi-") { format!("{mode}:{}", s(p, "accountId")) } else { "api-key".into() }
 }

@@ -158,23 +158,7 @@ fn signal_task(
     }
 }
 fn open_browser(url: &str) {
-    let mut command = if cfg!(windows) {
-        let mut c = std::process::Command::new("rundll32");
-        c.arg("url.dll,FileProtocolHandler");
-        c
-    } else if cfg!(target_os = "macos") {
-        std::process::Command::new("open")
-    } else {
-        std::process::Command::new("xdg-open")
-    };
-    if command
-        .arg(url)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .is_err()
-    {
+    if !tepora_native_service::open_external(url) {
         eprintln!("Open the readiness URL in a browser.");
     }
 }
