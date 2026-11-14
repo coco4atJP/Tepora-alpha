@@ -3,7 +3,7 @@
   "checkpoint": "native-media-embed-view",
   "baseline": "765d786d711321890db5c9d7260d8c45bc2e52c3",
   "counting": {
-    "implemented": 94,
+    "implemented": 103,
     "partial": 12,
     "unavailable": 20
   },
@@ -1634,6 +1634,105 @@
       "agent": "implemented",
       "success_status": 200,
       "limit": "No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R149",
+      "method": "GET",
+      "path": "/api/pi/providers",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R150",
+      "method": "GET",
+      "path": "/api/pi/models",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R151",
+      "method": "POST",
+      "path": "/api/pi/models/refresh",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R152",
+      "method": "GET",
+      "path": "/api/pi/auth",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R153",
+      "method": "POST",
+      "path": "/api/pi/auth/start",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R154",
+      "method": "POST",
+      "path": "/api/pi/auth/open",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R155",
+      "method": "POST",
+      "path": "/api/pi/auth/respond",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R156",
+      "method": "POST",
+      "path": "/api/pi/auth/cancel",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
+      "baseline_source": "Tepora-v3/core/server.mjs"
+    },
+    {
+      "id": "R157",
+      "method": "POST",
+      "path": "/api/pi/auth/disconnect",
+      "family": "pi-ai",
+      "static": false,
+      "agent": "implemented",
+      "success_status": 200,
+      "limit": "Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     }
   ]

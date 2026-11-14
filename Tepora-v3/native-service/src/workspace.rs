@@ -706,8 +706,10 @@ impl State {
                     .as_str()
                     .and_then(|name| env::var(name).ok())
                     .is_some_and(|s| !s.is_empty());
-            p["keyPresent"] = json!(key_present && p["authMode"]!="chatgpt" && !p["authMode"].as_str().is_some_and(|m| m.starts_with("pi-")));
-            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
+            let mode = p["authMode"].as_str().unwrap_or("").to_string();
+            let mode = mode.as_str();
+            p["keyPresent"] = json!(key_present && crate::provider::validation::usable_auth(mode) && !mode.starts_with("pi-"));
+            if !crate::provider::validation::usable_auth(mode) { p["authStatus"]=json!({"connected":false,"error":crate::provider::validation::RE_REGISTER}); }
             p["health"] = Value::Null;
             p["limits"] = self.value(&format!(
                 "provider-limits:{}",

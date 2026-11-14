@@ -14,7 +14,7 @@ try{
  await page.send('Network.enable');await page.send('Network.setBlockedURLs',{urls:['http://*','https://*']});
  const modules=await Promise.all(['status','markdown','ui','provider-presets','auth-browser','pi-settings','provider-settings'].map(async name=>(await readFile(path.join(root,'web',name+'.mjs'),'utf8')).replace(/^import .+ from '.+?';\r?\n/gm,'').replace(/^export /gm,'')));
  const harness=`
- const fixture={requests:[],state:{supported:true,accounts:[],pending:null},legacy:{supported:true,note:'Synthetic login',accounts:[],pending:null},count:0,fail:false,hold:false,release:null};
+ const fixture={requests:[],state:{supported:true,accounts:[],pending:null},count:0,fail:false,hold:false,release:null};
  const copy=value=>JSON.parse(JSON.stringify(value));
  const bridge={async request(url,method='GET',body){
   fixture.requests.push({url,method,body});
@@ -27,10 +27,7 @@ try{
    if(fixture.hold)await new Promise(resolve=>{fixture.release=resolve;});return copy(fixture.state);
   }
   if(url==='/api/pi/auth/cancel'){if(fixture.cancelFail)throw Error('Synthetic cancellation failure');fixture.state.pending.status='cancelled';fixture.state.pending.prompt=null;fixture.state.pending.event=null;return copy(fixture.state);}
-  if(url==='/api/provider-auth')return copy(fixture.legacy);
-  if(url==='/api/provider-auth/start'){fixture.legacy.pending={id:'legacy-'+(++fixture.count),status:'pending',canOpenBrowser:true};return {id:fixture.legacy.pending.id};}
-  if(url==='/api/provider-auth/cancel'){fixture.legacy.pending.status='cancelled';fixture.legacy.pending.canOpenBrowser=false;return copy(fixture.legacy);}
-  if(url.endsWith('/auth/open')||url==='/api/provider-auth/open'){if(fixture.fail)throw Error('Synthetic launcher failure');return {opened:true};}
+  if(url.endsWith('/auth/open')){if(fixture.fail)throw Error('Synthetic launcher failure');return {opened:true};}
   throw Error('Unexpected fixture request '+url);
  }};
  const overlay=document.querySelector('#overlay');
@@ -76,13 +73,6 @@ try{
   await evaluate('fixture.hold=true;document.querySelector("#pi-auth-start [name=consent]").checked=true;document.querySelector("#pi-auth-start").requestSubmit()');await wait('!!fixture.release');
   await evaluate('document.querySelector("#overlay").replaceChildren();fixture.release()');await new Promise(r=>setTimeout(r,900));
   assert.equal(await openCount('/api/pi/auth/open'),5);assert.equal(await evaluate('!!document.querySelector("#pi-auth-panel")'),false);
- });
- await check('legacy ChatGPT login uses the same default-browser handoff and supports reopening a pending attempt',async()=>{
-  await evaluate('controller.open()');await click('[data-action=provider-auth-open]');await wait('!!document.querySelector("#provider-auth-panel")');await click('[data-action=provider-auth-start]');
-  await wait('fixture.requests.some(r=>r.url==="/api/provider-auth/open")');assert.deepEqual(await evaluate('fixture.requests.find(r=>r.url==="/api/provider-auth/open").body'),{id:'legacy-3'});
-  await evaluate('controller.open()');await click('[data-action=provider-auth-open]');await wait('!!document.querySelector("#provider-auth-browser button")');await new Promise(r=>setTimeout(r,1600));
-  assert.equal(await openCount('/api/provider-auth/open'),1);await click('[data-action=provider-auth-browser]');await wait('fixture.requests.filter(r=>r.url==="/api/provider-auth/open").length===2');
-  await click('[data-action=provider-auth-cancel]');await wait('!!document.querySelector("[data-action=provider-auth-start]")');assert.equal(await evaluate('!!document.querySelector("#provider-auth-browser button")'),false);
  });
  assert.deepEqual(errors,[]);assert.equal(await evaluate('document.querySelector("#notice").textContent'),'');
  console.log(JSON.stringify({checks,errors,realAccounts:false,realBrowserHandoff:false},null,2));

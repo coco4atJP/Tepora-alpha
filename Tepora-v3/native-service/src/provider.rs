@@ -3,7 +3,7 @@
 mod gate;
 #[cfg(test)]
 mod tests;
-mod validation;
+pub(crate) mod validation;
 mod wire;
 pub use gate::{ResourceGate, SlotPool};
 pub use validation::{role_chain, validate_profile, validate_registry, PROTOCOLS, ROLES, SERVERS};
@@ -322,7 +322,7 @@ impl ProviderRuntime {
     }
     /// Reject stale identities before reading a same-ID profile's replacement key.
     fn key_for(&self, p: &Value) -> Result<String, ApiError> {
-        if p["authMode"]=="chatgpt" || s(p,"authMode").starts_with("pi-") { return Ok(String::new()); }
+        if !validation::usable_auth(s(p,"authMode")) || s(p,"authMode").starts_with("pi-") { return Ok(String::new()); }
         // Disabled profiles still show whether a saved key exists. Exact identity
         // is mandatory so a stale endpoint can never read its replacement key.
         if !array(&self.get()?["profiles"])
@@ -351,7 +351,7 @@ impl ProviderRuntime {
         for mut p in array(&c["profiles"]).to_vec() {
             // pi-ai account status is added by decorate_snapshot below.
             p["keyPresent"] = json!(!self.key_for(&p)?.is_empty());
-            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
+            if !validation::usable_auth(s(&p,"authMode")) { p["authStatus"]=json!({"connected":false,"error":validation::RE_REGISTER}); }
             p["limits"] = self.known_limits(&p)?.unwrap_or(Value::Null);
             p["probe"] = self
                 .inner
@@ -443,7 +443,7 @@ impl ProviderRuntime {
             .iter()
             .find(|p| s(p, "id") == id)
             .ok_or_else(|| ApiError::new(404, "接続先が見つかりません。"))?;
-        if p["authMode"]=="chatgpt" || s(p,"authMode").starts_with("pi-") { return Err(ApiError::bad_request("ChatGPT接続にはAPIキーを設定できません。")); }
+        if !validation::usable_auth(s(p,"authMode")) || s(p,"authMode").starts_with("pi-") { return Err(ApiError::bad_request("アカウント接続にはAPIキーを設定できません。")); }
         if key.encode_utf16().count() > 8000 {
             return Err(ApiError::bad_request("Invalid key"));
         }
@@ -644,7 +644,7 @@ impl ProviderRuntime {
                 .or_else(|| integer(&p["contextTokens"])).unwrap_or(128000);
             return Ok(json!({"context":context,"server":"other","source":"pi-ai"}));
         }
-        if !self.inner.detect_limits || p["authMode"] == "chatgpt" {
+        if !self.inner.detect_limits {
             return Ok(json!({}));
         }
         if s(p, "protocol") == "chat-completions" && s(p, "domain") != "cloud" {
@@ -880,10 +880,9 @@ impl ProviderRuntime {
             if validation::credential_class(p)!=validation::credential_class(&request.chain[0]) {
                 return Err(ProviderFailure::new("auth","認証・課金が異なる接続先へ自動切替しません。"));
             }
-            // Tepora's own ChatGPT OAuth (core/provider-auth.mjs) is still owned by the
-            // Node host. Never reinterpret a saved subscription as a paid API key.
-            if p["authMode"]=="chatgpt" {
-                return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。"));
+            // Never reinterpret a saved retired sign-in as a paid API key.
+            if !validation::usable_auth(s(p,"authMode")) {
+                return Err(ProviderFailure::new("auth",validation::RE_REGISTER));
             }
             if !self.permitted(p, purpose)? {
                 last.get_or_insert_with(|| {
@@ -1033,8 +1032,8 @@ impl ProviderRuntime {
             .ok_or_else(|| {
                 ProviderFailure::new("bad-request", "Unknown enabled provider").with_status(404)
             })?;
-        if profile["authMode"]=="chatgpt" {
-            return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。"));
+        if !validation::usable_auth(s(&profile,"authMode")) {
+            return Err(ProviderFailure::new("auth",validation::RE_REGISTER));
         }
         // Keep one cancellable lease over discovery and both roundtrip calls.
         // A service-wide Stop must not miss the gap between individual requests.

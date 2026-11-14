@@ -2,7 +2,7 @@
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **94 are substantially matched, 12 are partial and 20 are absent**. Thus 106 have handlers, and the 12 partial routes are included in those 106. A route count is not an end-to-end feature completion percentage.
+The inventory contains 135 application method/path variants and 22 separately grouped static rows. In this checkpoint, **103 are substantially matched, 12 are partial and 20 are absent**. Thus 115 have handlers, and the 12 partial routes are included in those 115. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -22,7 +22,9 @@ Ordinary weather/news adds R119–R120 with the unchanged saved-setting and feed
 
 Ordinary media embedding adds R122/R123 under `--agent`, using process-local FIFO handles and the existing network policy. [RUST-MEDIA-EMBED](RUST-MEDIA-EMBED.md) records source response parity and the local-only validation boundary. The R121 external opener remains unavailable.
 
-Ordinary doctor system facts now use read-only Linux, Windows and macOS APIs for host RAM and logical CPU counts. [RUST-DOCTOR-FACTS](RUST-DOCTOR-FACTS.md) records injected edge cases, live comparison and remaining response-contract limits. R090 remains partial; the 94 / 12 / 20 inventory is unchanged.
+Ordinary doctor system facts now use read-only Linux, Windows and macOS APIs for host RAM and logical CPU counts. [RUST-DOCTOR-FACTS](RUST-DOCTOR-FACTS.md) records injected edge cases, live comparison and remaining response-contract limits. R090 remains partial.
+
+pi-ai account, catalog and login routes add R149–R157 (`/api/pi/*`) on both hosts through the shared pi-ai worker. Tepora's own ChatGPT sign-in (`/api/provider-auth*`, Node-only) is retired; ChatGPT sign-in is the pi-ai OpenAI OAuth. The inventory is now 103 / 12 / 20.
 
 ## Complete route inventory
 
@@ -178,6 +180,15 @@ YES means a real handler is present in the supported scope, not that every model
 | R146 | `HEAD /vendor/{allowlistedFile}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R147 | `GET /{allowlistedSourceModule}.mjs` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R148 | `HEAD /{allowlistedSourceModule}.mjs` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
+| R149 | `GET /api/pi/providers` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R150 | `GET /api/pi/models` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R151 | `POST /api/pi/models/refresh` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R152 | `GET /api/pi/auth` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R153 | `POST /api/pi/auth/start` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R154 | `POST /api/pi/auth/open` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R155 | `POST /api/pi/auth/respond` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R156 | `POST /api/pi/auth/cancel` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
+| R157 | `POST /api/pi/auth/disconnect` | YES | 200 | Shared pi-ai worker (pinned @earendil-works/pi-ai) on both hosts; account vault, catalog and OAuth/PKCE login flows including OpenAI ChatGPT sign-in. Verified with fake providers only; no real account or model acceptance. |
 
 ## Remaining release gates
 
