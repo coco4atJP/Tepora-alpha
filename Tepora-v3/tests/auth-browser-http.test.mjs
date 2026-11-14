@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {startServer} from '../core/server.mjs';
 
-// Real session/CSRF host and legacy OAuth callback listener; browser/issuer I/O stays inert.
+// Real session/CSRF host; browser/issuer I/O stays inert.
 test('browser handoff accepts only a current service-owned login, behind session and CSRF checks',async t=>{
- const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-browser-auth-')),opened=[];let now=Date.now(),fail=false;
- const app=await startServer({dir,registryOptions:{detectLimits:false},authOptions:{clock:()=>now},openAuthBrowser:async url=>{if(fail)throw Object.assign(Error('ブラウザーを開けませんでした。'),{status:503});opened.push(url);},networkOptions:{transport:()=>{throw Error('No upstream request expected');}}});
+ const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-browser-auth-')),opened=[];let fail=false;
+ const app=await startServer({dir,registryOptions:{detectLimits:false},openAuthBrowser:async url=>{if(fail)throw Object.assign(Error('ブラウザーを開けませんでした。'),{status:503});opened.push(url);},networkOptions:{transport:()=>{throw Error('No upstream request expected');}}});
  t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
  const launch=await fetch(app.launchUrl,{redirect:'manual'});await launch.text();const cookie=launch.headers.get('set-cookie').split(';')[0];
  const bootstrap=await(await fetch(app.origin+'/api/bootstrap',{headers:{Cookie:cookie}})).json();
@@ -28,12 +28,5 @@ test('browser handoff accepts only a current service-owned login, behind session
  fail=true;await expect('/api/pi/auth/open',{id:'pi-fixture'},503);fail=false;
  app.network.change({mode:'offline'},app.network.get().revision);await expect('/api/pi/auth/open',{id:'pi-fixture'},403);
  app.network.change({mode:'online'},app.network.get().revision);pi.cancel();await expect('/api/pi/auth/open',{id:'pi-fixture'},409);
- const begin=await expect('/api/provider-auth/start',{consent:true},200);
- const snapshot=await(await fetch(app.origin+'/api/provider-auth',{headers:{Cookie:cookie}})).json();assert.equal(snapshot.pending.canOpenBrowser,true);assert.equal(JSON.stringify(snapshot).includes(begin.authorizationUrl),false);
- for(const headers of [{Cookie:''},{'X-Tepora-CSRF':'wrong'},{Origin:'https://attacker.invalid'}])await expect('/api/provider-auth/open',{id:begin.id},headers.Cookie===''?401:403,headers);
- await expect('/api/provider-auth/open',{id:begin.id,url:begin.authorizationUrl},400);await expect('/api/provider-auth/open',{id:'stale'},409);
- await expect('/api/provider-auth/open',{id:begin.id},200);assert.equal(opened.at(-1),begin.authorizationUrl);
- now=begin.expiresAt;await expect('/api/provider-auth/open',{id:begin.id},409);
- now=Date.now();await expect('/api/provider-auth/cancel',{id:begin.id},200);await expect('/api/provider-auth/open',{id:begin.id},409);
- assert.equal(opened.length,3);
+ assert.equal(opened.length,2);
 });

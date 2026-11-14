@@ -10,7 +10,7 @@ with sync_playwright() as p:
  page=browser.new_page(viewport={'width':1440,'height':1000},color_scheme='light')
  page.set_default_timeout(4000)
  page.on('pageerror',lambda e:errors.append(str(e)))
- page.on('request',lambda r:auth_requests.append(r.url) if any(s in r.url for s in ['/api/provider-auth','/api/pi/auth','/api/codex/login']) else None)
+ page.on('request',lambda r:auth_requests.append(r.url) if any(s in r.url for s in ['/api/pi/auth','/api/codex/login']) else None)
  def close():
   # Typed text is never discarded silently: the sheet asks first, and the test confirms.
   page.get_by_role('button',name='閉じる',exact=True).click()
@@ -87,13 +87,9 @@ with sync_playwright() as p:
  assert page.locator('#pi-auth-start button[type=submit]').is_disabled()
  assert page.locator('#pi-auth-start [name=consent]').is_disabled()
  page.get_by_role('button',name='接続の一覧に戻る',exact=True).click()
- page.locator('.connection-legacy summary').click()
- page.get_by_role('button',name='従来のChatGPT接続',exact=True).click()
- page.wait_for_function("document.querySelector('#toast').textContent.includes('プレビューではOAuthログインや実アカウント接続は行いません')")
- assert not page.locator('#provider-auth-panel').count()
  assert not auth_requests,auth_requests
  page.screenshot(path=str(out/'17-preview-account-guard.png'))
- checks.append('The account screen is inspectable with login disabled; legacy ChatGPT still rejects preview authentication without auth requests')
+ checks.append('The account screen is inspectable with login disabled and sends no auth requests in preview')
  close()
  page.set_viewport_size({'width':390,'height':844})
  page.locator('#settings-category-select').select_option('abilities')
