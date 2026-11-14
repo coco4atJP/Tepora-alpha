@@ -8,7 +8,7 @@ Not verified: label, brief and Dreaming quality on real models (covered by scrip
 
 ## pi-ai integration (2026-10-16)
 
-The ordinary host now calls the actual pinned pi-ai SDK for new model connections. SDK-derived provider/model catalogs, nine OAuth implementations, generic prompts, account rotation, streamed tool calls and production dependency packaging have deterministic regression coverage. The provider catalog is not an entitlement or live-quality certification; Bedrock/Vertex dedicated transports and the standalone Rust host are not implemented for pi-ai. See [PI-AI](PI-AI.md) for exact tests and restrictions. Historical validation totals below belong to their recorded revisions.
+The ordinary host now calls the actual pinned pi-ai SDK for new model connections. SDK-derived provider/model catalogs, nine OAuth implementations, generic prompts, account rotation, streamed tool calls and production dependency packaging have deterministic regression coverage. The provider catalog is not an entitlement or live-quality certification; Bedrock/Vertex dedicated transports are not implemented. The standalone Rust host now runs the same SDK worker as a child process (2026-11); Tepora's own ChatGPT sign-in is still Node-only there. See [PI-AI](PI-AI.md) for exact tests and restrictions. Historical validation totals below belong to their recorded revisions.
 
 This branch now uses V3 for root startup, development, regression checks and native packaging. Earlier application sources, tools and archived documents have been removed from this checkout. Git history retains earlier revisions; existing user data are not automatically migrated or deleted.
 
