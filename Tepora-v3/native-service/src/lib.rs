@@ -8,6 +8,7 @@ pub mod agent;
 pub mod capabilities;
 pub mod http;
 pub mod network;
+pub mod pi;
 pub mod provider;
 pub mod model_catalog;
 pub mod model_usage;
@@ -149,6 +150,7 @@ pub enum Operation {
     ProviderProbe {
         id: String,
     },
+    Pi { route: PiRoute, body: Value },
     SemanticIndex { body: Value },
     SemanticSearch { body: Value },
     Network,
@@ -204,6 +206,19 @@ pub enum Operation {
         body: Value,
     },
     Doctor,
+}
+/// pi-ai account, catalog and login routes (`/api/pi/*`), shared with the Node host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PiRoute {
+    Providers,
+    Models,
+    RefreshModels,
+    Auth,
+    AuthStart,
+    AuthOpen,
+    AuthRespond,
+    AuthCancel,
+    AuthDisconnect,
 }
 #[derive(Debug, Clone)]
 pub enum Reply {
@@ -300,6 +315,26 @@ pub trait Backend: Send + Sync + 'static {
         Ok(())
     }
     fn shutdown(&self) -> Result<(), ApiError>;
+}
+
+/// Open an https URL in the person's browser (readiness URL, provider sign-in).
+pub fn open_external(url: &str) -> bool {
+    let mut command = if cfg!(windows) {
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+    } else {
+        std::process::Command::new("xdg-open")
+    };
+    command
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .is_ok()
 }
 
 // One Date.parse grammar shared by display validation and saved schedules.

@@ -1,5 +1,5 @@
 /** Build the development Rust HTTP host and its static JS bundle.
- * Node is a build tool here; the resulting binary never invokes it. */
+ * Node is a build tool here; at runtime the binary only starts Node for the pi-ai SDK worker (core/pi-worker.mjs). */
 import {spawnSync} from 'node:child_process';
 import {mkdir,readFile,writeFile,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';

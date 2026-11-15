@@ -441,6 +441,12 @@ impl Workspace {
         let network = injected_network.unwrap_or_else(|| crate::network::NativeNetwork::new(policy));
         let provider =
             crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
+        provider.attach_pi(crate::pi::PiService::new(
+            dir.join("credentials").join("pi-ai.json"),
+            network.clone(),
+            self.access().broadcaster("pi.updated"),
+            runtime.clone(),
+        ));
         let capabilities =
             crate::capabilities::Capabilities::new(Arc::new(self.access()), network.clone());
         let decisions = Arc::new(crate::agent::decisions::Decisions::with_backend(Arc::new(
@@ -492,6 +498,17 @@ impl Workspace {
     }
 }
 impl WorkspaceAccess {
+    /// A transient (not journaled) event, like the Node host's `store.broadcast`.
+    pub(crate) fn broadcaster(&self, event_type: &'static str) -> crate::pi::Emit {
+        let state = Arc::downgrade(&self.state);
+        Arc::new(move |data| {
+            if let Some(state) = state.upgrade() {
+                if let Ok(mut state) = state.lock() {
+                    state.send_event(ServiceEvent { seq: None, event_type: event_type.into(), data, at: Some(now()) });
+                }
+            }
+        })
+    }
     fn lock(&self) -> Result<MutexGuard<'_, State>, ApiError> {
         let state = self
             .state
@@ -689,8 +706,10 @@ impl State {
                     .as_str()
                     .and_then(|name| env::var(name).ok())
                     .is_some_and(|s| !s.is_empty());
-            p["keyPresent"] = json!(key_present && p["authMode"]!="chatgpt");
-            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
+            let mode = p["authMode"].as_str().unwrap_or("").to_string();
+            let mode = mode.as_str();
+            p["keyPresent"] = json!(key_present && crate::provider::validation::usable_auth(mode) && !mode.starts_with("pi-"));
+            if !crate::provider::validation::usable_auth(mode) { p["authStatus"]=json!({"connected":false,"error":crate::provider::validation::RE_REGISTER}); }
             p["health"] = Value::Null;
             p["limits"] = self.value(&format!(
                 "provider-limits:{}",

@@ -70,3 +70,19 @@ test('Doctor fact improvement retains the documented partial response boundary',
   assert.match(route.limit, /logical CPU facts implemented/);
   assert.match(route.limit, /Full response parity/);
 });
+
+test('Every /api/pi route served by either host is in the inventory as implemented', async () => {
+  const server = await readFile(new URL('../core/server.mjs', import.meta.url), 'utf8');
+  const http = await readFile(new URL('../native-service/src/http.rs', import.meta.url), 'utf8');
+  const node = [...server.matchAll(/p==='(\/api\/pi\/[^']*)'&&method==='([A-Z]+)'/g)].map(m => `${m[2]} ${m[1]}`);
+  const rust = [...http.matchAll(/\("([A-Z]+)", "(\/api\/pi\/[^"?]*)"\) =>/g)].map(m => `${m[1]} ${m[2]}`);
+  if (/path=="\/api\/pi\/models"/.test(http)) rust.push('GET /api/pi/models');
+  const listed = inventory.routes.filter(route => route.path.startsWith('/api/pi/'));
+  for (const route of listed) assert.equal(route.agent, 'implemented', route.id);
+  const paths = listed.map(route => `${route.method} ${route.path}`).sort();
+  assert.ok(paths.length > 0);
+  assert.deepEqual([...new Set(node)].sort(), paths);
+  assert.deepEqual([...new Set(rust)].sort(), paths);
+  assert.ok(!inventory.routes.some(route => route.path.startsWith('/api/provider-auth')), 'retired sign-in routes must not be listed');
+  assert.ok(!/\/api\/provider-auth/.test(server), 'retired sign-in routes must not be served');
+});

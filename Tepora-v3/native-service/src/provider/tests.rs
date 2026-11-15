@@ -1095,40 +1095,39 @@ fn accounting_price_lookup_rejects_conflicting_catalog_entries() {
     assert!(runtime.price(&json!({"domain":"cloud","model":"missing"})).unwrap().is_none());
 }
 
-fn subscription_raw() -> Value {
-    json!({"id":"subscription","protocol":"responses","baseUrl":"https://api.openai.com/v1","model":"fixture","domain":"cloud","authMode":"chatgpt","accountId":"chatgpt-11111111-1111-4111-8111-111111111111"})
-}
-#[test]
-fn subscription_profile_binding_and_fallback_class_are_explicit() {
-    let p=subscription_raw();assert_eq!(validate_profile(&p).unwrap()["authMode"],"chatgpt");
-    for (field,value) in [("baseUrl","https://proxy.invalid/v1"),("protocol","chat-completions"),("apiKeyEnv","PAID_API_KEY"),("accountId","../bad")] {
-        let mut bad=p.clone();bad[field]=json!(value);assert!(validate_profile(&bad).is_err());
-    }
-    let api=raw("api","responses");assert!(validate_registry(&json!({"profiles":[p,api],"routes":{"main":{"primary":"subscription","fallbacks":["api"]}}})).is_err());
-}
+const RETIRED: &str = include_str!("../../../tests/fixtures/retired-sign-in-profile.json");
 #[tokio::test]
-async fn unported_native_oauth_fails_before_network_or_api_key_dispatch() {
-    let (runtime,state,_,profiles)=setup(vec![subscription_raw()],vec![],true);
+async fn retired_sign_in_profiles_need_re_registration_and_never_dispatch() {
+    let fixture = json_codec::parse(RETIRED).unwrap();
+    let (runtime,state,transport,_)=setup(vec![raw("local","chat-completions")],vec![],true);
+    let saved = fixture["profile"].clone();
+    state.set_value("provider-registry",json!({"schema":2,"revision":1,"profiles":[saved.clone()],"routes":{"main":{"primary":saved["id"],"fallbacks":[]}}})).unwrap();
     state.set_value("provider-keys",json!({"subscription":"must-not-be-used"})).unwrap();
+    let shown = runtime.public_snapshot().unwrap()["profiles"][0].clone();
+    assert_eq!(shown["keyPresent"],false);assert_eq!(shown["authStatus"]["connected"],false);
+    let mut raw = saved.clone();
+    for k in ["identity","enabled"] { raw.as_object_mut().unwrap().shift_remove(k); }
+    let error = validate_profile(&raw).unwrap_err();
+    assert!(error.message.contains(s(&fixture["expected"],"saveError")),"{}",error.message);
     assert!(runtime.set_key("subscription","paid-key").is_err());
-    assert_eq!(runtime.public_snapshot().unwrap()["profiles"][0]["keyPresent"],false);
-    let error=runtime.invoke(request(profiles),&RequestCancellation::new(),sink()).await.unwrap_err();
-    assert_eq!(error.kind,"auth");assert!(error.message.contains("通常起動"));
+    let error=runtime.invoke(request(vec![saved]),&RequestCancellation::new(),sink()).await.unwrap_err();
+    assert_eq!(error.kind,"auth");assert!(error.message.contains(s(&fixture["expected"],"dispatchError")),"{}",error.message);
     assert!(runtime.probe("subscription",&RequestCancellation::new()).await.is_err());
+    assert!(lock(&transport.requests).is_empty());
 }
 
 #[tokio::test]
-async fn unported_pi_sdk_profiles_are_preserved_but_never_dispatched_by_native_host() {
-    let (runtime,state,_,mut profiles)=setup(vec![raw("pi","chat-completions")],vec![],true);
-    profiles[0]["engine"]=json!("pi-ai");
-    profiles[0]["piProvider"]=json!("groq");
-    assert!(validate_profile(&profiles[0]).is_err());
-    let config=json!({"schema":2,"revision":1,"profiles":profiles,"routes":{"main":{"primary":"pi","fallbacks":[]}}});
-    state.set_value("provider-registry",config.clone()).unwrap();
-    state.set_value("provider-keys",json!({"pi":"must-not-be-used"})).unwrap();
-    assert!(runtime.set_key("pi","paid-key").is_err());
-    assert_eq!(runtime.public_snapshot().unwrap()["profiles"][0]["keyPresent"],false);
-    let error=runtime.invoke(request(profiles),&RequestCancellation::new(),sink()).await.unwrap_err();
-    assert_eq!(error.kind,"auth");
-    assert!(runtime.probe("pi",&RequestCancellation::new()).await.is_err());
+async fn pi_sdk_profiles_need_an_attached_pi_host_and_never_fall_back_to_raw_wire() {
+    let (runtime,state,transport,_)=setup(vec![raw("pi","chat-completions")],vec![],true);
+    let mut pi=raw("pi","chat-completions");
+    pi["engine"]=json!("pi-ai");
+    pi["piProvider"]=json!("groq");
+    let checked=validate_profile(&pi).unwrap();
+    assert_eq!(checked["engine"],"pi-ai");
+    let error=runtime.save(&json!({"profiles":[pi],"routes":{"main":{"primary":"pi"}}}),1).unwrap_err();
+    assert!(error.message.contains("pi-ai接続がありません"),"{}",error.message);
+    state.set_value("provider-registry",json!({"schema":2,"revision":1,"profiles":[checked.clone()],"routes":{"main":{"primary":"pi","fallbacks":[]}}})).unwrap();
+    let error=runtime.invoke(request(vec![checked]),&RequestCancellation::new(),sink()).await.unwrap_err();
+    assert!(error.message.contains("pi-ai接続がありません"),"{}",error.message);
+    assert!(lock(&transport.requests).is_empty());
 }

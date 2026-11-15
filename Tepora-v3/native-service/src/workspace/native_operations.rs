@@ -43,6 +43,7 @@ impl Workspace {
                 | Operation::ProvidersSave { .. }
                 | Operation::ProviderKey { .. }
                 | Operation::ProviderProbe { .. }
+                | Operation::Pi { .. }
                 | Operation::Network
                 | Operation::NetworkPatch { .. }
                 | Operation::StopAll
@@ -251,6 +252,7 @@ impl Workspace {
                 native.provider.set_key(id, &json_codec::sql_text(key))?
             }
             Operation::ProviderProbe { id } => self.run_probe(id, self.probe_cancellation())?,
+            Operation::Pi { route, body } => self.run_pi(*route, body, &native.provider, &native.runtime)?,
             Operation::Network => {
                 let raw = self.lock()?.value("network-policy")?;
                 if raw.is_null() {
@@ -288,6 +290,9 @@ impl Workspace {
                     crate::network::NetworkPolicy::from_value(&next).map_err(ApiError::from)?;
                 s.set_value("network-policy", next.clone())?;
                 native.network.update_policy(policy);
+                if let Ok(pi) = native.provider.pi() {
+                    pi.network_changed();
+                }
                 let event = s.call(
                     "event.append",
                     json!({"type":"network.updated","data":next,"at":now()}),
@@ -338,6 +343,47 @@ impl Workspace {
             _ => unreachable!("native operation dispatch is exhaustive"),
         };
         Ok(Some(Reply::Json(value)))
+    }
+    /// `/api/pi/*`, the same routes and bodies as core/server.mjs.
+    fn run_pi(
+        &self,
+        route: crate::PiRoute,
+        body: &Value,
+        provider: &crate::provider::ProviderRuntime,
+        runtime: &tokio::runtime::Handle,
+    ) -> Result<Value, ApiError> {
+        use crate::PiRoute;
+        let pi = provider.pi()?;
+        let text = |k: &str| body[k].as_str().map(json_codec::sql_text);
+        match route {
+            PiRoute::Providers => pi.providers(),
+            PiRoute::Models => pi.models(&text("provider").unwrap_or_default(), text("accountId").filter(|a| !a.is_empty()).as_deref()),
+            PiRoute::RefreshModels => {
+                let cancel = crate::network::RequestCancellation::new();
+                let (provider, account) = (text("provider").unwrap_or_default(), text("accountId").unwrap_or_default());
+                runtime.block_on(async {
+                    match tokio::time::timeout(std::time::Duration::from_secs(30), pi.refresh_models(&provider, &account, body["consent"] == true, &cancel)).await {
+                        Ok(result) => result,
+                        Err(_) => {
+                            cancel.cancel();
+                            Err(ApiError::new(504, "pi-aiのモデル一覧取得がタイムアウトしました。"))
+                        }
+                    }
+                })
+            }
+            PiRoute::Auth => Ok(pi.snapshot()),
+            PiRoute::AuthStart => pi.begin(body),
+            PiRoute::AuthOpen => {
+                let id = body["id"].as_str().filter(|id| id.chars().count() <= 100 && body.as_object().is_some_and(|b| b.len() == 1));
+                let id = id.ok_or_else(|| ApiError::bad_request("現在の認証IDだけを指定してください。"))?;
+                let url = pi.browser_url(id)?;
+                require(crate::open_external(&url), 500, "ブラウザーを開けませんでした。")?;
+                Ok(json!({"opened":true}))
+            }
+            PiRoute::AuthRespond => pi.respond(body),
+            PiRoute::AuthCancel => Ok(pi.cancel(body["id"].as_str())),
+            PiRoute::AuthDisconnect => pi.disconnect(&text("accountId").unwrap_or_default()),
+        }
     }
     pub(super) fn run_probe(
         &self,

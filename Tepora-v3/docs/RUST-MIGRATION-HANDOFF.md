@@ -16,7 +16,7 @@ These are narrower contracts than full feature availability. In particular, cust
 
 ## Route accounting
 
-The canonical [machine inventory](rust-route-parity.json) and [readable inventory](RUST-ROUTE-PARITY.md) describe 126 application variants: **94 implemented, 12 partial, 20 unavailable**, plus 22 static rows (148 total). The counts are not feature-completion percentages. `tests/rust-route-parity.test.mjs` checks that both inventories agree.
+The canonical [machine inventory](rust-route-parity.json) and [readable inventory](RUST-ROUTE-PARITY.md) describe 135 application variants: **103 implemented, 12 partial, 20 unavailable**, plus 22 static rows (157 total). The counts are not feature-completion percentages. `tests/rust-route-parity.test.mjs` checks that both inventories agree.
 
 The 20 unavailable routes cover tool import/connect/search/discovery (6), computer integration (5), policy/dream/plugin operations (4), MCP mutation routes (3), shared-skill discovery (1), and external media opening (1).
 

@@ -1,0 +1,13 @@
+{
+  "description": "One pi-ai SDK chat turn (groq, OpenAI-compatible SSE) shared by the Node and Rust host tests.",
+  "provider": "groq",
+  "model": "llama-3.3-70b-versatile",
+  "protocol": "chat-completions",
+  "key": "synthetic-pi-key",
+  "events": [
+    {"id": "chatcmpl-fixture", "choices": [{"delta": {"role": "assistant", "content": "Hello Pi"}, "finish_reason": null}]},
+    {"choices": [{"delta": {}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 12, "completion_tokens": 3}},
+    "[DONE]"
+  ],
+  "expected": {"content": "Hello Pi", "authorization": "Bearer synthetic-pi-key", "inputTokens": 12, "usageStatus": "complete"}
+}
