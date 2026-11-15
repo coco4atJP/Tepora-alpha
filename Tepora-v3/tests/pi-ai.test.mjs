@@ -209,3 +209,14 @@ test('SDK-version mismatches are inert, while malformed current snapshots preser
  const malformed=JSON.parse(await readFile(f.pi.file,'utf8'));malformed.accounts[piAccountA].catalog.version='1.5.2';malformed.accounts[piAccountA].catalog.models[0].baseUrl='https://evil.invalid/v1';await writeFile(f.pi.file,JSON.stringify(malformed));const before=await readFile(f.pi.file,'utf8');reopened=new PiAIService(f.store,f.network);
  try{assert.equal(reopened.snapshot().supported,false);assert.throws(()=>reopened.persist(),/保全/);assert.equal(await readFile(f.pi.file,'utf8'),before);}finally{await reopened.close();}
 });
+test('retired Tepora ChatGPT sign-in profiles must be registered again through pi-ai and never dispatch',async t=>{
+ const retired=JSON.parse(readFileSync(new URL('./fixtures/retired-sign-in-profile.json',import.meta.url),'utf8'));
+ const f=await fixture(t,()=>{throw Error('No network expected');});
+ f.store.value('provider-registry',{schema:2,revision:1,profiles:[retired.profile],routes:{main:{primary:retired.profile.id,fallbacks:[]}}});
+ const shown=f.registry.publicSnapshot().profiles[0];assert.equal(shown.keyPresent,false);assert.equal(shown.authStatus.connected,false);
+ const {providerConnectionStatus}=await import('../web/provider-presets.mjs');assert.equal(providerConnectionStatus(shown).label,retired.expected.status);
+ const {identity,enabled,...raw}=retired.profile;
+ assert.throws(()=>f.registry.save({profiles:[raw],routes:{main:{primary:raw.id,fallbacks:[]}}},1),new RegExp(retired.expected.saveError));
+ assert.throws(()=>f.registry.setKey(raw.id,'paid-key'),/APIキー/);
+ await assert.rejects(f.registry.invoke('main',[{role:'user',content:'fixture'}]),new RegExp(retired.expected.dispatchError));
+});

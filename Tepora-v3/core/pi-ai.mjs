@@ -6,15 +6,23 @@ import {createInterface} from 'node:readline';
 import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
 import path from 'node:path';
-import {existsSync,lstatSync,readFileSync,openSync,closeSync,constants} from 'node:fs';
+import {existsSync,lstatSync,mkdirSync,readFileSync,writeFileSync,openSync,closeSync,fsyncSync,renameSync,unlinkSync,chmodSync,constants} from 'node:fs';
 import {teporaPiModels,PI_VERSION} from './pi-catalog.mjs';
 import {invariant} from './policy.mjs';
 import {insideEndpoint,normalURL,NetworkBlocked} from './network-policy.mjs';
 import {ProviderError,classifyResponse} from './provider-protocols.mjs';
-import {atomicVault} from './provider-auth.mjs';
 import {checkedPiModels,storedPiCatalog,supportedPiApi} from './pi-model-catalog.mjs';
 
 export {PI_VERSION};
+/** Private credential file: 0700 folder, 0600 file, no symlinks, fsync + rename (the Rust host writes it the same way). */
+function atomicVault(file,value){
+ const dir=path.dirname(file),safe=(p,dirOk)=>{if(existsSync(p)){const s=lstatSync(p);invariant((dirOk?s.isDirectory():s.isFile())&&!s.isSymbolicLink(),'認証ファイルを安全に読み書きできません。');}};
+ safe(dir,true);mkdirSync(dir,{recursive:true,mode:0o700});if(process.platform!=='win32')chmodSync(dir,0o700);safe(file,false);
+ const tmp=path.join(dir,'.pi-ai-'+randomUUID()+'.tmp');let fd;
+ try{fd=openSync(tmp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW||0),0o600);writeFileSync(fd,JSON.stringify(value)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;renameSync(tmp,file);
+  if(process.platform!=='win32'){const d=openSync(dir,constants.O_RDONLY);try{fsyncSync(d);}finally{closeSync(d);}}
+ }finally{if(fd!==undefined)closeSync(fd);try{unlinkSync(tmp);}catch{}}
+}
 const catalog=teporaPiModels();
 const accountPattern=/^pi-[a-f0-9-]{36}$/;
 const authOrigins={
