@@ -46,7 +46,7 @@ jobs:
                 run.path !== '.github/workflows/tepora-v3-beta.yml') {
               throw new Error('Artifacts must come from a successful V3 native build of this exact commit.');
             }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tepora-v3-${{ matrix.os }}
           run-id: ${{ inputs.run_id }}
