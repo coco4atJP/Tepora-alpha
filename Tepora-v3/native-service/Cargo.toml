@@ -24,7 +24,7 @@ webpki-roots = "1"
 sha2 = "0.10"
 regex = "1"
 unicode-normalization = "0.1"
-encoding_rs = "=0.8.42"
+encoding_rs = "=0.8.44"
 regress = { version = "=0.11.1", features = ["utf16"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
