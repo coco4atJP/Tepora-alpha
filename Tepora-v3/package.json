@@ -42,7 +42,7 @@
     "test:desktop-helper": "cargo test --locked --manifest-path desktop-helper/Cargo.toml"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.4"
+    "@tauri-apps/cli": "^2.12.6"
   },
   "license": "Apache-2.0",
   "dependencies": {
