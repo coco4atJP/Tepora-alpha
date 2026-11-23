@@ -5,7 +5,7 @@ description: Update Tepora V3 architecture descriptions and diagrams after struc
 
 # Tepora V3 architecture updates
 
-The canonical architecture is `Tepora-v3/docs/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE.md` links to it. Agent context is maintained in `.agents/AGENTS.md`, `.agents/spec/` and `.agents/wiki/`.
+The canonical architecture is `Tepora-v3/docs/ARCHITECTURE.md`. Agent context is maintained in `.agents/AGENTS.md`, `.agents/spec/` and `.agents/wiki/`.
 
 1. Inspect changed components and their actual data flow.
 2. Update descriptions, source paths and Mermaid diagrams to match the Node/SQLite control plane, web UI, asynchronous jobs and optional Tauri/Python integrations.

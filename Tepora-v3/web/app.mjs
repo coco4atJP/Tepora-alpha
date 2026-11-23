@@ -36,7 +36,7 @@ const app=document.querySelector('#app'),overlay=document.querySelector('#overla
 const $=(selector,scope=document)=>scope.querySelector(selector);
 let state,view='home',selectedArtifact=null,pinnedArtifact=null,followArtifact=true;
 let workTab='tasks';
-let sharedView=false,activeDialog=null,dialogReturnFocus=null,online=true,replyHidden=true;
+let sharedView=false,activeDialog=null,dialogReturnFocus=null,online=true;
 let activePanel=null,panelReturnFocus=null,renderedView='',sheetBaseline='',sheetAfterClose=null,settingsSection='general',settingsQuery='';
 const settingsOpenDetails=new Set();
 const noticedRoutes=new Set();
@@ -157,7 +157,6 @@ function shell(){
    <div id="dialogue-transcript" class="transcript" role="log" aria-label="会話履歴" tabindex="0"></div>
    <div id="dialogue-announcer" class="visually-hidden" aria-live="polite"></div>
    <section class="input-region" aria-label="メッセージを書く">
-    <div id="reply" class="reply" hidden></div>
     <div id="voice-caption" class="voice-caption" aria-live="polite"></div>
     <div id="target-hint" class="target-hint" aria-live="polite"></div>
     <div id="request-status" class="request-status" role="status" aria-live="polite"></div>
@@ -211,7 +210,6 @@ function paintChrome(){
  body.classList.toggle('talk-open',wide&&talkOpen&&!sharedView&&!ambientMode);
  body.classList.toggle('talk-docked',shown==='home'&&!(wide&&talkOpen)&&!sharedView&&!ambientMode);
  document.querySelectorAll('.nav [data-action=view]').forEach(b=>{b.setAttribute('aria-current',b.dataset.view===(view==='talk'&&wide?'home':view)?'page':'false');});
- const count=$('#work-count');if(count){count.textContent=active?String(active):'';count.setAttribute('aria-label',active?`${active}件進行中`:'');}
  const r=readiness(),chip=$('#readiness');
  if(chip){chip.hidden=!r||sharedView;if(r){chip.className=`readiness tone-${r.tone}`;chip.innerHTML=`<i class="dot"></i><span>${escape(r.label)}</span>`;chip.title=r.title;}}
  const lamp=lampAvailable(),inbox=$('#inbox-button');if(inbox){inbox.hidden=sharedView||!attention||lamp;inbox.setAttribute('aria-label',`あなたの番 ${attention}件`);$('#inbox-count').textContent=attention?String(attention):'';}
@@ -780,7 +778,7 @@ function settingsView(){
    ${entry('表示設定を戻す','',null,'「前の表示に戻す」で直前の変更を取り消せます。リセット後も、前の表示に戻せます。',`${btn('display-undo','前の表示に戻す','undo','button secondary')}${btn('display-reset','表示を既定に戻す','','text-button')}`,'','リセット reset 初期化 undo')}`]
  ];
  const groups=[...new Set(sections.map(section=>section[4]))];
- return `<section class="page settings-page"><header class="settings-page-head"><div><h1>設定</h1><p>使い方に合わせて、Teporaを調整できます。</p></div><p class="settings-save-note">${icon('check')}<span>この画面の変更は自動保存<br><small>別画面では保存ボタンで反映します</small></span></p></header>
+ return `<section class="page settings-page"><header class="settings-page-head"><h1>設定</h1></header>
   <div class="settings-grid"><aside class="settings-sidebar"><div class="settings-search"><label for="settings-search">設定を検索</label><div class="settings-search-field"><input id="settings-search" type="search" placeholder="テーマ、マイク、AI…" value="${escape(settingsQuery)}" autocomplete="off" aria-controls="settings-content">${toolbtn('settings-search-clear','検索をクリア','close','id="settings-search-clear" hidden')}</div></div>
    <label class="settings-mobile-nav" for="settings-category-select"><span>カテゴリ</span><select id="settings-category-select"><option value="" disabled>検索結果</option>${groups.map(group=>`<optgroup label="${group}">${sections.filter(section=>section[4]===group).map(([id,title])=>`<option value="${id}" ${settingsSection===id?'selected':''}>${title}</option>`).join('')}</optgroup>`).join('')}</select></label>
    <nav class="settings-nav" aria-label="設定の項目">${groups.map(group=>`<div class="settings-nav-group"><p>${group}</p>${sections.filter(section=>section[4]===group).map(([id,title,,ic])=>`<a href="#settings-${id}" data-action="settings-jump" data-id="${id}" ${settingsSection===id?'aria-current="true"':''}>${icon(ic)}<span>${title}</span><small class="settings-match-count" hidden></small></a>`).join('')}</div>`).join('')}</nav></aside>
@@ -815,10 +813,6 @@ function render(){
   if(renderedView!=='home'||!$('#stage',surface)){surface.innerHTML=homeHTML();attachStage();}
   paintHome();
  }else if(target==='talk'){surface.replaceChildren();}
- else if(target==='canvas'){
-  // Mounted once per visit so the frame (and the artifact in it) survives live repaints.
-  if(renderedView!=='canvas'||!canvasView.mounted()){surface.innerHTML=canvasView.html();canvasView.mount(surface);}
- }
  else{
   const focus=captureFocus(surface),scroll=renderedView===target?captureScroll(surface):{surface:0,list:0,bench:0},oldFrame=$('#artifact-preview iframe');
   // The canvas frame must not be detached by live repaints: refresh only the list beside it.
@@ -834,12 +828,11 @@ function render(){
   restoreScroll(surface,scroll);restoreFocus(surface,focus);
  }
  renderedView=target;
- tick();showDialogue();showReply();showTarget();showRequestStatus();showInputFiles();paintMood();
+ tick();showDialogue();showTarget();showRequestStatus();showInputFiles();paintMood();
  if(activePanel?.kind==='inbox')paintInbox();
  if(activePanel?.kind==='stage-studio')paintStageStudio();
 }
-function syncLiveSurface(){render();}
-function scheduleRender(){clearTimeout(refreshTimer);refreshTimer=setTimeout(syncLiveSurface,80);}
+function scheduleRender(){clearTimeout(refreshTimer);refreshTimer=setTimeout(render,80);}
 function tick(){
  const now=new Date(),mcfg=monitorConfig(display());
  focusTimer.sync(mcfg.focusMinutes);
@@ -889,7 +882,7 @@ function showDialogue(){
  const latestForJob=new Map();for(const m of messages)if(m.jobId&&['worker-report','worker-question'].includes(m.kind))latestForJob.set(m.jobId,m.id);
  const lastReplyId=[...messages].reverse().find(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind))?.id;
  let day='',lastAt=0;
- host.innerHTML=messages.map(m=>{
+ const rows=messages.map(m=>{
   const p=dialogueMessagePresentation(m,state.dialogue,state.jobs);
   // Progress and waiting notices give way to the next message about the same job; results stay.
   if(m.kind==='worker-report'&&!['review','completed','failed','blocked','cancelled'].includes(m.status)&&latestForJob.get(m.jobId)!==m.id)return '';
@@ -905,7 +898,8 @@ function showDialogue(){
    p.parked||m.status==='waiting_approval'?btn('inbox','あなたの番を見る','','text-button',''):m.jobId?btn('task','開く','','text-button',`data-id="${escape(m.jobId)}" aria-label="${escape(job?.title||'仕事')}を開く"`):'';
   return `${divider}<article class="msg msg-worker tone-${escape(p.tone)}${m.kind==='worker-question'?' is-question':''}" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><header><span class="visually-hidden">${escape(p.speaker)} · ${escape(p.source)}: </span><span class="msg-job">${escape(job?.title||p.source)}</span>${p.status?`<span class="msg-state">${escape(p.status)}</span>`:''}</header>
    <div class="msg-quote worker-quotation md" aria-label="作業担当からの引用">${renderMarkdown(p.content,{headings:'text'})}</div>${p.questionState&&!p.canReply?`<p class="msg-note">${escape(p.questionState)}</p>`:''}${action?`<div class="msg-actions">${action}</div>`:''}</article>`;
- }).join('')+`<article class="msg msg-character is-live" id="dialogue-live" aria-hidden="true" ${liveReply?'':'hidden'}><div class="msg-bubble md"></div></article>`||`<p class="dialogue-welcome">${escape(name)}に、なんでも話しかけてください。</p>`;
+ }).join('');
+ host.innerHTML=(rows||`<p class="dialogue-welcome">${escape(name)}に、なんでも話しかけてください。</p>`)+`<article class="msg msg-character is-live" id="dialogue-live" aria-hidden="true" ${liveReply?'':'hidden'}><div class="msg-bubble md"></div></article>`;
  paintLive();
  const last=messages.at(-1);
  if(last&&last.id!==lastSeenMessage){
@@ -923,7 +917,6 @@ function paintLive(){
   const host=$('#dialogue-transcript');if(host&&liveReply&&host.scrollHeight-host.scrollTop-host.clientHeight<160)host.scrollTop=host.scrollHeight;}
  if(view==='home'&&liveReply&&!sharedView){const speech=$('#speech');if(speech&&!speech.hidden){const body=speech.querySelector('.speech-text');if(body)body.innerHTML=renderMarkdown(liveReply.length>900?'…'+liveReply.slice(-898):liveReply,{headings:'text'});}}
 }
-function showReply(){const el=$('#reply');if(el){el.hidden=true;el.replaceChildren();}}
 function acceptDialogue(value){
  if(!value)return;
  const old=state.dialogue;
@@ -1021,11 +1014,10 @@ function voiceSheet(){
  ${toggle('音声入力を使用する','voiceEnabled',s.voiceEnabled,'マイクはボタンを押すまで起動しません。')}
  <button class="button" type="submit">保存する</button></form>`,'voice');
 }
-function approvalBox(j){return approvalCards(j);}
 function taskSheet(id){
  const j=state.jobs.find(x=>x.id===id);if(!j)return;const s=jobStatus(j);
  openSheet(j.title,`<p class="panel-status tone-${s.tone}" id="task-state"><span id="task-status">${escape(s.note||s.label)}</span><span id="task-note">${escape(jobReason(j))}</span></p>
- <div id="task-approval">${approvalBox(j)}</div>
+ <div id="task-approval">${approvalCards(j)}</div>
  <div class="panel-actions" id="task-actions">${jobActions(j)}</div>
  <form id="steer-form" class="steer-form" data-id="${escape(j.id)}"><label class="visually-hidden" for="steer-input">この仕事への追加の指示</label><input id="steer-input" name="text" maxlength="32000" autocomplete="off" placeholder="この仕事に直接伝える"><button class="button small secondary" type="submit">伝える</button></form>
  <div id="task-todo-slot">${todoHTML(j)}</div>
@@ -1075,7 +1067,7 @@ function refreshTask(){
  $('#task-output').innerHTML=j.output?renderMarkdown(j.output):'<p class="small-text">まだ報告はありません。</p>';
  $('#task-todo-slot').innerHTML=todoHTML(j);$('#task-actions').innerHTML=jobActions(j);
  const box=$('#task-approval'),key=approvalsFor(j).map(a=>a.id).join(',');
- if(box.dataset.approval!==key){box.dataset.approval=key;box.innerHTML=approvalBox(j);}
+ if(box.dataset.approval!==key){box.dataset.approval=key;box.innerHTML=approvalCards(j);}
  if(!previewMode){clearTimeout(timelineTimer);timelineTimer=setTimeout(()=>loadTimeline(j.id),700);}
 }
 function memorySheet(id){
@@ -1273,7 +1265,6 @@ const actions={
  'transcription-send':()=>{if(transcriptions.confirm())closeSheet();},'transcription-cancel':closeSheet,
  mic:recordToggle,'append-speech':()=>{requireComposerUnlocked();if(!pendingSpeech||pendingSpeech.epoch!==voiceEpoch||pendingSpeech.anchor.destination!==draftContext.destination)return;draft.manual(draft.content+pendingSpeech.text);$('#composer-input').value=draft.content;pendingSpeech='';$('#voice-caption').textContent='下書きに追加しました。まだ送信していません。';},
  'undo-draft':()=>{requireComposerUnlocked();cancelVoice();pinDraft();draft.undo();$('#composer-input').value=draft.content;showTarget();},
- 'hide-reply':()=>{replyHidden=true;showReply();},
  stop:async()=>{invalidatePendingSubmit();capabilityUI?.stop();cancelVoice();musicUI?.pause();await bridge.request('/api/stop','POST',{});notice('動いていた仕事をすべて止めました。成果物は残しています。');},
  'sandbox-set':async el=>{const value=await bridge.request('/api/agent/settings','PATCH',{sandbox:{...state.agent.settings.sandbox,mode:el.dataset.value}});state.agent={...state.agent,settings:value};render();notice(el.dataset.value==='off'?'サンドボックスをオフにしました。コマンドはこのPCで直接動きます。':'次のコマンドからサンドボックスで実行します。');},
  'search-setup':searchSheet,'heartbeat-setup':heartbeatSheet,'budget-setup':budgetSheet,

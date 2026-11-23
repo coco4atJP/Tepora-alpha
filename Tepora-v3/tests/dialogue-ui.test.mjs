@@ -22,7 +22,7 @@ test('detail navigation preserves conversation, unsent draft, voice capture, and
 });
 test('opening job details never rebinds the draft or stops microphone capture',async()=>{
  const f=fixture();f.type('Persistent');await f.run('recordToggle()');const anchor=f.ctx.voiceAnchor,destination=f.draftContext.destination;
- f.ctx.previewMode=true;f.ctx.statuses={running:'Running'};f.ctx.verificationHTML=()=>'';f.ctx.approvalBox=()=>'';f.ctx.todoHTML=()=>'';f.ctx.routeLine=()=>'';f.ctx.jobActions=()=>'';f.load('function taskSheet(','const TOOL_WORDS=');
+ f.ctx.previewMode=true;f.ctx.statuses={running:'Running'};f.ctx.verificationHTML=()=>'';f.ctx.approvalCards=()=>'';f.ctx.todoHTML=()=>'';f.ctx.routeLine=()=>'';f.ctx.jobActions=()=>'';f.load('function taskSheet(','const TOOL_WORDS=');
  f.run("taskSheet('main')");assert.equal(f.sheets.length,1);assert.strictEqual(f.ctx.voiceAnchor,anchor);assert.strictEqual(f.draftContext.destination,destination);assert.equal(f.draft.content,'Persistent');
 });
 test('foreground accepts another utterance while worker jobs remain busy',async()=>{
@@ -38,7 +38,7 @@ test('worker outputs are never used as the character TTS reply',()=>{
  const dialogue={messages:[{role:'assistant',kind:'character',content:'Character says hello'},{role:'assistant',kind:'worker-report',content:'Untrusted report'}]};assert.equal(latestCharacterReply(dialogue),'Character says hello');
 });
 test('transcript persists across detail focus, escapes untrusted text, and hides in shared view',async()=>{
- const f=fixture();f.state.dialogue.messages=[{id:'one',role:'assistant',kind:'character',content:'Hello <script>alert(1)</script>',jobId:'internal'},{id:'report',kind:'worker-report',role:'tool',jobId:'main',status:'review',content:'Worker <img onerror=bad>'}];f.load('function showDialogue(){','function showReply(){');
+ const f=fixture();f.state.dialogue.messages=[{id:'one',role:'assistant',kind:'character',content:'Hello <script>alert(1)</script>',jobId:'internal'},{id:'report',kind:'worker-report',role:'tool',jobId:'main',status:'review',content:'Worker <img onerror=bad>'}];f.load('function showDialogue(){','/** The reply as it streams in');
  f.run('showDialogue()');const rendered=f.el('#dialogue-transcript').innerHTML;assert.match(rendered,/&lt;script&gt;/);assert.doesNotMatch(rendered,/<script>/);assert.match(rendered,/worker-quotation/);assert.doesNotMatch(rendered,/data-id="internal"/);
  await f.run("navigateFocus('other')");f.run('showDialogue()');assert.equal(f.el('#dialogue-transcript').innerHTML,rendered);assert.equal(f.el('#character-name').textContent,'Character');
  f.ctx.sharedView=true;f.run('showDialogue()');assert.doesNotMatch(f.el('#dialogue-transcript').innerHTML,/Hello|Worker|onerror/);assert.equal(f.el('#character-name').textContent,'会話は非公開');

@@ -165,7 +165,6 @@ body.talk-docked[data-surface=narrow] .layout{grid-template-rows:minmax(0,1fr) a
 body.talk-docked[data-surface=narrow] .input-region{grid-area:2/1;width:100%;padding:6px 12px 10px;background:var(--bg)}
 body.talk-docked .request-status,body.talk-docked .voice-caption{background:var(--surface-2);border-radius:10px;padding:6px 10px;box-shadow:var(--shadow-sm)}
 .talk-rail{position:fixed;left:18px;bottom:20px;z-index:40;height:44px;padding:0 18px 0 15px;border-radius:999px;background:var(--surface-2);color:var(--text);border:1px solid var(--line-strong);box-shadow:var(--shadow),var(--edge-light);font-weight:600;font-size:.86rem;transition:transform .15s,box-shadow .15s,background .15s}
-.talk-rail::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--lamp);box-shadow:0 0 8px var(--seal-soft);margin-right:2px}
 .talk-rail:hover{background:var(--surface);transform:translateY(-1px);box-shadow:var(--shadow-lg),var(--edge-light)}
 /* Room at the end of pages and lists so the floating 会話 button never covers the last item. */
 body:not(.talk-open) .page{padding-bottom:88px}
@@ -239,7 +238,6 @@ body.talk-docked .composer-history-btn{display:inline-flex}
 .input-files>span>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .input-files button{width:28px;height:28px}
 .input-files button .icon{width:14px;height:14px}
-.reply{display:none}
 
 /* ---------- Markdown ---------- */
 .md>*:first-child{margin-top:0}.md>*:last-child{margin-bottom:0}
@@ -690,10 +688,6 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .settings-page{max-width:1280px}
 .settings-page-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px 24px;margin-bottom:28px}
 .settings-page-head h1{font:600 var(--fs-2xl)/1.4 var(--font-display)}
-.settings-page-head>div>p{font-size:var(--fs-md);color:var(--muted);margin-top:6px}
-.settings-save-note{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:var(--fs-sm);line-height:1.6}
-.settings-save-note .icon{width:16px;height:16px;color:var(--ok)}
-.settings-save-note small{font-size:var(--fs-xs)}
 .settings-grid{display:grid;grid-template-columns:202px minmax(0,1fr);gap:clamp(24px,3vw,42px);align-items:start}
 .settings-sidebar{position:sticky;top:0;z-index:3;min-width:0;padding:2px 0 14px;background:var(--bg)}
 .settings-search{margin-bottom:22px}

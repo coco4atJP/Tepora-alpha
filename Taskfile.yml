@@ -44,16 +44,7 @@ tasks:
   quality:full:
     desc: Add optional browser UI and computer checks
     cmds: ['npm run quality:full']
-  pre-commit:
-    desc: Check source syntax before committing
-    cmds: ['npm run check']
-  pre-commit:full:
-    desc: Run all standard regression gates before pushing
-    cmds: ['npm run quality']
   build:
-    desc: Build the V3 native desktop package
-    cmds: ['npm run build']
-  package:
     desc: Build the V3 native desktop package
     cmds: ['npm run build']
   build-sidecar:
