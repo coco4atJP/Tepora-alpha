@@ -55,8 +55,7 @@ try{
    await viewport(width);
    for(const view of ['home','workspace','memory','settings']){
     await nav(view);
-    if(view==='settings')await evaluate('(()=>{uiTest.actions["settings-jump"]({dataset:{id:"home"}});const summary=document.querySelector("[data-action=settings-disclosure][data-id=widgets]");if(!summary.closest("details").open)summary.click();})()');
-    const bad=await evaluate('(()=>{const s=document.querySelector("#surface");return [...s.querySelectorAll(".memory-grid,.widget-order")].filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>({class:el.className,width:el.clientWidth,scroll:el.scrollWidth}));})()');
+    const bad=await evaluate('(()=>{const s=document.querySelector("#surface");return [...s.querySelectorAll(".memory-grid,.settings-card")].filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>({class:el.className,width:el.clientWidth,scroll:el.scrollWidth}));})()');
     if(bad.length)overflow.push({width,view,bad});
    }
   }

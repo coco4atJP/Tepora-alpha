@@ -174,7 +174,7 @@ body:not(.talk-open) .job-list{padding-bottom:72px}
 
 /* ---------- Conversation column ---------- */
 .talk{flex-direction:column;min-height:0;min-width:0;background:var(--surface);border-right:1px solid var(--line)}
-.talk-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 8px 6px 12px}
+.talk-head{flex:none;display:flex;align-items:center;gap:8px;padding:16px 8px 6px 12px}
 .talk-avatar{width:40px;height:46px;padding-top:4px;flex:none;display:flex;align-items:flex-end;justify-content:center;overflow:visible}
 .talk-avatar .initial{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;position:relative}
 .talk-avatar .initial::after{content:'';position:absolute;right:0;top:0;width:7px;height:7px;border-radius:50%;background:var(--brand);border:2px solid var(--surface)}
@@ -310,6 +310,7 @@ body[data-avatar-fill] .character-host{width:100%;height:calc(80% * var(--avatar
 .clock-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .9em;margin-top:.8rem;color:var(--muted);font-size:.92rem}
 #clock-date{font:600 var(--fs-base)/1.5 var(--font-ui);color:var(--text);letter-spacing:.01em}
 #clock-season{font:400 var(--fs-md)/1.5 var(--font-display);color:var(--muted);letter-spacing:.025em;padding-left:.85em;border-left:1px solid var(--line-strong)}
+.season-tag{font:600 var(--fs-xs)/1 var(--font-ui);letter-spacing:.08em;padding:2px 6px;margin-right:.6em;border:1px solid var(--line-strong);border-radius:var(--radius-pill);vertical-align:.15em}
 .clock-weather{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .7em;margin-top:.75rem;color:var(--muted);font-size:var(--fs-md)}
 .clock-weather:empty{display:none}
 .clock-weather .wt{font:260 1.7rem/1 var(--font-num);letter-spacing:-.03em;color:var(--text);font-variant-numeric:tabular-nums}
@@ -317,10 +318,6 @@ body[data-avatar-fill] .character-host{width:100%;height:calc(80% * var(--avatar
 .stage-notes{grid-row:2;grid-column:1;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
 .stage-notes:empty{display:none}
 .shared-note{font-size:var(--fs-md);color:var(--muted)}
-.stage-toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;opacity:.72;transition:opacity .2s}
-.stage-toolbar:hover,.stage-toolbar:focus-within{opacity:1}
-.deck-setup{align-self:flex-start;color:var(--muted);font-size:var(--fs-sm);font-weight:600}
-body.is-ambient .stage-toolbar,body.shared-view .stage-toolbar,body.is-ambient .deck-setup,body.shared-view .deck-setup{display:none}
 
 /* Multi-slot pinned board + rotating deck cards */
 .pinned-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:12px;width:100%}
@@ -430,14 +427,14 @@ body.is-ambient .card-pin-btn,body.shared-view .card-pin-btn{display:none}
 .scene-card strong{font-size:.84rem;color:var(--text)}
 .scene-card small{font-size:.72rem;line-height:1.45;color:var(--muted)}
 .scene-card.is-on{border-color:var(--accent);background:var(--accent-soft)}
-.studio-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.studio-chip{height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-size:.78rem;font-weight:600;color:var(--muted);text-align:center}
-.studio-chip.is-on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .studio-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.82rem;font-weight:600}
 .studio-toggles{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .studio-widget-list{display:flex;flex-direction:column;gap:6px}
 .studio-widget-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line)}
 .studio-w-check{display:flex;align-items:center;gap:8px;font-size:.84rem;font-weight:600;cursor:pointer;flex:1;min-width:0}
+.studio-w-actions{display:flex;align-items:center;gap:2px;flex:none}
+.studio-w-actions .icon-button{width:30px;height:30px}
+.studio-w-actions [data-dir=up] .icon{transform:rotate(-90deg)}.studio-w-actions [data-dir=down] .icon{transform:rotate(90deg)}
 .studio-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
 
 /* Idle screen: the clock and cards take the room; the page drifts a few pixels now and then. */
@@ -532,7 +529,7 @@ body.is-lamp .ff-wait b{color:var(--lamp-wait);box-shadow:0 0 18px 5px rgba(226,
 
 /* Photo frame on the idle screen: the clock sits over the picture; the character and cards step aside. */
 body[data-backdrop=photos].is-ambient .stage{display:block;padding:0}
-body[data-backdrop=photos].is-ambient .stage-figure,body[data-backdrop=photos].is-ambient .deck-slot,body[data-backdrop=photos].is-ambient .deck-setup{display:none}
+body[data-backdrop=photos].is-ambient .stage-figure,body[data-backdrop=photos].is-ambient .deck-slot{display:none}
 body[data-backdrop=photos].is-ambient .stage-side{position:absolute;left:clamp(24px,4vw,64px);bottom:clamp(24px,5vh,56px);display:block;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.4),0 2px 18px rgba(0,0,0,.5)}
 /* A large clock gets a soft shadow of its own behind it, so it reads on a bright picture too. */
 body[data-frame-clock=large] .wp-photos::after{background:radial-gradient(ellipse 52% 34% at 50% 50%,rgba(0,0,0,.4),transparent 72%),linear-gradient(to top,rgba(0,0,0,.35),transparent 36%)}
@@ -681,8 +678,8 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .memory-tools{display:flex;align-items:center;margin-left:auto}
 .memory-tools .icon-button{width:34px;height:34px}
 @media (hover:hover){
- .memory-tools .icon-button,.widget-move{opacity:.6;transition:opacity .15s}
- .memory-card:hover .memory-tools .icon-button,.memory-card:focus-within .memory-tools .icon-button,.widget-order li:hover .widget-move,.widget-order li:focus-within .widget-move{opacity:1}
+ .memory-tools .icon-button{opacity:.6;transition:opacity .15s}
+ .memory-card:hover .memory-tools .icon-button,.memory-card:focus-within .memory-tools .icon-button{opacity:1}
 }
 
 .settings-page{max-width:1280px}
@@ -709,7 +706,6 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .settings-section{margin-bottom:28px;min-width:0}
 .settings-section-head{margin-bottom:18px}
 .settings-section-head h2,.settings-results-head h2{font:600 var(--fs-xl)/1.4 var(--font-display);color:var(--text)}
-.settings-section-head p{font-size:var(--fs-md);color:var(--muted);margin-top:6px}
 .settings-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:4px 24px;box-shadow:var(--shadow-sm),var(--edge-light);min-width:0}
 .settings-entry+.settings-entry{border-top:1px solid var(--line)}
 .settings-entry.is-first-visible{border-top:0}
@@ -727,7 +723,6 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .settings-disclosure>summary{padding:12px 14px;cursor:pointer;font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
 .settings-disclosure-body{padding:2px 14px 16px}
 .settings-disclosure-body>.small-text{margin-bottom:14px}
-.settings-disclosure .widget-order{grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr))}
 .settings-related{border-top:1px solid var(--line);padding:18px 0 14px}
 .settings-related h3{font-size:var(--fs-sm);color:var(--muted);font-weight:500;margin-bottom:8px}
 .settings-related-link{display:flex;gap:10px;justify-content:flex-start;width:100%;padding:10px 0;color:var(--text);font-size:var(--fs-md);white-space:normal;text-align:left}
@@ -752,17 +747,6 @@ body[data-theme=dark] .stamp,body.is-lamp .stamp{mix-blend-mode:normal}
 .setting-foot{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 0;border-top:1px solid var(--line)}
 .switch-label{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);font-weight:600}
 .select-label select{min-height:36px;padding:5px 10px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface-2)}
-.widget-order{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr));gap:8px;padding:8px 0 14px}
-.widget-order li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px 7px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--edge-light)}
-.widget-order li[data-role=card]{border-left:3px solid var(--line-strong)}
-.widget-order label{flex:1;min-width:0;display:flex;align-items:center;gap:9px;font-size:var(--fs-md);font-weight:600;cursor:pointer}
-.widget-order label>span{flex:1;min-width:0}
-.widget-role{flex:none;font-size:.68rem;font-weight:600;color:var(--muted);background:var(--bg-2);padding:2px 7px;border-radius:var(--radius-pill)}
-.widget-order li[data-role=card] .widget-role{background:var(--accent-soft);color:var(--accent)}
-.widget-order input{width:18px;height:18px;accent-color:var(--accent);flex:none}
-.widget-move{display:flex;flex:none}
-.widget-move .icon-button{width:30px;height:30px}
-.widget-move [data-dir=up] .icon{transform:rotate(-90deg)}.widget-move [data-dir=down] .icon{transform:rotate(90deg)}
 .plain-list{display:flex;flex-direction:column;margin:0 0 6px}
 .plain-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 8px 12px;border-top:1px dashed var(--line)}
 .plain-list li>span:first-child{display:flex;flex-direction:column;min-width:0;font-size:var(--fs-md)}
@@ -1041,8 +1025,6 @@ body[data-avatar-fill] .surface[data-width=narrow] .stage-glow,body[data-avatar-
 .surface[data-width=narrow] .speech{max-width:100%;font-size:.98rem;margin-top:12px}
 .surface[data-width=narrow] .pinned-grid,.surface[data-width=narrow] .stage[data-layout] .pinned-grid{order:3;width:100%;max-width:520px;align-self:center;grid-template-columns:minmax(0,1fr)}
 .surface[data-width=narrow] .deck-slot,.surface[data-width=narrow] .stage[data-layout] .deck-slot{order:4;width:100%;max-width:520px;align-self:center}
-.surface[data-width=narrow] .stage-toolbar{order:5;align-self:center;justify-content:center}
-.surface[data-width=narrow] .deck-setup{order:6;align-self:center}
 .surface[data-width=narrow] .deck-card{height:auto;min-height:112px}
 .surface[data-width=narrow] .stage-notes{order:7}
 @media (max-width:899px){
@@ -1158,9 +1140,7 @@ body.canvas-expanded .talk-rail,body.canvas-expanded .composer{visibility:hidden
 .workbench .is-card .canvas-side{display:flex;flex-direction:column;min-height:0}
 .workbench .is-card .canvas-log{flex:1;max-height:none}
 .workbench .is-card .canvas-log>li:not(:nth-last-child(-n+2)){display:block}
-.canvas-job .job-title{display:flex;align-items:center;gap:6px}
-.canvas-job .job-title svg{width:15px;height:15px;flex:none}
-.canvas-job .job-state{color:var(--muted)}
+.work-page>.workbench.is-canvas{flex:1}
 @media (max-width:820px){.workbench .canvas-view.is-card{grid-template-columns:1fr;grid-template-rows:auto auto auto;flex:none}.workbench .is-card .canvas-frame{aspect-ratio:4/3;height:auto}.workbench .is-card .canvas-log{max-height:30vh}.workbench.is-canvas{overflow:visible}}
 
 /* Shared canvas board: selection, live drawing and the peek shown when an agent draws off-screen. */

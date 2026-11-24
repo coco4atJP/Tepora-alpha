@@ -21,8 +21,6 @@ Exceptionally deep JSON inherits the shared Rust JSON codec’s serde parser nes
 
 Only synthetic bytes, generated avatar fixtures and isolated temporary stores are used. Ordinary inspection, metadata, byte-serving, deduplication, quota, deletion, history, events and restart behavior are compared against `core/avatar.mjs` and `core/avatar-inspect.mjs`. Native tests also exercise concurrent duplicate imports, aggregate/count limits, ordinary filesystem failures and deterministic shutdown draining.
 
-Local Linux evidence (2026-10-08): 19 focused avatar Rust tests pass (14 inspection matrices and 5 storage/lifecycle tests), plus 8 existing photo regressions after sharing the bounded HTTP body reader. Five direct Node-versus-native avatar HTTP tests and two photo HTTP regressions pass under both Node 22.16.0 and 24.19.0, with no skips. Core/native builds, 235-module JavaScript syntax checking, route-inventory counts and diff checks pass. Independent read-only review cleared the ordinary storage, lifecycle, HTTP and inspection implementation after its findings were addressed. Combined integration passes 91 selected ordinary native-service tests and, on both Node 22.16.0 and 24.19.0, 18 HTTP tests, 1 source scheduler regression and 9 root checks. This includes retained positive photo dispatch checks and updated positive avatar availability checks in existing tests. These are focused checks rather than the aggregate quality gate.
-
 This scope does not exercise real user images, real VRM/mesh exports, GPU/browser rendering, external models, desktop packaging or a default cutover. Approval-policy and broader security suites are excluded. Aggregate quality is not claimed.
 
 Commands (build the core first, as for other Node tests):

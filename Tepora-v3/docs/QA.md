@@ -212,15 +212,7 @@ The gate checks JavaScript syntax, all V3 Node regressions, isolated Python work
 
 The V3 improvement loop records source fingerprints, exit codes, actual elapsed time (`ms`), configured stage budgets (`timeoutMs`) and stage logs in `Tepora-v3/validation/loop/`. A source change during the gate prevents a stable pass. Generated output is excluded from source fingerprints. Windows test runs retain bounded hang diagnostics without masking failures. The whole `node-tests` stage has a fixed 360-second budget; all other stages retain 180 seconds. The existing 1.5-second termination grace and individual test deadlines remain unchanged. These are orchestration ceilings, not expected durations or performance targets.
 
-Local integration evidence on 2026-10-02 after the security fixes: **482 V3 Node tests**, **13 Python tests**, **103 syntax modules**, capability fixtures and preview build passed. All **5 repository checks** passed separately in the root suite. The 28 added security regressions cover private-address rejection, valid local integrations, context references, routine reactivation and UI form identity. [STATUS](STATUS.md) states the limits of these results.
-
 A separate live Chrome check with bundled Node Playwright used temporary data, synthetic credentials and controlled local HTTP. Imported and older stored markup created no settings form; unregistered forms made no settings request. Real settings and conversation forms still worked. This check made zero external provider calls and did not exercise a native WebView or real model.
-
-Local evidence on 2026-10-04 after the companion monitor and stacked-approval changes: **500 V3 Node tests**, **13 Python tests**, **122 syntax modules**, scenario consistency, preview build and capability fixtures passed, with all **5 repository checks**. The browser stages of `quality:full` (`browser-first-use`, `browser-routing`, `browser-capabilities`, `browser-capability-components`) and the separate `browser-preview.py`, `browser-agentos.py` and `browser_check.py` were updated to the current screen and passed with Python Playwright and the installed Google Chrome selected by `CHROMIUM_PATH`. The `computer` stage was not run.
-
-Local evidence on 2026-10-05 after the one-lamp redesign (work lights and the amber lamp, window light, approval seals, screensaver-style idle screen, photo frame): **531 V3 Node tests**, **13 Python tests**, **132 syntax modules**, scenario consistency (1 / 93 / 6), preview build and capability fixtures passed, with all **5 repository checks**. `improve-loop --browser --capabilities` passed through `browser-first-use`, `browser-routing`, the new `browser-lamp`, `browser-abilities` and `browser-ability-components`, and `browser-preview.py`, `browser-agentos.py` and `browser_check.py` passed separately, all with Python Playwright and the installed Google Chrome selected by `CHROMIUM_PATH`. One `browser-agentos.py` run timed out while waiting for a saved routine card; seven full re-runs and seventy repetitions of the same steps, some under heavy CPU load, did not reproduce it. The `computer` stage was not run. [COMPANION-MONITOR](COMPANION-MONITOR.md) lists what these checks do not cover (native WebView, Wake Lock and full-screen behaviour in the desktop window, touch hardware, screen readers, long-running photo frames).
-
-Local evidence on 2026-10-05 after the avatar foundation: **560 V3 Node tests**, **13 Python tests**, **163 syntax modules**, scenario consistency (1 / 93 / 6), preview build and capability fixtures passed, with all **5 repository checks**. `improve-loop --browser --capabilities` passed, now including `browser-avatar` (the real service, the studio, the solid 3D body, a VRM, a mesh project, a picture and a picture set made by `tests/fixtures/avatar-fixtures.mjs`; WebGL from a software GL, reported as skipped when a browser has none), and `browser-preview.py`, `browser-agentos.py` and `browser_check.py` passed separately, all with Python Playwright and the installed Google Chrome selected by `CHROMIUM_PATH`. The `computer` stage was not run. [AVATAR](AVATAR.md) lists what these checks do not cover (other VRM models, a real mesh-avatar-studio export, real GPUs and drivers, native WebViews).
 
 ## Node-suite orchestration budget repair (2026-10-08)
 
@@ -316,7 +308,6 @@ Cargo targets and temporary test databases were used. No external provider calls
 paid inference, model installation, broad boundary/security suites, full quality,
 or Windows/macOS package acceptance were run. See [coverage and recovery limits](RUST-MODEL-USAGE.md).
 
-
 ## Windows CI startup and stage budgets (2026-10-16)
 
 The native-service Rust stage now has a separate 300,000 ms budget for test-target compilation and execution. At `f4d95e9e`, the separate native job successfully used 57.02 s for compilation plus 135.13 s for the 512 unit tests, while the regression gate terminated the same stage at its former 180,000 ms outer limit. Node has a 480,000 ms aggregate budget; other stages retain 180,000 ms.
@@ -329,7 +320,6 @@ Windows also sets `RUST_TEST_THREADS=2` in both gates. An unchanged native integ
 
 The first two-file Windows replay passed delegation, the first compaction fixture and all three browser fixtures, but deterministic fallback reached only step 17 of 18 within its unchanged 30-second deadline. The Node stage reached 592 tests before its former 360,000 ms aggregate limit. The serial Windows replay therefore has a bounded 480,000 ms Node budget, a 10-minute native Node step and a 20-minute regression job budget. All inner behavioral deadlines and assertions are unchanged; the longer outer bounds do not turn an individual failure into a pass.
 
-
 ## Browser shutdown and Windows profile cleanup (2026-10-16)
 
 At `933a7b7b`, the Windows regression Node suite completed inside its 480,000 ms budget but failed a browser fixture's after-hook with `EBUSY` removing `browser-profile/lockfile`. The same commit passed the native Windows/browser/package job. This is separate from the earlier stage-budget and failed-start repairs.
@@ -337,7 +327,6 @@ At `933a7b7b`, the Windows regression Node suite completed inside its 480,000 ms
 Each owned browser process now records its `close` event immediately after spawn. Graceful shutdown captures that process and connection before page/CDP teardown, shares one shutdown barrier, and waits for closed stdio rather than treating `exit` or a successful kill request as completion. After a five-second graceful window, it may request SIGKILL, but still waits up to five more seconds for actual close. An unreaped process rejects shutdown and retains ownership. A concurrent start waits for shutdown, and shutdown cancels pending startup/handshake waits without allowing late readiness to publish a connection.
 
 Deterministic lifecycle fixtures separately exercise exit and close, including an exit before the CDP response, delayed close after SIGKILL, repeated close/start, stale callbacks, failed kill/reap and canceled startup/handshake. The real browser fixture also uses native recursive-removal retries (`maxRetries:5`, `retryDelay:100`) for transient Windows handle release; persistent cleanup errors still fail the hook. Existing browser actions, assertions, behavioral deadlines, test selection and CI budgets are unchanged. Focused lifecycle fixtures are not a substitute for the full Windows regression and native installation/startup jobs.
-
 
 ## Windows native staging against an open destination (2026-10-21 JST)
 
@@ -349,7 +338,6 @@ Staging now keeps the single atomic rename on POSIX and falls back on Windows on
 
 Focused fixtures inject the rename effect, so the Windows in-use path, the restore-on-failure path and the unrelated-error path are exercised on every platform without opening a real handle against a real binary. The original mapped-binary test still runs unchanged on all platforms. These fixtures do not replace the Windows native and package jobs.
 
-
 ## Windows aggregate Node budget (2026-10-21 JST)
 
 At `3bd7e53`, the [Windows regression job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713477/job/119062179191) stopped the serial Node suite at its 480,000 ms aggregate limit, with `setup-journey.test.mjs` still running and no TAP failure before the cutoff. The same commit's [native Windows job](https://github.com/coco4atJP/Tepora-alpha/actions/runs/39551713474/job/119062179079) needed 435,620 ms for the same suite, and an earlier measurement at `6c86be0` completed the serial suite in 514 s within the native job's 600,000 ms step budget.
@@ -357,7 +345,6 @@ At `3bd7e53`, the [Windows regression job](https://github.com/coco4atJP/Tepora-a
 The aggregate Node budget is now 600,000 ms, matching the native job's own ten-minute step. The 120,000 ms individual file deadline, test selection, assertions, skips and the 20/40-minute workflow limits are unchanged. Stage fixtures simulate the measured 514-second success and retain bounded termination plus the 1.5-second kill grace.
 
 This is the same correction made for `codex/v3-hands-free-voice-20261017` at `017d378`, which had not been merged into `rust/v3-core-migration`. A longer outer bound does not turn an individual failure into a pass, and these fixtures are not a substitute for the complete Windows regression and package matrices.
-
 
 ## CI responsibilities and Linux package coverage
 

@@ -54,7 +54,7 @@ with sync_playwright() as p:
  page.locator('#readiness').click()
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
  page.wait_for_function("getComputedStyle(document.querySelector('#toast')).opacity==='0'")
- assert page.get_by_role('button',name='今は時計として使う',exact=True).is_visible()
+ assert page.get_by_role('button',name='このPCのAIを探す',exact=True).is_visible()
  page.screenshot(path=str(out/'04-mobile-setup.png'))
  page.keyboard.press('Escape')
  page.locator('.nav [data-view=settings]').click()

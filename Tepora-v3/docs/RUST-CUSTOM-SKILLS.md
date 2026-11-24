@@ -26,6 +26,4 @@ cargo test --locked --manifest-path Tepora-v3/native-service/Cargo.toml skills_
 TEPORA_NATIVE_SERVICE_BINARY=/absolute/path/to/tepora-native-service node --test Tepora-v3/tests/native-skills.test.mjs
 ```
 
-Focused Linux evidence on 2026-10-08: all nine selected Rust tests passed. Node 22.16.0 and 24.19.0 each passed all five real HTTP tests, with no skips, against native binary SHA-256 `52885e4326f57b8f0d4497256d3d3c8aa9b233ec2c5699a4a90fbd1bf0e4f7c5`. Core/native builds, the Node 22 core digest/load check, 239 JavaScript syntax checks, changed-document links and route totals passed. The existing native-core dead-code warning remains.
-
 These are focused ordinary-behavior checks, not a full quality or cross-platform/package gate. No shared scan/filesystem discovery, external model/provider/account, MCP, approval-policy, regex or broad security probes are part of this slice. Native route totals are 90 implemented / 12 partial / 24 unavailable (126 application variants, plus 22 separately counted static variants); they are not feature-completion percentages.

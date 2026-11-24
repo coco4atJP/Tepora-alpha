@@ -32,7 +32,8 @@ export function createOnboarding({bridge,openSheet,closeSheet,isOpen,notice,onCo
  }
  function paint(){if(isOpen())openSheet('Teporaを使い始める',content(),'setup');}
  async function run(fn){loading=true;lastError='';paint();try{await fn();}catch(e){lastError=e.message||'準備を完了できませんでした。';}finally{loading=false;paint();}}
- async function open(){openSheet('Teporaを使い始める',content(),'setup');await run(async()=>{snapshot=await bridge.request('/api/setup');});}
+ /** scan:true comes from the AI connection chooser's "このPCのAIを探す", so the search starts at once. */
+ async function open({scan=false}={}){openSheet('Teporaを使い始める',content(),'setup');await run(async()=>{snapshot=await bridge.request('/api/setup');});if(scan)await actions['setup-scan']();}
  const actions={
   'setup-scan':()=>run(async()=>{snapshot={...await bridge.request('/api/setup/scan','POST',{}),scanned:true};}),
   'setup-select':el=>run(async()=>{await bridge.request('/api/setup/select','POST',{candidateId:el.dataset.id,consentTest:true});snapshot=await bridge.request('/api/setup');await onConnected(snapshot);}),

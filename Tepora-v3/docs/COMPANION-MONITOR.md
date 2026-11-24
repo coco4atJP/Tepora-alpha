@@ -39,21 +39,24 @@ vermilion mark for the primary action, and an amber lamp only while something wa
 earlier teal accent is gone.
 
 The stage shows the character, what it is saying as a **caption** (there is no balloon), a large
-clock with the date, the day's 七十二候 (for example 「秋分 ・ 水始めて涸る」) and the weather as one
+clock with the date, the day's 七十二候 tagged 「暦」 so a name like 小雪 is not read as the weather
+(for example 「暦 秋分 ・ 水始めて涸る」) and the weather as one
 line, and one card at a time from a rotating deck: ニュース (the RSS you chose), 音楽 (files from
 this PC played in place through blob URLs; nothing is uploaded and the list lasts while the window
 is open; YouTube is in 設定), つくったもの (generated images as a photo frame) and 天気 (Open-Meteo,
 current/hourly/high-low) — the weather card only when the weather changes what you would do: rain or
-snow now or soon, a hot or a cold day. A card appears only when it has something to show; setup
-lives in 設定 → ホーム. 「ステージをカスタマイズ」 opens an in-place panel, and
-「表示の設定」 opens the full settings. Feeds load only with the existing network permission and
+snow now or soon, a hot or a cold day. A card appears only when it has something to show. The stage
+itself carries no setup links: 「ステージをカスタマイズ」 in the display menu (or 設定 → ホーム) opens the
+one in-place panel for layout, clock, widgets, card order and the pinned note; weather/news and music
+sources stay in 設定 → ホーム. Feeds load only with the existing network permission and
 configured sources.
 
 ### Scenes, pinned widgets and clocks
 
 Four presets combine display preferences: **いつもの部屋**, **ワークデスク**, **くつろぎの窓辺**
-and **ナイトクロック**. Layout, clock font, size and seconds can also be chosen individually. The
-layouts are companion split, dashboard bento, center stage and clock-only standby; narrow surfaces
+and **ナイトクロック**; each preset is also the layout (companion split, dashboard bento, center stage
+and clock-only standby), so there is one choice, not two. Clock font, size and seconds and the
+widgets can then be adjusted in the same panel; narrow surfaces
 use a single-column arrangement. In the clock-only layout, pending requests remain accessible through
 「あなたの番」 in the top bar (or the idle-screen fallback), even if the companion widget remains enabled.
 

@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-**/node_modules/
 
 # OS generated files
 .DS_Store
@@ -17,134 +16,52 @@ Thumbs.db
 *.swp
 *.swo
 
-# Python
+# Python (speech adapter and browser checks)
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-*.log
-logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-
-# Temporary files
-*.tmp
-*.temp
-*_output.txt
-*_results.txt
-install_log*.txt
-temp_*.txt
-
-# Test output logs
-*_test.out
-
-# Error and build logs
-*.out
-*.err
-*error*.txt
-*err*.txt
-cargo_*.out
-
-# Database files
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
-
-# Secrets and sensitive files
-secrets.yaml
-secrets.yml
-
-# Python virtual environment
 .venv/
 venv/
-env/
-
-# User configuration (may contain API keys or personal settings)
-config.yml
-config.yaml
-
-# Cache directories
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-__pycache__/
-.uv-cache/
 
-# Backup directories
-*_bak/
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+secrets.yaml
+secrets.yml
+gha-creds-*.json
+
+# Logs and temporary files
+*.log
+logs/
+npm-debug.log*
+*.tmp
+*.temp
+
+# Backups
 *.bak
 *.bak.*
 
-# Tauri build outputs
+# Rust/Tauri build outputs
 **/target/
 
-# Lock files (optional - some projects commit these)
-# uv.lock
-# Cargo.lock
-
-# Large binary files
+# Large binaries and local models
 *.exe
 *.dll
 *.so
 *.dylib
 *.gguf
 
-# Models directory (root only - for GGUF files)
-/models/
-/models_bak/
-/models.json
-
-# Binary backups
-bin/
-bin_bak/
-
-# Reference materials (if exists)
-プロジェクト参考資料/
-格納/
-docs/archives/
-
-.gemini/
-gha-creds-*.json
 # Local benchmark workspace
 benchmark/
 
 # V3 local SQLite state
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal

@@ -59,14 +59,6 @@ Node's current host facts, including non-null RAM and logical CPU count.
 The test also checks the deliberate native marker/note, data/workspace paths,
 empty provider projection, stable repeated reads and clean shutdown.
 
-Local GNU/Linux validation on 2026-10-08 passed the 4 focused Rust tests,
-the core/native builds, and 6 focused Node checks on each of Node 22.16.0 and
-24.19.0 (1 real HTTP comparison plus 5 route-inventory checks). All three host
-modes reported 10,475,839,488 RAM bytes and 9 logical CPUs. The local available
-parallelism was also 9; no live affinity-restriction experiment is claimed.
-Syntax checks passed for 245 JavaScript modules, and affected relative document
-links and diff whitespace checks passed. These are focused results only.
-
 The existing Windows/macOS CI matrices will execute the platform-specific
 implementations and the real HTTP comparison. A configured matrix is not a
 successful run; exact-head execution and packaging remain pending until their

@@ -1,5 +1,14 @@
 # Tepora V3 changelog
 
+## Simpler hierarchy and fewer duplicate entries (beta.11)
+
+- Home: the stage carries no setup links; 「ステージをカスタマイズ」 (display menu, or 設定 → ホーム) is the one panel for layout, clock, widgets, card order/interval and the pinned note. Scene presets are the layouts, so there is one choice instead of two
+- AI: every 「AIを接続」 entry opens the same chooser, and its 「このPCのAIを探す」 starts the local search at once; model search sits beside the AI entry and the decision model with the other per-role AI
+- Work: 仕事 / キャンバス / つくったもの tabs; the canvas is no longer a standing row in the job list
+- Settings: no page subtitle, autosave note or per-section descriptions that repeated the navigation
+- The date line tags 二十四節気・七十二候 as 「暦」 so names like 小雪 are not read as weather; an empty conversation shows its welcome line; the conversation button no longer carries a badge-like dot
+- Removed dead UI code, redirect-only docs, Taskfile aliases, the stale source hash manifest, disabled Gemini automation, an unused design mock, a manual-only browser check, dated local-evidence paragraphs and V2-era ignore rules; launchers require Node 22.19 like `engines`
+
 ## Linux CI and package repairs (beta.11)
 
 - Run main/PR source regression on Linux, Windows and macOS; keep additional ARM64 and standalone tag/manual source checks in package CI
